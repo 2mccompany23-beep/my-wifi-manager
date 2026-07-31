@@ -103,16 +103,66 @@ function sanitizeString(str) {
   return cleaned.trim();
 }
 
-// Helper for RouterOS Native Binary API (port 8728) with sentence parsing & sanitization
-function callRouterOSNativeApi(host, port, user, pass, endpoint, method = 'GET', body = null) {
+// RouterOS Binary API Length Decoder
+function decodeLength(buffer, offset) {
+  if (offset >= buffer.length) return null;
+  const b1 = buffer[offset];
+  if ((b1 & 0x80) === 0) {
+    return { len: b1, bytesRead: 1 };
+  } else if ((b1 & 0xC0) === 0x80) {
+    if (offset + 1 >= buffer.length) return null;
+    return { len: ((b1 & 0x3F) << 8) | buffer[offset + 1], bytesRead: 2 };
+  } else if ((b1 & 0xE0) === 0xC0) {
+    if (offset + 2 >= buffer.length) return null;
+    return { len: ((b1 & 0x1F) << 16) | (buffer[offset + 1] << 8) | buffer[offset + 2], bytesRead: 3 };
+  } else if ((b1 & 0xF0) === 0xE0) {
+    if (offset + 3 >= buffer.length) return null;
+    return { len: ((b1 & 0x0F) << 24) | (buffer[offset + 1] << 16) | (buffer[offset + 2] << 8) | buffer[offset + 3], bytesRead: 4 };
+  } else if (b1 === 0xF0) {
+    if (offset + 4 >= buffer.length) return null;
+    return { len: buffer[offset + 4], bytesRead: 5 };
+  }
+  return null;
+}
+
+// RouterOS Binary API Sentence Parser
+function parseSentences(buffer) {
+  const sentences = [];
+  let offset = 0;
+  let currentWords = [];
+
+  while (offset < buffer.length) {
+    const lRes = decodeLength(buffer, offset);
+    if (!lRes) break;
+
+    const { len, bytesRead } = lRes;
+    if (offset + bytesRead + len > buffer.length) {
+      break; // incomplete word, wait for next socket chunk
+    }
+
+    if (len === 0) {
+      sentences.push(currentWords);
+      currentWords = [];
+      offset += bytesRead;
+    } else {
+      const wordBuf = buffer.slice(offset + bytesRead, offset + bytesRead + len);
+      currentWords.push(wordBuf.toString('utf8'));
+      offset += bytesRead + len;
+    }
+  }
+
+  return { sentences, bytesConsumed: offset };
+}
+
+// Helper for RouterOS Native Binary API (port 8728)
+function callRouterOSNativeApi(host, port, user, pass, endpoint, method = 'GET', body = null, timeout = 15000) {
   return new Promise((resolve) => {
     const socket = new net.Socket();
     let buffer = Buffer.alloc(0);
     let isLogged = false;
     const parsedItems = [];
 
-    // Fast 1.2s timeout to keep UI snappy
-    socket.setTimeout(1200);
+    socket.setTimeout(timeout);
 
     const encodeWord = (str) => {
       const b = Buffer.from(str, 'utf8');
@@ -121,6 +171,8 @@ function callRouterOSNativeApi(host, port, user, pass, endpoint, method = 'GET',
         return Buffer.concat([Buffer.from([len]), b]);
       } else if (len < 0x4000) {
         return Buffer.concat([Buffer.from([(len >> 8) | 0x80, len & 0xff]), b]);
+      } else if (len < 0x200000) {
+        return Buffer.concat([Buffer.from([(len >> 16) | 0xc0, (len >> 8) & 0xff, len & 0xff]), b]);
       }
       return Buffer.concat([Buffer.from([0x80, len]), b]);
     };
@@ -134,13 +186,9 @@ function callRouterOSNativeApi(host, port, user, pass, endpoint, method = 'GET',
       socket.write(buf);
     };
 
-    // Format REST-style endpoint to RouterOS native API command
-    // e.g. /ip/hotspot/user => /ip/hotspot/user/print (GET)
-    // e.g. /ip/hotspot/user/*1 => /ip/hotspot/user/remove with =.id=*1 (DELETE)
     const extractIdFromPath = (ep) => {
       const parts = ep.split('/');
       const last = parts[parts.length - 1];
-      // MikroTik IDs start with * or are numeric
       if (last.startsWith('*') || /^\d+$/.test(last)) {
         return { basePath: parts.slice(0, -1).join('/'), id: last };
       }
@@ -176,57 +224,61 @@ function callRouterOSNativeApi(host, port, user, pass, endpoint, method = 'GET',
 
     socket.on('data', (chunk) => {
       buffer = Buffer.concat([buffer, chunk]);
-      const rawStr = buffer.toString('utf8');
+      const { sentences, bytesConsumed } = parseSentences(buffer);
 
-      if (!isLogged) {
-        if (rawStr.includes('!trap')) {
-          socket.destroy();
-          return resolve({ error: true, message: 'Identifiants Winbox incorrects sur port 8728' });
-        }
-        if (rawStr.includes('!done')) {
-          isLogged = true;
-          buffer = Buffer.alloc(0);
+      if (bytesConsumed > 0) {
+        buffer = buffer.slice(bytesConsumed);
+      }
 
-          const { cmd: commandPath, extraWords } = formatCommand(endpoint, method, body);
-          const words = [commandPath];
+      for (const sentence of sentences) {
+        if (sentence.length === 0) continue;
+        const replyType = sentence[0];
 
-          // Add extra ID words first (for .id filter in DELETE/PATCH)
-          for (const w of extraWords) {
-            words.push(w);
+        if (!isLogged) {
+          if (replyType === '!trap') {
+            socket.destroy();
+            return resolve({ error: true, message: 'Identifiants Winbox incorrects sur port 8728' });
           }
+          if (replyType === '!done') {
+            isLogged = true;
 
-          // Then add body params (skip .id since already handled via path)
-          if (body && typeof body === 'object') {
-            for (const [key, val] of Object.entries(body)) {
-              if (key !== '.id') {
-                words.push(`=${key}=${val}`);
+            const { cmd: commandPath, extraWords } = formatCommand(endpoint, method, body);
+            const words = [commandPath];
+
+            for (const w of extraWords) {
+              words.push(w);
+            }
+
+            if (body && typeof body === 'object') {
+              for (const [key, val] of Object.entries(body)) {
+                if (key !== '.id') {
+                  words.push(`=${key}=${val}`);
+                }
               }
             }
+
+            sendSentence(words);
           }
-
-          sendSentence(words);
-        }
-      } else {
-        if (rawStr.includes('!done') || rawStr.includes('!trap')) {
-          socket.destroy();
-
-          const sentences = rawStr.split('!re').filter(Boolean);
-          for (const s of sentences) {
+        } else {
+          if (replyType === '!re') {
             const item = {};
-            const lines = s.split('=');
-            for (let i = 1; i < lines.length; i += 2) {
-              const rawKey = sanitizeString(lines[i]);
-              const rawVal = sanitizeString(lines[i + 1]);
-              if (rawKey) {
-                item[rawKey] = rawVal;
+            for (let i = 1; i < sentence.length; i++) {
+              const word = sentence[i];
+              const wClean = word.startsWith('=') ? word.substring(1) : word;
+              const eqIdx = wClean.indexOf('=');
+              if (eqIdx !== -1) {
+                const key = wClean.substring(0, eqIdx);
+                const val = wClean.substring(eqIdx + 1);
+                item[key] = val;
               }
             }
             if (Object.keys(item).length > 0) {
               parsedItems.push(item);
             }
+          } else if (replyType === '!done' || replyType === '!trap') {
+            socket.destroy();
+            return resolve({ success: true, data: parsedItems });
           }
-
-          resolve({ success: true, data: parsedItems });
         }
       }
     });
@@ -242,13 +294,15 @@ function callRouterOSNativeApi(host, port, user, pass, endpoint, method = 'GET',
   });
 }
 
-// RouterOS 7 REST API & Native API Helper with 3s Cache
+// RouterOS 7 REST API & Native API Helper with cache
 async function callRouterOS(endpoint, method = 'GET', body = null) {
   const cacheKey = `${endpoint}_${method}_${JSON.stringify(body)}`;
   const now = Date.now();
 
-  // Return cached result if fresh (< 3s) for GET requests
-  if (method === 'GET' && apiCache.data[cacheKey] && now - apiCache.timestamp[cacheKey] < 3000) {
+  // Scripts are heavy — cache them for 60s; other GETs for 5s
+  const cacheTtl = endpoint.startsWith('/system/script') ? 60000 : 5000;
+
+  if (method === 'GET' && apiCache.data[cacheKey] && now - apiCache.timestamp[cacheKey] < cacheTtl) {
     return apiCache.data[cacheKey];
   }
 
@@ -256,6 +310,9 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
   const { routerIp, routerPort, routerUser, routerPass } = db.settings;
   const targetPort = parseInt(routerPort) || 80;
   let result = null;
+
+  // Longer timeout for heavy endpoints (323 scripts = large payload)
+  const socketTimeout = endpoint.startsWith('/system/script') ? 30000 : 8000;
 
   // 1. Try RouterOS 7 REST API if port is 80 or 443
   if (targetPort === 80 || targetPort === 443) {
@@ -284,11 +341,11 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
         result = { success: true, data };
       }
     } catch (err) {
-      result = await callRouterOSNativeApi(routerIp, 8728, routerUser, routerPass, endpoint, method, body);
+      result = await callRouterOSNativeApi(routerIp, 8728, routerUser, routerPass, endpoint, method, body, socketTimeout);
     }
   } else {
     // 2. Direct Port 8728 Native Socket API
-    result = await callRouterOSNativeApi(routerIp, targetPort, routerUser, routerPass, endpoint, method, body);
+    result = await callRouterOSNativeApi(routerIp, targetPort, routerUser, routerPass, endpoint, method, body, socketTimeout);
   }
 
   if (method === 'GET' && result && result.success) {
@@ -711,16 +768,19 @@ app.get('/api/router/mikhmon-scripts', requireAuth, async (req, res) => {
     for (const script of result.data) {
       const name = sanitizeString(script.name || '');
       const owner = sanitizeString(script.owner || '');
+      const comment = sanitizeString(script.comment || '');
 
-      // Only process Mikhmon scripts (owner = "mikhmon" or name contains date pattern)
-      if (owner !== 'mikhmon' && !name.match(/^\d{4}-\d{2}-\d{2}\|-/)) continue;
+      // Mikhmon scripts have comment="mikhmon" OR owner="mikhmon" OR name starts with YYYY-MM-DD
+      const isMikhmon = comment === 'mikhmon' || owner === 'mikhmon' || /^\d{4}[-\/]\d{2}[-\/]\d{2}/.test(name);
+      if (!isMikhmon) continue;
 
-      // Parse name: date|-time|-user|-amount|-ip|-mac|-duration|-profile|-comment
-      const parts = name.split('|-');
+      // Parse name: date-|-time-|-user-|-amount-|-ip-|-mac-|-duration-|-profile-|-comment
+      // Delimiter can be -|- or |- or -|-
+      const parts = name.split(/-?\|-?/);
       if (parts.length < 6) continue;
 
       const [date, time, username, amount, ip, mac, duration, profile, ...commentParts] = parts;
-      const comment = commentParts.join('|-');
+      const scriptComment = commentParts.join('|-');
 
       // Convert MikroTik date format (e.g. "mar/06/2026") or "2026-03-06"
       let dateStr = date;
@@ -736,9 +796,13 @@ app.get('/api/router/mikhmon-scripts', requireAuth, async (req, res) => {
 
       const parsedAmount = parseInt(amount) || 0;
       const timeClean = (time || '').replace(/^-/, '');
-      const isoDate = dateStr && timeClean
-        ? new Date(`${dateStr}T${timeClean}`).toISOString()
-        : new Date().toISOString();
+      let isoDate = new Date().toISOString();
+      if (dateStr && timeClean) {
+        const dObj = new Date(`${dateStr}T${timeClean}`);
+        if (!isNaN(dObj.getTime())) {
+          isoDate = dObj.toISOString();
+        }
+      }
 
       transactions.push({
         id: `script_${script['.id'] || name.slice(0, 20)}`,
@@ -750,7 +814,7 @@ app.get('/api/router/mikhmon-scripts', requireAuth, async (req, res) => {
         mac: mac?.trim() || '',
         duration: duration?.trim() || '',
         profile: profile?.trim() || '',
-        comment: comment?.trim() || '',
+        comment: scriptComment?.trim() || '',
         plan: profile?.trim() || duration?.trim() || ''
       });
     }
