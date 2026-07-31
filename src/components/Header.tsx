@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wifi, Router, Activity, ShieldCheck, RefreshCw, Zap, ExternalLink } from 'lucide-react';
+import { Wifi, Router, Activity, ShieldCheck, RefreshCw, Zap, ExternalLink, DollarSign } from 'lucide-react';
 import { RouterStatus } from '../types';
 
 interface HeaderProps {
@@ -102,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
           { id: 'users', label: 'Utilisateurs Hotspot', icon: Wifi },
           { id: 'active', label: 'Sessions Actives', icon: Zap },
           { id: 'vouchers', label: 'Générateur Tickets', icon: ShieldCheck },
-          { id: 'sales', label: 'Ventes FedaPay', icon: Router },
+          { id: 'sales', label: '💰 Ventes & Finances', icon: DollarSign },
           { id: 'settings', label: 'Paramètres Routeur', icon: RefreshCw }
         ].map((tab) => {
           const Icon = tab.icon;

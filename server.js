@@ -134,18 +134,40 @@ function callRouterOSNativeApi(host, port, user, pass, endpoint, method = 'GET',
       socket.write(buf);
     };
 
-    const formatCommand = (ep, m) => {
-      let cmd = ep;
-      if (m === 'GET') {
-        cmd = ep.endsWith('/print') ? ep : `${ep}/print`;
-      } else if (m === 'POST') {
-        cmd = ep.endsWith('/add') ? ep : `${ep}/add`;
-      } else if (m === 'DELETE') {
-        cmd = ep.endsWith('/remove') ? ep : `${ep}/remove`;
-      } else if (m === 'PATCH') {
-        cmd = ep.endsWith('/set') ? ep : `${ep}/set`;
+    // Format REST-style endpoint to RouterOS native API command
+    // e.g. /ip/hotspot/user => /ip/hotspot/user/print (GET)
+    // e.g. /ip/hotspot/user/*1 => /ip/hotspot/user/remove with =.id=*1 (DELETE)
+    const extractIdFromPath = (ep) => {
+      const parts = ep.split('/');
+      const last = parts[parts.length - 1];
+      // MikroTik IDs start with * or are numeric
+      if (last.startsWith('*') || /^\d+$/.test(last)) {
+        return { basePath: parts.slice(0, -1).join('/'), id: last };
       }
-      return cmd;
+      return { basePath: ep, id: null };
+    };
+
+    const formatCommand = (ep, m, b) => {
+      const { basePath, id } = extractIdFromPath(ep);
+      let cmd = basePath;
+      let extraWords = [];
+
+      if (m === 'GET') {
+        cmd = basePath.endsWith('/print') ? basePath : `${basePath}/print`;
+      } else if (m === 'POST') {
+        if (ep.includes('reset-counters')) {
+          cmd = ep;
+        } else {
+          cmd = `${basePath}/add`;
+        }
+      } else if (m === 'DELETE') {
+        cmd = `${basePath}/remove`;
+        if (id) extraWords.push(`=.id=${id}`);
+      } else if (m === 'PATCH') {
+        cmd = `${basePath}/set`;
+        if (id) extraWords.push(`=.id=${id}`);
+      }
+      return { cmd, extraWords };
     };
 
     socket.connect(parseInt(port) || 8728, host, () => {
@@ -165,12 +187,20 @@ function callRouterOSNativeApi(host, port, user, pass, endpoint, method = 'GET',
           isLogged = true;
           buffer = Buffer.alloc(0);
 
-          const commandPath = formatCommand(endpoint, method);
+          const { cmd: commandPath, extraWords } = formatCommand(endpoint, method, body);
           const words = [commandPath];
 
+          // Add extra ID words first (for .id filter in DELETE/PATCH)
+          for (const w of extraWords) {
+            words.push(w);
+          }
+
+          // Then add body params (skip .id since already handled via path)
           if (body && typeof body === 'object') {
             for (const [key, val] of Object.entries(body)) {
-              words.push(`=${key}=${val}`);
+              if (key !== '.id') {
+                words.push(`=${key}=${val}`);
+              }
             }
           }
 
@@ -317,6 +347,16 @@ function getLimitUptimeForPlan(plan) {
   return limitMap[plan] || '4h';
 }
 
+// Generate Mikhmon standard comment format (e.g. vc-551-03.05.26-didier)
+function formatMikhmonComment(quantity = 1, tag = 'admin') {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = String(now.getFullYear()).slice(-2);
+  const dateStr = `${month}.${day}.${year}`;
+  return `vc-${quantity}-${dateStr}-${tag}`;
+}
+
 // --- AUTH ROUTES ---
 
 // Admin Login
@@ -429,20 +469,28 @@ app.get('/api/router/active', requireAuth, async (req, res) => {
 // Disconnect Active Session (Kill session)
 app.delete('/api/router/active/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
-  console.log(`[RouterOS] Disconnecting session ${id}`);
-  await callRouterOS(`/ip/hotspot/active/${id}`, 'DELETE');
+  const decodedId = decodeURIComponent(id);
+  console.log(`[RouterOS] Disconnecting session ${decodedId}`);
+
+  // REST API: DELETE /ip/hotspot/active/*1
+  // Native API: /ip/hotspot/active/remove with =.id=*1
+  const result = await callRouterOS(`/ip/hotspot/active/${decodedId}`, 'DELETE', { '.id': decodedId });
   res.json({ success: true, message: 'Session déconnectée avec succès' });
 });
 
 // Delete Hotspot User
 app.delete('/api/router/users/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
-  console.log(`[RouterOS] Deleting user ${id}`);
-  await callRouterOS(`/ip/hotspot/user/${id}`, 'DELETE');
-  
+  const decodedId = decodeURIComponent(id);
+  console.log(`[RouterOS] Deleting user ${decodedId}`);
+
+  // For both REST (DELETE /ip/hotspot/user/*1) and Native API (/remove with .id param)
+  const result = await callRouterOS(`/ip/hotspot/user/${decodedId}`, 'DELETE', { '.id': decodedId });
+  console.log(`[RouterOS] Delete result:`, JSON.stringify(result));
+
   // Also remove from local DB if present
   const db = readDb();
-  db.vouchers = db.vouchers.filter(v => v.code !== id && v.id !== id);
+  db.vouchers = db.vouchers.filter(v => v.code !== decodedId && v.id !== decodedId);
   writeDb(db);
 
   res.json({ success: true, message: 'Utilisateur supprimé' });
@@ -451,20 +499,21 @@ app.delete('/api/router/users/:id', requireAuth, async (req, res) => {
 // Update / Edit Existing Hotspot User
 app.patch('/api/router/users/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
+  const decodedId = decodeURIComponent(id);
   const { profile, password, comment, disabled } = req.body;
-  console.log(`[RouterOS] Updating user ${id}:`, req.body);
+  console.log(`[RouterOS] Updating user ${decodedId}:`, req.body);
 
-  const payload = {};
+  const payload = { '.id': decodedId };
   if (profile) payload.profile = profile;
   if (password) payload.password = password;
   if (comment !== undefined) payload.comment = comment;
   if (disabled !== undefined) payload.disabled = String(disabled);
 
-  await callRouterOS(`/ip/hotspot/user/${id}`, 'PATCH', payload);
+  await callRouterOS(`/ip/hotspot/user/${decodedId}`, 'PATCH', payload);
 
   // Update local DB if present
   const db = readDb();
-  const found = db.vouchers.find(v => v.code === id || v.id === id);
+  const found = db.vouchers.find(v => v.code === decodedId || v.id === decodedId);
   if (found) {
     if (profile) found.profile = profile;
     if (comment !== undefined) found.comment = comment;
@@ -478,8 +527,9 @@ app.patch('/api/router/users/:id', requireAuth, async (req, res) => {
 // Reset Counters for Existing Hotspot User
 app.post('/api/router/users/:id/reset', requireAuth, async (req, res) => {
   const { id } = req.params;
-  console.log(`[RouterOS] Resetting counters for user ${id}`);
-  await callRouterOS(`/ip/hotspot/user/reset-counters`, 'POST', { numbers: id });
+  const decodedId = decodeURIComponent(id);
+  console.log(`[RouterOS] Resetting counters for user ${decodedId}`);
+  await callRouterOS(`/ip/hotspot/user/reset-counters`, 'POST', { numbers: decodedId });
   res.json({ success: true, message: 'Compteurs réinitialisés avec succès' });
 });
 
@@ -488,6 +538,7 @@ app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
   const { prefix = '2MC-', length = 5, profile = '100-F-4h', quantity = 1, price = 100 } = req.body;
   const db = readDb();
   const created = [];
+  const mikhmonComment = formatMikhmonComment(quantity, 'admin');
 
   for (let i = 0; i < Math.min(quantity, 100); i++) {
     const code = generateVoucherCode(prefix, length);
@@ -498,19 +549,19 @@ app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
       price: parseInt(price),
       created: new Date().toISOString(),
       status: 'AVAILABLE',
-      comment: 'Manual Batch'
+      comment: mikhmonComment
     };
 
     db.vouchers.unshift(voucher);
     created.push(voucher);
 
-    // Try posting to physical MikroTik RB951Ui with strict limit-uptime
+    // Try posting to physical MikroTik RB951Ui with strict limit-uptime & Mikhmon comment
     callRouterOS('/ip/hotspot/user', 'POST', {
       name: code,
       password: code,
       profile: profile,
       'limit-uptime': getLimitUptimeForPlan(profile),
-      comment: 'Cloud Mikhmon Batch'
+      comment: mikhmonComment
     }).catch(e => console.warn('RouterOS post warning:', e.message));
   }
 
@@ -528,15 +579,15 @@ app.get('/www/get_voucher.php', (req, res) => {
     return res.status(400).json({ error: 'Référence manquante' });
   }
 
-  // Look for existing transaction matching reference
   let sale = db.sales.find(s => s.reference === reference || s.id === reference);
 
   if (sale && sale.voucher) {
     return res.json({ voucher: sale.voucher, plan: sale.plan });
   }
 
-  // Auto-fulfill if transaction was just completed via FedaPay SDK front-end
   const voucherCode = generateVoucherCode('2MC-', 5);
+  const mikhmonComment = formatMikhmonComment(1, 'fedapay');
+
   const newSale = {
     id: `tx_${Date.now()}`,
     reference: String(reference),
@@ -557,17 +608,17 @@ app.get('/www/get_voucher.php', (req, res) => {
     price: 300,
     created: new Date().toISOString(),
     status: 'USED',
-    comment: `FedaPay ref: ${reference}`
+    comment: mikhmonComment
   });
   writeDb(db);
 
-  // Synchronize to MikroTik RB951Ui with 24h limit-uptime
+  // Synchronize to MikroTik RB951Ui with 24h limit-uptime & Mikhmon comment
   callRouterOS('/ip/hotspot/user', 'POST', {
     name: voucherCode,
     password: voucherCode,
     profile: '300-F-24h',
     'limit-uptime': '24h',
-    comment: `FedaPay ref: ${reference}`
+    comment: mikhmonComment
   });
 
   res.json({ voucher: voucherCode, plan: '24h' });
@@ -585,6 +636,7 @@ app.post('/api/fedapay/webhook', (req, res) => {
     const plan = transaction.custom_data?.plan || '24h';
     const profile = getProfileForPlan(plan);
     const limitUptime = getLimitUptimeForPlan(plan);
+    const mikhmonComment = formatMikhmonComment(1, 'fedapay');
 
     const db = readDb();
     let existing = db.sales.find(s => s.reference === ref);
@@ -611,17 +663,17 @@ app.post('/api/fedapay/webhook', (req, res) => {
         price: amount,
         created: new Date().toISOString(),
         status: 'USED',
-        comment: `FedaPay ref: ${ref}`
+        comment: mikhmonComment
       });
       writeDb(db);
 
-      // Create on RB951Ui Hotspot with strict limit-uptime
+      // Create on RB951Ui Hotspot with strict limit-uptime & Mikhmon comment
       callRouterOS('/ip/hotspot/user', 'POST', {
         name: voucherCode,
         password: voucherCode,
         profile,
         'limit-uptime': limitUptime,
-        comment: `FedaPay ref: ${ref}`
+        comment: mikhmonComment
       });
     }
   }
@@ -640,7 +692,81 @@ app.get('/api/sales', requireAuth, (req, res) => {
   });
 });
 
-// Get/Update Settings (PROTECTED ADMIN)
+// ============================================================
+// MIKHMON SCRIPT-BASED FINANCIAL TRACKING (RouterOS /system/script)
+// Each hotspot login creates a script entry with encoded financial data
+// Format: YYYY-MM-DD|-HH:MM:SS|-username|-amount|-ip|-mac|-duration|-profile|-comment
+// ============================================================
+
+// Read & parse Mikhmon login scripts from MikroTik /system/script
+app.get('/api/router/mikhmon-scripts', requireAuth, async (req, res) => {
+  try {
+    const result = await callRouterOS('/system/script');
+    if (!result.success || !Array.isArray(result.data)) {
+      return res.json({ transactions: [], total: 0, revenue: 0 });
+    }
+
+    const transactions = [];
+
+    for (const script of result.data) {
+      const name = sanitizeString(script.name || '');
+      const owner = sanitizeString(script.owner || '');
+
+      // Only process Mikhmon scripts (owner = "mikhmon" or name contains date pattern)
+      if (owner !== 'mikhmon' && !name.match(/^\d{4}-\d{2}-\d{2}\|-/)) continue;
+
+      // Parse name: date|-time|-user|-amount|-ip|-mac|-duration|-profile|-comment
+      const parts = name.split('|-');
+      if (parts.length < 6) continue;
+
+      const [date, time, username, amount, ip, mac, duration, profile, ...commentParts] = parts;
+      const comment = commentParts.join('|-');
+
+      // Convert MikroTik date format (e.g. "mar/06/2026") or "2026-03-06"
+      let dateStr = date;
+      const mikrotikDateMatch = date.match(/(\w+)\/(\d+)\/(\d+)/);
+      if (mikrotikDateMatch) {
+        const months = {
+          jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+          jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+        };
+        const m = months[mikrotikDateMatch[1].toLowerCase()] || '01';
+        dateStr = `${mikrotikDateMatch[3]}-${m}-${mikrotikDateMatch[2].padStart(2, '0')}`;
+      }
+
+      const parsedAmount = parseInt(amount) || 0;
+      const timeClean = (time || '').replace(/^-/, '');
+      const isoDate = dateStr && timeClean
+        ? new Date(`${dateStr}T${timeClean}`).toISOString()
+        : new Date().toISOString();
+
+      transactions.push({
+        id: `script_${script['.id'] || name.slice(0, 20)}`,
+        source: 'router_script',
+        date: isoDate,
+        username: username?.trim() || '',
+        amount: parsedAmount,
+        ip: ip?.trim() || '',
+        mac: mac?.trim() || '',
+        duration: duration?.trim() || '',
+        profile: profile?.trim() || '',
+        comment: comment?.trim() || '',
+        plan: profile?.trim() || duration?.trim() || ''
+      });
+    }
+
+    // Sort by date desc
+    transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const revenue = transactions.reduce((s, t) => s + t.amount, 0);
+
+    res.json({ transactions, total: transactions.length, revenue });
+  } catch (err) {
+    console.error('[Mikhmon Scripts] Error:', err.message);
+    res.json({ transactions: [], total: 0, revenue: 0 });
+  }
+});
+
+
 app.get('/api/settings', requireAuth, (req, res) => {
   const db = readDb();
   res.json(db.settings);

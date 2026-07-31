@@ -143,7 +143,7 @@ export function App() {
         )}
 
         {activeTab === 'sales' && (
-          <SalesHistory sales={sales} totalRevenue={totalRevenue} />
+          <SalesHistory sales={sales} totalRevenue={totalRevenue} token={sessionStorage.getItem('mikhmon_token') || ''} />
         )}
 
         {activeTab === 'settings' && (
