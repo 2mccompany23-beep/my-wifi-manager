@@ -316,7 +316,7 @@ function enqueuePollCommand(command, timeoutMs = 30000) {
       }
     }, timeoutMs);
 
-    pollingQueue.set(id, { command, resolve, reject, timeoutId, createdAt: Date.now() });
+    pollingQueue.set(id, { command, resolve, reject, timeoutId, createdAt: Date.now(), status: 'pending' });
   });
 }
 
@@ -543,37 +543,44 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
 // ============================================================
 
 // 1. Router polls this endpoint to check for commands to execute
-app.get('/api/poll', requirePollAuth, (req, res) => {
-  const firstKey = pollingQueue.keys().next().value;
-  if (firstKey) {
-    const item = pollingQueue.get(firstKey);
-    pollingQueue.delete(firstKey);
-    return res.json({
-      action: 'run',
-      id: firstKey,
-      command: item.command
-    });
+const handlePollGet = (req, res) => {
+  for (const [id, item] of pollingQueue.entries()) {
+    if (item.status === 'pending') {
+      item.status = 'sent'; // Marqué comme envoyé mais conservé en mémoire pour la réponse
+      return res.json({
+        action: 'run',
+        id: id,
+        command: item.command
+      });
+    }
   }
   return res.json({ action: 'none' });
-});
+};
+
+app.get('/api/poll', requirePollAuth, handlePollGet);
+app.get('/poll', requirePollAuth, handlePollGet);
 
 // 2. Router posts command execution result back
-app.post('/api/poll/result', requirePollAuth, (req, res) => {
+const handlePollResultPost = (req, res) => {
   const { id, status, output, result } = req.body;
   const executionOutput = output !== undefined ? output : (result !== undefined ? result : '');
 
   if (pollingQueue.has(id)) {
     const { resolve, timeoutId } = pollingQueue.get(id);
     clearTimeout(timeoutId);
-    pollingQueue.delete(id);
+    pollingQueue.delete(id); // Suppression uniquement après résolution de la promesse !
 
     const parsedData = normalizeRouterOSData(executionOutput);
     resolve({ success: true, data: parsedData, status: status || 'done' });
     return res.json({ success: true, received: true });
   }
 
+  console.warn(`[PollResult] Résultat reçu pour un ID inconnu ou déjà expiré: "${id}"`);
   return res.status(404).json({ success: false, message: 'ID de commande expiré ou introuvable' });
-});
+};
+
+app.post('/api/poll/result', requirePollAuth, handlePollResultPost);
+app.post('/poll/result', requirePollAuth, handlePollResultPost);
 
 // Utility to generate random voucher code
 function generateVoucherCode(prefix = '2MC-', length = 5) {

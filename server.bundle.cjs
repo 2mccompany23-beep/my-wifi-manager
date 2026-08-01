@@ -24475,7 +24475,7 @@ function enqueuePollCommand(command, timeoutMs = 3e4) {
         reject(new Error(`Timeout (${timeoutMs}ms) en attente d'ex\xE9cution par le routeur MikroTik.`));
       }
     }, timeoutMs);
-    pollingQueue.set(id, { command, resolve, reject, timeoutId, createdAt: Date.now() });
+    pollingQueue.set(id, { command, resolve, reject, timeoutId, createdAt: Date.now(), status: "pending" });
   });
 }
 function normalizeRouterOSData(raw) {
@@ -24653,20 +24653,22 @@ async function callRouterOS(endpoint, method = "GET", body = null) {
   }
   return result;
 }
-app.get("/api/poll", requirePollAuth, (req, res) => {
-  const firstKey = pollingQueue.keys().next().value;
-  if (firstKey) {
-    const item = pollingQueue.get(firstKey);
-    pollingQueue.delete(firstKey);
-    return res.json({
-      action: "run",
-      id: firstKey,
-      command: item.command
-    });
+var handlePollGet = (req, res) => {
+  for (const [id, item] of pollingQueue.entries()) {
+    if (item.status === "pending") {
+      item.status = "sent";
+      return res.json({
+        action: "run",
+        id,
+        command: item.command
+      });
+    }
   }
   return res.json({ action: "none" });
-});
-app.post("/api/poll/result", requirePollAuth, (req, res) => {
+};
+app.get("/api/poll", requirePollAuth, handlePollGet);
+app.get("/poll", requirePollAuth, handlePollGet);
+var handlePollResultPost = (req, res) => {
   const { id, status, output, result } = req.body;
   const executionOutput = output !== void 0 ? output : result !== void 0 ? result : "";
   if (pollingQueue.has(id)) {
@@ -24677,8 +24679,11 @@ app.post("/api/poll/result", requirePollAuth, (req, res) => {
     resolve({ success: true, data: parsedData, status: status || "done" });
     return res.json({ success: true, received: true });
   }
+  console.warn(`[PollResult] R\xE9sultat re\xE7u pour un ID inconnu ou d\xE9j\xE0 expir\xE9: "${id}"`);
   return res.status(404).json({ success: false, message: "ID de commande expir\xE9 ou introuvable" });
-});
+};
+app.post("/api/poll/result", requirePollAuth, handlePollResultPost);
+app.post("/poll/result", requirePollAuth, handlePollResultPost);
 function generateVoucherCode(prefix = "2MC-", length = 5) {
   const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
   let result = prefix;
