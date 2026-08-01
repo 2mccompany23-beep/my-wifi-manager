@@ -238,8 +238,81 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, onRefresh }) =>
         </div>
       </div>
 
-      {/* Main Users Table */}
-      <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+      {/* Mobile Card List (Visible on screens < 768px) */}
+      <div className="block md:hidden space-y-3">
+        {filteredUsers.length === 0 ? (
+          <div className="glass-panel p-8 text-center text-slate-400 rounded-2xl">
+            <KeyRound className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <p className="font-bold text-xs text-white">Aucun utilisateur trouvé</p>
+          </div>
+        ) : (
+          filteredUsers.map((u) => {
+            const isDisabled = u.disabled === 'true';
+            const isSelected = selectedUserIds.includes(u['.id']);
+
+            return (
+              <div
+                key={u['.id']}
+                className={`glass-card p-3.5 rounded-2xl border flex flex-col gap-2.5 transition-colors ${
+                  isDisabled
+                    ? 'border-rose-500/30 bg-rose-950/20'
+                    : isSelected
+                    ? 'border-indigo-500/50 bg-indigo-950/30'
+                    : 'border-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <button onClick={() => toggleSelectUser(u['.id'])} className="text-slate-400 hover:text-white shrink-0">
+                      {isSelected ? <CheckSquare className="w-4 h-4 text-indigo-400" /> : <Square className="w-4 h-4" />}
+                    </button>
+                    <KeyRound className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span className={`font-mono font-bold text-sm text-white truncate ${isDisabled ? 'line-through text-slate-500' : ''}`}>{u.name}</span>
+                  </div>
+                  {isDisabled ? (
+                    <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold border border-rose-500/20 text-[10px] shrink-0">SUSPENDU</span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20 text-[10px] shrink-0">ACTIF</span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between text-xs gap-1.5 border-t border-slate-800/60 pt-2">
+                  <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-semibold border border-indigo-500/20 text-[10px]">{u.profile}</span>
+                  <span className="text-[10px] text-slate-400">{u.uptime || '0s'} • {u.bytesOut || '0 MB'}</span>
+                </div>
+
+                {u.comment && (
+                  <div className="text-[11px] text-slate-400 bg-slate-900/60 px-2.5 py-1.5 rounded-xl border border-slate-800/50 truncate">
+                    {u.comment}
+                  </div>
+                )}
+
+                {/* Mobile Action Buttons Bar */}
+                <div className="flex items-center justify-end gap-1.5 border-t border-slate-800/60 pt-2">
+                  <button onClick={() => setInspectingUser(u)} className="p-2 rounded-lg bg-slate-800 text-slate-300 border border-slate-700" title="Détails">
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleOpenEdit(u)} className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" title="Modifier">
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleResetCounters(u)} className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20" title="Réinitialiser">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleToggleDisable(u)} className={`p-2 rounded-lg border ${isDisabled ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`} title={isDisabled ? 'Activer' : 'Suspendre'}>
+                    {isDisabled ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                  </button>
+                  <button onClick={() => handleDeleteUser(u['.id'], u.name)} className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20" title="Supprimer">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Users Table (Visible on screens >= 768px) */}
+      <div className="hidden md:block glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -272,7 +345,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, onRefresh }) =>
                       <div>
                         <h4 className="text-sm font-bold text-white">Aucun utilisateur Hotspot affiché</h4>
                         <p className="text-xs text-slate-400 mt-1">
-                          Si votre MikroTik contient déjà des utilisateurs dans Winbox, vérifiez dans l'onglet <strong>Paramètres Routeur</strong> que l'adresse IP (ex: <code>10.0.0.254</code> ou l'IP de votre PC) et le port (<strong>8728</strong> ou <strong>80</strong>) sont correctement enregistrés.
+                          Si votre MikroTik contient déjà des utilisateurs dans Winbox, vérifiez dans l'onglet <strong>Paramètres Routeur</strong> que l'adresse IP et le port sont correctement enregistrés.
                         </p>
                       </div>
                       <button

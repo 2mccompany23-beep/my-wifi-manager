@@ -52,13 +52,13 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
 
-  // Router script state (read-only — Mikhmon déjà installé sur la box)
+  // Router script state (read-only)
   const [routerTxs, setRouterTxs] = useState<RouterScriptTx[]>([]);
   const [routerRevenue, setRouterRevenue] = useState(0);
   const [routerTotal, setRouterTotal] = useState(0);
   const [loadingScripts, setLoadingScripts] = useState(false);
 
-  // Vue active : 'router' = scripts Mikhmon lus depuis la box, 'fedapay' = ventes db.json
+  // Default source: 'router' = 320+ scripts from MikroTik, 'fedapay' = db.json sales
   const [activeSource, setActiveSource] = useState<'router' | 'fedapay'>('router');
 
   const authHeaders = {
@@ -66,7 +66,6 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
     'Authorization': `Bearer ${token || sessionStorage.getItem('mikhmon_token')}`
   };
 
-  // Lecture des scripts Mikhmon existants sur la box + fusion avec les ventes locales
   const loadRouterScripts = async () => {
     setLoadingScripts(true);
     try {
@@ -81,7 +80,6 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
         scriptTxs = data.transactions || [];
       }
 
-      // Fusionner les ventes locales non encore présentes dans les scripts routeur
       if (salesRes.ok) {
         const salesData = await salesRes.json();
         const localSales: any[] = salesData.sales || [];
@@ -120,7 +118,6 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
 
   useEffect(() => { loadRouterScripts(); }, []);
 
-  // Filtre par période
   const applyPeriod = <T extends { date: string }>(arr: T[]): T[] => {
     const now = new Date();
     return arr.filter(s => {
@@ -239,67 +236,67 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
   const displayRevenue = activeSource === 'router' ? routerRevenue : totalRevenue;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
 
       {/* Source Toggle */}
-      <div className="glass-panel p-4 rounded-2xl border border-slate-800 flex flex-wrap gap-3 items-center justify-between">
+      <div className="glass-panel p-3.5 sm:p-4 rounded-2xl border border-slate-800 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="flex items-center gap-2">
-          <BarChart2 className="w-4 h-4 text-indigo-400" />
-          <span className="text-sm font-bold text-white">Source des données financières</span>
+          <BarChart2 className="w-4 h-4 text-indigo-400 shrink-0" />
+          <span className="text-xs sm:text-sm font-bold text-white">Source des données financières</span>
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 sm:flex gap-2">
           <button onClick={() => setActiveSource('router')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all border ${
+            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
               activeSource === 'router'
                 ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20'
                 : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
             }`}>
-            <Cpu className="w-3.5 h-3.5" />
-            Scripts Mikhmon ({routerTotal})
+            <Cpu className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Scripts Mikhmon ({routerTotal})</span>
           </button>
           <button onClick={() => setActiveSource('fedapay')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all border ${
+            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
               activeSource === 'fedapay'
                 ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/20'
                 : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
             }`}>
-            <Smartphone className="w-3.5 h-3.5" />
-            FedaPay ({sales.length})
+            <Smartphone className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">FedaPay ({sales.length})</span>
           </button>
           <button onClick={loadRouterScripts} disabled={loadingScripts}
             title="Actualiser"
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors">
+            className="hidden sm:flex p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors items-center justify-center">
             <RefreshCw className={`w-4 h-4 ${loadingScripts ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Info banner : lecture seule */}
-      <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-indigo-500/8 border border-indigo-500/20 text-xs text-indigo-300">
+      {/* Info banner */}
+      <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-2xl bg-indigo-500/8 border border-indigo-500/20 text-xs text-indigo-300">
         <Database className="w-4 h-4 shrink-0 mt-0.5 text-indigo-400" />
-        <span>
+        <span className="leading-relaxed">
           {activeSource === 'router'
-            ? <>Les données <strong>Scripts Mikhmon</strong> sont lues directement depuis <strong>System &gt; Scripts</strong> de votre MikroTik. Le vieux Mikhmon les crée automatiquement à chaque connexion client — aucune modification de la box n'est nécessaire.</>
+            ? <>Les données <strong>Scripts Mikhmon</strong> sont lues en direct depuis <strong>System &gt; Scripts</strong> de votre MikroTik (données créées automatiquement à chaque connexion client).</>
             : <>Les données <strong>FedaPay</strong> proviennent des paiements enregistrés localement via le webhook FedaPay.</>
           }
         </span>
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
-          { label: 'Revenu Total', value: `${displayRevenue.toLocaleString('fr-FR')} FCFA`, icon: <DollarSign className="w-5 h-5" />, color: 'emerald' },
-          { label: 'Revenu Filtré', value: `${filteredRevenue.toLocaleString('fr-FR')} FCFA`, icon: <TrendingUp className="w-5 h-5" />, color: 'indigo' },
-          { label: 'Connexions', value: filteredTxs.length, icon: <BarChart2 className="w-5 h-5" />, color: 'purple' },
-          { label: 'Ticket Moyen', value: `${Math.round(avgTicket).toLocaleString('fr-FR')} F`, icon: <Smartphone className="w-5 h-5" />, color: 'amber' },
+          { label: 'Revenu Total', value: `${displayRevenue.toLocaleString('fr-FR')} FCFA`, icon: <DollarSign className="w-4 h-4 sm:w-5 sm:h-5" />, color: 'emerald' },
+          { label: 'Revenu Filtré', value: `${filteredRevenue.toLocaleString('fr-FR')} FCFA`, icon: <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />, color: 'indigo' },
+          { label: 'Connexions', value: filteredTxs.length, icon: <BarChart2 className="w-4 h-4 sm:w-5 sm:h-5" />, color: 'purple' },
+          { label: 'Ticket Moyen', value: `${Math.round(avgTicket).toLocaleString('fr-FR')} F`, icon: <Smartphone className="w-4 h-4 sm:w-5 sm:h-5" />, color: 'amber' },
         ].map((kpi, i) => (
-          <div key={i} className={`glass-card p-4 rounded-2xl border border-${kpi.color}-500/20 flex items-center gap-3`}>
-            <div className={`w-10 h-10 rounded-xl bg-${kpi.color}-500/15 text-${kpi.color}-400 flex items-center justify-center border border-${kpi.color}-500/20 shrink-0`}>
+          <div key={i} className="glass-card p-3 sm:p-4 rounded-2xl border border-slate-700/50 flex items-center gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center border border-indigo-500/20 shrink-0">
               {kpi.icon}
             </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
-              <p className="text-base font-black text-white">{kpi.value}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider truncate">{kpi.label}</p>
+              <p className="text-sm sm:text-base font-black text-white truncate">{kpi.value}</p>
             </div>
           </div>
         ))}
@@ -307,16 +304,16 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
 
       {/* Chart */}
       {chartData.length > 0 && (
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800">
-          <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+        <div className="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-800">
+          <h3 className="text-xs sm:text-sm font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
             <BarChart2 className="w-4 h-4 text-indigo-400" />
-            Revenus mensuels (6 derniers mois) — {activeSource === 'router' ? 'Scripts Mikhmon' : 'FedaPay'}
+            Revenus mensuels — {activeSource === 'router' ? 'Scripts Mikhmon' : 'FedaPay'}
           </h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={chartData} barSize={28}>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={chartData} barSize={24}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false}
+              <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false}
                 tickFormatter={v => `${(v / 1000).toFixed(0)}K`} />
               <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '11px' }}
                 formatter={(v: number) => [`${v.toLocaleString('fr-FR')} FCFA`, 'Revenu']} />
@@ -332,8 +329,8 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
 
       {/* Monthly Accordion */}
       <div className="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
-        <div className="p-4 border-b border-slate-800">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+        <div className="p-3.5 sm:p-4 border-b border-slate-800">
+          <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
             <Calendar className="w-4 h-4 text-indigo-400" />
             Bilan Mensuel
           </h3>
@@ -341,34 +338,34 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
         <div className="divide-y divide-slate-800/60">
           {monthlyData.length === 0
             ? (
-              <div className="p-8 text-center text-slate-500 text-sm">
+              <div className="p-6 text-center text-slate-500 text-xs sm:text-sm">
                 {activeSource === 'router'
-                  ? 'Aucune donnée trouvée dans System › Scripts du MikroTik. Le vieux Mikhmon doit être actif sur la box pour que les scripts soient créés.'
+                  ? 'Aucune donnée trouvée dans System › Scripts du MikroTik.'
                   : 'Aucune vente FedaPay enregistrée.'}
               </div>
             )
             : monthlyData.map(m => (
               <div key={m.key}>
                 <button onClick={() => setExpandedMonth(expandedMonth === m.key ? null : m.key)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-slate-800/40 transition-colors text-left">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-white capitalize">{m.label}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">{m.count} connexions</span>
+                  className="w-full flex items-center justify-between p-3.5 sm:p-4 hover:bg-slate-800/40 transition-colors text-left">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-xs sm:text-sm font-bold text-white capitalize">{m.label}</span>
+                    <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">{m.count} connexions</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-black text-emerald-400">{m.revenue.toLocaleString('fr-FR')} FCFA</span>
+                  <div className="flex items-center gap-2 sm:gap-4">
+                    <span className="text-xs sm:text-sm font-black text-emerald-400">{m.revenue.toLocaleString('fr-FR')} FCFA</span>
                     {expandedMonth === m.key ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
                   </div>
                 </button>
                 {expandedMonth === m.key && (
-                  <div className="px-6 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="px-4 sm:px-6 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {Object.entries(m.plans).map(([plan, count]) => (
-                      <div key={plan} className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/60 border border-slate-700/40">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getPlanColor(plan) }} />
-                          <span className="text-xs font-semibold text-slate-300">{plan}</span>
+                      <div key={plan} className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-800/60 border border-slate-700/40">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: getPlanColor(plan) }} />
+                          <span className="text-[11px] font-semibold text-slate-300 truncate">{plan}</span>
                         </div>
-                        <span className="text-xs font-bold text-white">{count}×</span>
+                        <span className="text-[11px] font-bold text-white ml-1">{count}×</span>
                       </div>
                     ))}
                   </div>
@@ -378,65 +375,102 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="glass-panel p-4 rounded-2xl border border-slate-800 space-y-3">
-        <div className="flex flex-wrap gap-2 items-center">
+      {/* Filters Bar */}
+      <div className="glass-panel p-3.5 sm:p-4 rounded-2xl border border-slate-800 space-y-3">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
           <Filter className="w-4 h-4 text-slate-500 shrink-0" />
-          <span className="text-xs font-semibold text-slate-400">Période :</span>
-          {[{ key: '7d', label: '7 jours' }, { key: '30d', label: '30 jours' }, { key: '90d', label: '90 jours' }, { key: 'all', label: 'Tout' }, { key: 'month', label: 'Mois' }].map(p => (
+          <span className="text-xs font-semibold text-slate-400 mr-1">Période :</span>
+          {[{ key: '7d', label: '7j' }, { key: '30d', label: '30j' }, { key: '90d', label: '90j' }, { key: 'all', label: 'Tout' }, { key: 'month', label: 'Mois' }].map(p => (
             <button key={p.key} onClick={() => setPeriodFilter(p.key as any)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold transition-all border ${
                 periodFilter === p.key ? 'bg-indigo-600 text-white border-indigo-500 shadow-md' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
               }`}>{p.label}</button>
           ))}
           {periodFilter === 'month' && (
             <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+              className="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500">
               {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           )}
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs font-semibold text-slate-400">Forfait :</span>
+
+        <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
+          <span className="text-xs font-semibold text-slate-400 mr-1">Forfait :</span>
           <button onClick={() => setPlanFilter('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${planFilter === 'all' ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}>Tous</button>
+            className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold border transition-all ${planFilter === 'all' ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}>Tous</button>
           {uniquePlans.map(p => (
             <button key={p} onClick={() => setPlanFilter(p)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${planFilter === p ? 'text-white' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold border transition-all ${planFilter === p ? 'text-white' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
               style={planFilter === p ? { backgroundColor: getPlanColor(p), borderColor: getPlanColor(p) } : {}}>{p}</button>
           ))}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+          <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input type="text" placeholder="Utilisateur, IP, MAC, forfait..." value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" />
           </div>
-          <span className="text-xs text-slate-400 whitespace-nowrap">{filteredTxs.length} résultat(s)</span>
-          <button onClick={exportCSV} disabled={filteredTxs.length === 0}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold text-xs transition-colors shadow-md shadow-emerald-600/20">
-            <Download className="w-3.5 h-3.5" />Exporter CSV
-          </button>
+          <div className="flex items-center justify-between sm:justify-end gap-3">
+            <span className="text-xs text-slate-400 whitespace-nowrap">{filteredTxs.length} résultat(s)</span>
+            <button onClick={exportCSV} disabled={filteredTxs.length === 0}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold text-xs transition-colors shadow-md shadow-emerald-600/20">
+              <Download className="w-3.5 h-3.5" /><span>Export CSV</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Plan Breakdown */}
+      {/* Plan Breakdown Pill Cards */}
       {planBreakdown.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           {planBreakdown.map(p => (
-            <div key={p.plan} className="glass-card p-3 rounded-xl border border-slate-700/50 flex flex-col gap-1"
+            <div key={p.plan} className="glass-card p-2.5 sm:p-3 rounded-xl border border-slate-700/50 flex flex-col gap-1"
               style={{ borderLeftColor: getPlanColor(p.plan), borderLeftWidth: 3 }}>
-              <span className="text-[10px] font-bold text-slate-400 uppercase truncate">{p.plan}</span>
-              <span className="text-base font-black text-white">{p.count}×</span>
+              <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase truncate">{p.plan}</span>
+              <span className="text-sm sm:text-base font-black text-white">{p.count}×</span>
               <span className="text-xs font-semibold" style={{ color: getPlanColor(p.plan) }}>{p.revenue.toLocaleString('fr-FR')} F</span>
             </div>
           ))}
         </div>
       )}
 
-      {/* Table */}
-      <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+      {/* Mobile Card List (Visible on phones < 768px) */}
+      <div className="block md:hidden space-y-2.5">
+        {filteredTxs.length === 0 ? (
+          <div className="glass-panel p-8 text-center text-slate-400 rounded-2xl">
+            <Cpu className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <p className="font-bold text-xs text-white">Aucune donnée trouvée</p>
+          </div>
+        ) : (
+          filteredTxs.map(s => (
+            <div key={s.id} className="glass-card p-3.5 rounded-2xl border border-slate-800 flex flex-col gap-2 space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-mono font-bold text-sm text-white truncate">{s.reference}</span>
+                  {(s as any).source === 'local_db' && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold shrink-0">LOCAL</span>
+                  )}
+                </div>
+                <span className="text-sm font-black text-emerald-400 shrink-0">{s.amount.toLocaleString('fr-FR')} F</span>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between text-xs gap-1 border-t border-slate-800/60 pt-2">
+                <span className="px-2 py-0.5 rounded-md font-semibold border text-[10px]"
+                  style={{ backgroundColor: getPlanColor(s.plan) + '20', color: getPlanColor(s.plan), borderColor: getPlanColor(s.plan) + '40' }}>
+                  {s.plan}
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">{s.voucher}</span>
+                <span className="text-[10px] text-slate-500">{new Date(s.date).toLocaleDateString('fr-FR')} {new Date(s.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table (Visible on screens >= 768px) */}
+      <div className="hidden md:block glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -446,7 +480,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
                   <span className="flex items-center gap-1">Montant {sortBy === 'amount' ? (sortDir === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />) : null}</span>
                 </th>
                 <th className="p-4">Forfait</th>
-                <th className="p-4">{activeSource === 'router' ? 'IP / Téléphone' : 'Voucher'}</th>
+                <th className="p-4">{activeSource === 'router' ? 'IP / Voucher' : 'Voucher'}</th>
                 <th className="p-4">{activeSource === 'router' ? 'MAC / Mode' : 'Téléphone'}</th>
                 <th className="p-4 cursor-pointer hover:text-indigo-400" onClick={() => toggleSort('date')}>
                   <span className="flex items-center gap-1">Date {sortBy === 'date' ? (sortDir === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />) : null}</span>
@@ -461,11 +495,6 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
                       <Cpu className="w-10 h-10 text-slate-700" />
                       <div>
                         <p className="font-bold text-sm text-white">Aucune donnée</p>
-                        <p className="text-xs mt-1">
-                          {activeSource === 'router'
-                            ? 'Le vieux Mikhmon doit être actif sur la box pour créer des entrées dans System › Scripts.'
-                            : 'Aucune vente FedaPay enregistrée pour ces filtres.'}
-                        </p>
                       </div>
                     </div>
                   </td>
@@ -494,6 +523,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
           </table>
         </div>
       </div>
+
     </div>
   );
 };

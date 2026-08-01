@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, CheckCircle, RefreshCw, Lock, Server, Key } from 'lucide-react';
+import { Settings, Save, CheckCircle, RefreshCw, Lock, Server, Key, Activity, Copy } from 'lucide-react';
 import { AppSettings } from '../types';
 
 interface RouterSettingsProps {
@@ -147,6 +147,176 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
                   onChange={(e) => setSettings({ ...settings, routerPass: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono"
                 />
+              </div>
+            </div>
+
+            {/* Polling / CGNAT Section */}
+            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4 mt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                    <Activity className="w-4 h-4" />
+                    <span>Mode de Connexion (Contournement CGNAT / Polling Inverse)</span>
+                  </h5>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Sélectionnez le mode de liaison entre AlwaysData et votre routeur MikroTik.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <label
+                  className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                    (settings.connectionMode || 'auto') === 'auto'
+                      ? 'bg-indigo-600/10 border-indigo-500 text-white'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold">Automatique (Recommandé)</span>
+                    <input
+                      type="radio"
+                      name="connectionMode"
+                      value="auto"
+                      checked={(settings.connectionMode || 'auto') === 'auto'}
+                      onChange={() => setSettings({ ...settings, connectionMode: 'auto' })}
+                      className="accent-indigo-500"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Essaie la connexion TCP directe ; si bloqué par CGNAT, bascule sur le Polling.
+                  </p>
+                </label>
+
+                <label
+                  className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                    settings.connectionMode === 'polling'
+                      ? 'bg-emerald-600/10 border-emerald-500 text-white'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold">Polling Uniquement</span>
+                    <input
+                      type="radio"
+                      name="connectionMode"
+                      value="polling"
+                      checked={settings.connectionMode === 'polling'}
+                      onChange={() => setSettings({ ...settings, connectionMode: 'polling' })}
+                      className="accent-emerald-500"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Le routeur interroge AlwaysData toutes les 5s (Option 2 sans VPN/VPS).
+                  </p>
+                </label>
+
+                <label
+                  className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                    settings.connectionMode === 'direct'
+                      ? 'bg-purple-600/10 border-purple-500 text-white'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold">Direct TCP Seul</span>
+                    <input
+                      type="radio"
+                      name="connectionMode"
+                      value="direct"
+                      checked={settings.connectionMode === 'direct'}
+                      onChange={() => setSettings({ ...settings, connectionMode: 'direct' })}
+                      className="accent-purple-500"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Connexion REST (80/443) ou Winbox (8728) directe avec IP Publique/Port Forwarding.
+                  </p>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">Jeton de Sécurité Polling (Bearer Token)</label>
+                <input
+                  type="text"
+                  value={settings.pollSecretToken || 'mcwifi_secret_token_2026'}
+                  onChange={(e) => setSettings({ ...settings, pollSecretToken: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Ce token sécurise les requêtes de votre routeur MikroTik vers AlwaysData.
+                </p>
+              </div>
+
+              {/* MikroTik RouterOS Script Generator Box */}
+              <div className="pt-2 border-t border-slate-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-slate-300">Script RouterOS v7 Prêt pour Winbox (System -&gt; Scripts)</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const origin = window.location.origin;
+                      const token = settings.pollSecretToken || 'mcwifi_secret_token_2026';
+                      const script = `# Agent Polling AlwaysData (RouterOS v7)
+:local serverUrl "${origin}/api/poll"
+:local resultUrl "${origin}/api/poll/result"
+:local authToken "${token}"
+
+:do {
+  :local fetchRes [/tool fetch url=$serverUrl http-header-field="Authorization: Bearer $authToken" as-value output=user]
+  :if (($fetchRes->"status") = "finished" && [:typeof ($fetchRes->"data")] = "str") do={
+    :local rawData ($fetchRes->"data")
+    :local parsedData [:deserialize from=json value=$rawData]
+    :local action ($parsedData->"action")
+    :if ($action = "run") do={
+      :local commandId ($parsedData->"id")
+      :local cmdText ($parsedData->"command")
+      :local tmpScript "temp_$commandId"
+      /system script add name=$tmpScript source=$cmdText
+      :local outputText [/execute script=$tmpScript as-value]
+      /system script remove $tmpScript
+      :local resObj { "id"=$commandId; "status"="done"; "output"=$outputText }
+      :local resJson [:serialize to=json value=$resObj]
+      /tool fetch url=$resultUrl http-method=post http-data=$resJson http-header-field="Authorization: Bearer $authToken" http-header-field="Content-Type: application/json" as-value output=user
+    }
+  }
+} on-error={}`;
+                      navigator.clipboard.writeText(script);
+                      alert('✅ Script RouterOS copié dans le presse-papier !');
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-semibold border border-indigo-500/30 flex items-center gap-1 transition-colors"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copier le Script RouterOS</span>
+                  </button>
+                </div>
+
+                <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-[10px] font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap max-h-36">
+{`# Agent Polling AlwaysData (RouterOS v7)
+:local serverUrl "${typeof window !== 'undefined' ? window.location.origin : 'https://votre-app.alwaysdata.net'}/api/poll"
+:local resultUrl "${typeof window !== 'undefined' ? window.location.origin : 'https://votre-app.alwaysdata.net'}/api/poll/result"
+:local authToken "${settings.pollSecretToken || 'mcwifi_secret_token_2026'}"
+
+:do {
+  :local fetchRes [/tool fetch url=$serverUrl http-header-field="Authorization: Bearer $authToken" as-value output=user]
+  :if (($fetchRes->"status") = "finished" && [:typeof ($fetchRes->"data")] = "str") do={
+    :local rawData ($fetchRes->"data")
+    :local parsedData [:deserialize from=json value=$rawData]
+    :local action ($parsedData->"action")
+    :if ($action = "run") do={
+      :local commandId ($parsedData->"id")
+      :local cmdText ($parsedData->"command")
+      :local tmpScript "temp_$commandId"
+      /system script add name=$tmpScript source=$cmdText
+      :local outputText [/execute script=$tmpScript as-value]
+      /system script remove $tmpScript
+      :local resObj { "id"=$commandId; "status"="done"; "output"=$outputText }
+      :local resJson [:serialize to=json value=$resObj]
+      /tool fetch url=$resultUrl http-method=post http-data=$resJson http-header-field="Authorization: Bearer $authToken" http-header-field="Content-Type: application/json" as-value output=user
+    }
+  }
+} on-error={}`}
+                </pre>
               </div>
             </div>
           </div>

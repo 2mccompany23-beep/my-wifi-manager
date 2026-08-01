@@ -68,4 +68,6 @@ export interface AppSettings {
   fedapaySecretKey: string;
   fedapayEnv: 'sandbox' | 'live';
   dnsName: string;
+  connectionMode?: 'auto' | 'polling' | 'direct';
+  pollSecretToken?: string;
 }

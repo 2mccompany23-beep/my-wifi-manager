@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, PowerOff, RefreshCw, Smartphone, Laptop, Globe } from 'lucide-react';
+import { Zap, PowerOff, RefreshCw, Smartphone } from 'lucide-react';
 import { ActiveSession } from '../types';
 
 interface ActiveSessionsProps {
@@ -25,33 +25,81 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ sessions, onRefr
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       
       {/* Header Info */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-panel p-4 rounded-2xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 glass-panel p-4 rounded-2xl">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shrink-0">
             <Zap className="w-5 h-5 animate-pulse" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">Sessions Hotspot Actives</h3>
+            <h3 className="text-sm sm:text-base font-bold text-white">Sessions Hotspot Actives</h3>
             <p className="text-xs text-slate-400">
-              {sessions.length} appareils actuellement connectés au MikroTik RB951Ui
+              {sessions.length} appareils actuellement connectés au MikroTik
             </p>
           </div>
         </div>
 
         <button
           onClick={onRefresh}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors border border-slate-700"
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors border border-slate-700"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Actualiser Les Sessions</span>
         </button>
       </div>
 
-      {/* Sessions Grid / Table */}
-      <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+      {/* Mobile Card View (< 768px) */}
+      <div className="block md:hidden space-y-2.5">
+        {sessions.length === 0 ? (
+          <div className="glass-panel p-8 text-center text-slate-500 text-xs rounded-2xl">
+            Aucun utilisateur connecté en ce moment sur le Hotspot.
+          </div>
+        ) : (
+          sessions.map((s) => (
+            <div key={s['.id']} className="glass-card p-3.5 rounded-2xl border border-slate-800 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-mono font-bold text-sm text-emerald-400 truncate">
+                  <Smartphone className="w-4 h-4 text-slate-400 shrink-0" />
+                  <span className="truncate">{s.user}</span>
+                </div>
+                <button
+                  onClick={() => handleDisconnect(s['.id'], s.user)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 font-semibold text-xs border border-rose-500/20 shrink-0"
+                >
+                  <PowerOff className="w-3 h-3" />
+                  <span>Kicker</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-800/60 pt-2">
+                <div>
+                  <div className="text-[10px] text-slate-500">Adresse IP</div>
+                  <div className="font-mono text-slate-300 truncate">{s.address}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-slate-500">Adresse MAC</div>
+                  <div className="font-mono text-slate-400 truncate">{s.macAddress || s.mac || 'N/A'}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs border-t border-slate-800/60 pt-2">
+                <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span>{s.uptime}</span>
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  ↓ {s.bytesOut || '0 MB'} • ↑ {s.bytesIn || '0 MB'}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table View (>= 768px) */}
+      <div className="hidden md:block glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -82,7 +130,7 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ sessions, onRefr
                       {s.address}
                     </td>
                     <td className="p-4 font-mono text-slate-400">
-                      {s.macAddress || s.mac || 'BC:D0:74:XX:XX'}
+                      {s.macAddress || s.mac || 'N/A'}
                     </td>
                     <td className="p-4 text-slate-300">
                       <div className="flex items-center gap-1.5">
@@ -91,8 +139,8 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ sessions, onRefr
                       </div>
                     </td>
                     <td className="p-4 text-slate-400">
-                      <div>Down: {s.bytesOut || '142 MB'}</div>
-                      <div className="text-[10px] text-slate-500">Up: {s.bytesIn || '24 MB'}</div>
+                      <div>Down: {s.bytesOut || '0 MB'}</div>
+                      <div className="text-[10px] text-slate-500">Up: {s.bytesIn || '0 MB'}</div>
                     </td>
                     <td className="p-4 text-right">
                       <button

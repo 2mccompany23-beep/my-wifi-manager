@@ -3,10 +3,7 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import net from 'net';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = process.cwd();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,7 +34,9 @@ const defaultDb = {
     fedapayPublicKey: 'pk_live_jYf2mjUa0Y_wHn4DWBDNseMm',
     fedapaySecretKey: '',
     fedapayEnv: 'live',
-    dnsName: 'mcwifi.net'
+    dnsName: 'mcwifi.net',
+    connectionMode: 'auto', // 'auto' | 'polling' | 'direct'
+    pollSecretToken: 'mcwifi_secret_token_2026'
   },
   sales: [],
   vouchers: []
@@ -74,6 +73,12 @@ function readDb() {
     if (!data.adminAuth) {
       data.adminAuth = { username: 'admin', password: 'admin' };
     }
+    if (!data.settings) {
+      data.settings = defaultDb.settings;
+    } else {
+      if (!data.settings.connectionMode) data.settings.connectionMode = 'auto';
+      if (!data.settings.pollSecretToken) data.settings.pollSecretToken = 'mcwifi_secret_token_2026';
+    }
     return data;
   } catch (err) {
     console.error('Error reading db.json:', err);
@@ -87,7 +92,9 @@ function writeDb(data) {
   } catch (err) {
     console.error('Error writing db.json:', err);
   }
-}// RouterOS API Response Cache
+}
+
+// RouterOS API Response Cache
 const apiCache = {
   data: {},
   timestamp: {}
@@ -294,7 +301,80 @@ function callRouterOSNativeApi(host, port, user, pass, endpoint, method = 'GET',
   });
 }
 
-// RouterOS 7 REST API & Native API Helper with cache
+// ============================================================
+// MIKROTIK POLLING SYSTEM QUEUE (Option 2 - CGNAT Compatible)
+// ============================================================
+const pollingQueue = new Map(); // id -> { command, resolve, reject, timeoutId, createdAt }
+
+function enqueuePollCommand(command, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    const id = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const timeoutId = setTimeout(() => {
+      if (pollingQueue.has(id)) {
+        pollingQueue.delete(id);
+        reject(new Error(`Timeout (${timeoutMs}ms) en attente d'exécution par le routeur MikroTik.`));
+      }
+    }, timeoutMs);
+
+    pollingQueue.set(id, { command, resolve, reject, timeoutId, createdAt: Date.now() });
+  });
+}
+
+function buildRouterOSCommand(endpoint, method = 'GET', body = null) {
+  const parts = endpoint.split('/').filter(Boolean);
+  let id = null;
+
+  if (parts.length > 0) {
+    const lastPart = parts[parts.length - 1];
+    if (lastPart.startsWith('*') || /^\d+$/.test(lastPart)) {
+      id = lastPart;
+      parts.pop();
+    }
+  }
+
+  const cliPath = '/' + parts.join(' ');
+
+  if (method === 'GET') {
+    return cliPath.endsWith('print') ? cliPath : `${cliPath} print`;
+  } else if (method === 'POST') {
+    let cmd = `${cliPath} add`;
+    if (body && typeof body === 'object') {
+      for (const [k, v] of Object.entries(body)) {
+        cmd += ` ${k}="${v}"`;
+      }
+    }
+    return cmd;
+  } else if (method === 'DELETE') {
+    return id ? `${cliPath} remove [find .id="${id}"]` : `${cliPath} remove`;
+  } else if (method === 'PATCH' || method === 'PUT') {
+    let cmd = id ? `${cliPath} set [find .id="${id}"]` : `${cliPath} set`;
+    if (body && typeof body === 'object') {
+      for (const [k, v] of Object.entries(body)) {
+        cmd += ` ${k}="${v}"`;
+      }
+    }
+    return cmd;
+  }
+
+  return cliPath;
+}
+
+// Authentication Middleware for Polling API
+function requirePollAuth(req, res, next) {
+  const db = readDb();
+  const validToken = db.settings.pollSecretToken || 'mcwifi_secret_token_2026';
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.startsWith('Bearer ')
+    ? authHeader.substring(7)
+    : (req.query.token || req.headers['x-poll-token']);
+
+  if (token === validToken) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Non autorisé. Jeton de polling invalide.' });
+}
+
+// Router OS 7 REST API, Native API & Polling Helper
 async function callRouterOS(endpoint, method = 'GET', body = null) {
   const cacheKey = `${endpoint}_${method}_${JSON.stringify(body)}`;
   const now = Date.now();
@@ -307,11 +387,25 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
   }
 
   const db = readDb();
-  const { routerIp, routerPort, routerUser, routerPass } = db.settings;
+  const { routerIp, routerPort, routerUser, routerPass, connectionMode } = db.settings;
+
+  // Mode Polling forcé
+  if (connectionMode === 'polling') {
+    const cmd = buildRouterOSCommand(endpoint, method, body);
+    try {
+      const pollRes = await enqueuePollCommand(cmd, 30000);
+      if (method === 'GET' && pollRes && pollRes.success) {
+        apiCache.data[cacheKey] = pollRes;
+        apiCache.timestamp[cacheKey] = now;
+      }
+      return pollRes;
+    } catch (err) {
+      return { error: true, message: err.message };
+    }
+  }
+
   const targetPort = parseInt(routerPort) || 80;
   let result = null;
-
-  // Longer timeout for heavy endpoints (323 scripts = large payload)
   const socketTimeout = endpoint.startsWith('/system/script') ? 30000 : 8000;
 
   // 1. Try RouterOS 7 REST API if port is 80 or 443
@@ -348,6 +442,22 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
     result = await callRouterOSNativeApi(routerIp, targetPort, routerUser, routerPass, endpoint, method, body, socketTimeout);
   }
 
+  // Fallback vers le Polling si la connexion directe a échoué (ex: CGNAT) et le mode est 'auto'
+  if (result && result.error && (connectionMode === 'auto' || !connectionMode)) {
+    console.log(`[callRouterOS] Connexion directe impossible (${result.message}). Envoi via Polling...`);
+    const cmd = buildRouterOSCommand(endpoint, method, body);
+    try {
+      const pollRes = await enqueuePollCommand(cmd, 30000);
+      if (method === 'GET' && pollRes && pollRes.success) {
+        apiCache.data[cacheKey] = pollRes;
+        apiCache.timestamp[cacheKey] = now;
+      }
+      return pollRes;
+    } catch (pollErr) {
+      return { error: true, message: `Connexion directe et Polling ont échoué: ${pollErr.message}` };
+    }
+  }
+
   if (method === 'GET' && result && result.success) {
     apiCache.data[cacheKey] = result;
     apiCache.timestamp[cacheKey] = now;
@@ -355,6 +465,49 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
 
   return result;
 }
+
+// ============================================================
+// ROUTER POLLING API ENDPOINTS (GET /api/poll & POST /api/poll/result)
+// ============================================================
+
+// 1. Router polls this endpoint to check for commands to execute
+app.get('/api/poll', requirePollAuth, (req, res) => {
+  const firstKey = pollingQueue.keys().next().value;
+  if (firstKey) {
+    const item = pollingQueue.get(firstKey);
+    pollingQueue.delete(firstKey);
+    return res.json({
+      action: 'run',
+      id: firstKey,
+      command: item.command
+    });
+  }
+  return res.json({ action: 'none' });
+});
+
+// 2. Router posts command execution result back
+app.post('/api/poll/result', requirePollAuth, (req, res) => {
+  const { id, status, output, result } = req.body;
+  const executionOutput = output || result || '';
+
+  if (pollingQueue.has(id)) {
+    const { resolve, timeoutId } = pollingQueue.get(id);
+    clearTimeout(timeoutId);
+    pollingQueue.delete(id);
+
+    let parsed = executionOutput;
+    if (typeof executionOutput === 'string' && executionOutput.trim().startsWith('[')) {
+      try {
+        parsed = JSON.parse(executionOutput);
+      } catch (e) {}
+    }
+
+    resolve({ success: true, data: parsed, status: status || 'done' });
+    return res.json({ success: true, received: true });
+  }
+
+  return res.status(404).json({ success: false, message: 'ID de commande expiré ou introuvable' });
+});
 
 // Utility to generate random voucher code
 function generateVoucherCode(prefix = '2MC-', length = 5) {
