@@ -53,6 +53,31 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
   const [editPassword, setEditPassword] = useState('');
   const [editComment, setEditComment] = useState('');
 
+  const formatBytes = (bytes?: string | number): string => {
+    if (!bytes || bytes === '0' || bytes === 0) return '0 MB';
+    if (typeof bytes === 'string' && (bytes.includes('B') || bytes.includes('MB') || bytes.includes('GB') || bytes.includes('KB'))) {
+      return bytes;
+    }
+    const num = Number(bytes);
+    if (isNaN(num) || num === 0) return '0 MB';
+    if (num < 1024) return `${num} B`;
+    if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+    if (num < 1024 * 1024 * 1024) return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(num / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  const getUserBytesOut = (u?: HotspotUser): string => {
+    if (!u) return '0 MB';
+    const val = u.bytesOut || (u as any)['bytes-out'] || (u as any)['bytes-down'];
+    return formatBytes(val);
+  };
+
+  const getUserBytesIn = (u?: HotspotUser): string => {
+    if (!u) return '0 MB';
+    const val = u.bytesIn || (u as any)['bytes-in'] || (u as any)['bytes-up'];
+    return formatBytes(val);
+  };
+
   const safeUsers = useMemo(() => (Array.isArray(users) ? users : []), [users]);
 
   // Helpers for filtering
@@ -539,7 +564,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
                       <Clock className="w-3 h-3 text-purple-400" />
                       <span>{u.uptime || '0s'}</span>
                       <span className="text-slate-600">•</span>
-                      <span>{u.bytesOut || '0 MB'}</span>
+                      <span>{getUserBytesOut(u)}</span>
                     </span>
                   </div>
 
@@ -666,7 +691,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
                             <Clock className="w-3.5 h-3.5 text-purple-400" />
                             <span>{u.uptime || '0s'}</span>
                           </div>
-                          <div className="text-[10px] text-slate-500">{u.bytesOut || '0 MB'} consommés</div>
+                          <div className="text-[10px] text-slate-500">{getUserBytesOut(u)} consommés</div>
                         </td>
 
                         <td className="p-4">
@@ -847,7 +872,11 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-800">
                   <span className="text-slate-400 font-medium">Volume Téléchargé (Out):</span>
-                  <span className="text-slate-200">{inspectingUser.bytesOut || '0 MB'}</span>
+                  <span className="text-slate-200">{getUserBytesOut(inspectingUser)}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-800">
+                  <span className="text-slate-400 font-medium">Volume Envoyé (In):</span>
+                  <span className="text-slate-200">{getUserBytesIn(inspectingUser)}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-800">
                   <span className="text-slate-400 font-medium">Commentaire:</span>

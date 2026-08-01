@@ -29240,7 +29240,7 @@ app.get("/api/router/users", requireAuth, async (req, res) => {
     disabled: v.status === "EXPIRED" ? "true" : "false"
   }));
   const localUsers = db.hotspotUsers || [];
-  const mergedLocal = Array.from(new Map([...localUsers, ...localVouchers].map((u) => [u.name || u[".id"], u])).values());
+  const mergedLocal = Array.from(new Map([...localUsers, ...localVouchers].map((u) => [u.name || u[".id"], u])).values()).map(normalizeHotspotUser);
   callRouterOS("/ip/hotspot/user").then((result) => {
     if (result.success && Array.isArray(result.data) && result.data.length > 0) {
       const dbFresh = readDb();
@@ -29263,6 +29263,21 @@ app.get("/api/router/users", requireAuth, async (req, res) => {
   });
   return res.json(mergedLocal);
 });
+function normalizeHotspotUser(u) {
+  if (!u) return u;
+  const name = u.name || u.code || u[".id"] || "Utilisateur";
+  const bytesInRaw = u["bytes-in"] ?? u.bytesIn ?? u["bytes-up"] ?? 0;
+  const bytesOutRaw = u["bytes-out"] ?? u.bytesOut ?? u["bytes-down"] ?? 0;
+  return {
+    ...u,
+    ".id": u[".id"] || u.id || name,
+    name,
+    bytesIn: formatByteCount(bytesInRaw),
+    bytesOut: formatByteCount(bytesOutRaw),
+    "bytes-in": bytesInRaw,
+    "bytes-out": bytesOutRaw
+  };
+}
 function formatByteCount(bytes) {
   if (!bytes || isNaN(bytes)) {
     if (typeof bytes === "string" && (bytes.includes("B") || bytes.includes("MB") || bytes.includes("GB") || bytes.includes("KB"))) {

@@ -148,9 +148,12 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
   useEffect(() => { loadRouterScripts(); }, []);
 
   const applyPeriod = <T extends { date: string }>(arr: T[]): T[] => {
+    if (periodFilter === 'all') return arr;
     const now = new Date();
     return arr.filter(s => {
+      if (!s.date) return false;
       const d = new Date(s.date);
+      if (isNaN(d.getTime())) return false;
       if (periodFilter === '7d') return now.getTime() - d.getTime() <= 7 * 86400000;
       if (periodFilter === '30d') return now.getTime() - d.getTime() <= 30 * 86400000;
       if (periodFilter === '90d') return now.getTime() - d.getTime() <= 90 * 86400000;
@@ -158,6 +161,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
         const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         return mk === selectedMonth;
       }
+      return true;
     });
   };
 
