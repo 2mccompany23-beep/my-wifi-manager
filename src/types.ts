@@ -51,6 +51,8 @@ export interface SaleTransaction {
   phone?: string;
   date: string;
   status: 'SUCCESS' | 'PENDING' | 'FAILED';
+  comment?: string;
+  source?: string;
 }
 
 export interface VoucherItem {

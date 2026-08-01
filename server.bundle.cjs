@@ -28816,15 +28816,25 @@ function callRouterOSNativeApi(host, port, user, pass, endpoint, method = "GET",
 }
 var pollingQueue = /* @__PURE__ */ new Map();
 function enqueuePollCommand(command, timeoutMs = 3e4) {
+  for (const [existingId, item] of pollingQueue.entries()) {
+    if (item.command === command && (item.status === "pending" || item.status === "sent")) {
+      return new Promise((resolve, reject) => {
+        item.resolvers.push({ resolve, reject });
+      });
+    }
+  }
   return new Promise((resolve, reject) => {
     const id = "cmd_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+    const resolvers = [{ resolve, reject }];
     const timeoutId = setTimeout(() => {
       if (pollingQueue.has(id)) {
+        const item = pollingQueue.get(id);
         pollingQueue.delete(id);
-        reject(new Error(`Timeout (${timeoutMs}ms) en attente d'ex\xE9cution par le routeur MikroTik.`));
+        const err = new Error(`Timeout (${timeoutMs}ms) en attente d'ex\xE9cution par le routeur MikroTik.`);
+        item.resolvers.forEach((r) => r.reject(err));
       }
     }, timeoutMs);
-    pollingQueue.set(id, { command, resolve, reject, timeoutId, createdAt: Date.now(), status: "pending" });
+    pollingQueue.set(id, { command, resolvers, timeoutId, createdAt: Date.now(), status: "pending" });
   });
 }
 function normalizeRouterOSData(raw) {
@@ -28939,29 +28949,7 @@ async function callRouterOS(endpoint, method = "GET", body = null) {
   const now = Date.now();
   if (method === "GET" && apiCache.data[cacheKey]) {
     const age = now - apiCache.timestamp[cacheKey];
-    if (age < 3e5) {
-      if (age > 15e3) {
-        (async () => {
-          try {
-            const db2 = readDb();
-            const { routerIp: routerIp2, connectionMode: connectionMode2 } = db2.settings;
-            const secAgo2 = lastRouterPollTimestamp > 0 ? Math.round((Date.now() - lastRouterPollTimestamp) / 1e3) : 9999;
-            const usePolling = connectionMode2 === "polling" || isPrivateIp(routerIp2) || lastRouterPollTimestamp > 0 && secAgo2 < 60;
-            if (usePolling) {
-              const cmd = buildRouterOSCommand(endpoint, method, body);
-              const bgRes = await enqueuePollCommand(cmd, 3e4);
-              if (bgRes && bgRes.success) {
-                bgRes.data = normalizeRouterOSData(bgRes.data);
-                if (Array.isArray(bgRes.data) && bgRes.data.length > 0) {
-                  apiCache.data[cacheKey] = bgRes;
-                  apiCache.timestamp[cacheKey] = Date.now();
-                }
-              }
-            }
-          } catch (e) {
-          }
-        })();
-      }
+    if (age < 5e3) {
       return apiCache.data[cacheKey];
     }
   }
@@ -29069,20 +29057,22 @@ var handlePollResultPost = (req, res) => {
   const status = bodyObj?.status || (typeof req.body === "object" ? req.body?.status : null);
   const executionOutput = bodyObj?.output !== void 0 ? bodyObj.output : bodyObj?.result !== void 0 ? bodyObj.result : typeof req.body === "object" ? req.body?.output || req.body?.result : "";
   if (id && pollingQueue.has(id)) {
-    const { resolve, timeoutId } = pollingQueue.get(id);
+    const { resolvers, timeoutId } = pollingQueue.get(id);
     clearTimeout(timeoutId);
     pollingQueue.delete(id);
     const parsedData = normalizeRouterOSData(executionOutput);
-    resolve({ success: true, data: parsedData, status: status || "done" });
+    const resultObj = { success: true, data: parsedData, status: status || "done" };
+    (resolvers || []).forEach((r) => r.resolve(resultObj));
     return res.json({ success: true, received: true });
   }
   if (pollingQueue.size > 0) {
     const firstKey = pollingQueue.keys().next().value;
-    const { resolve, timeoutId } = pollingQueue.get(firstKey);
+    const { resolvers, timeoutId } = pollingQueue.get(firstKey);
     clearTimeout(timeoutId);
     pollingQueue.delete(firstKey);
     const parsedData = normalizeRouterOSData(executionOutput);
-    resolve({ success: true, data: parsedData, status: status || "done" });
+    const resultObj = { success: true, data: parsedData, status: status || "done" };
+    (resolvers || []).forEach((r) => r.resolve(resultObj));
     return res.json({ success: true, received: true });
   }
   return res.json({ success: true, received: true });
@@ -29475,7 +29465,8 @@ app.post("/api/fedapay/webhook", import_express.default.raw({ type: "application
         mode: transaction.mode || "Mobile Money",
         phone: transaction.customer?.phone_number || "N/A",
         date: (/* @__PURE__ */ new Date()).toISOString(),
-        status: "SUCCESS"
+        status: "SUCCESS",
+        source: "fedapay"
       };
       db.sales.unshift(sale);
       db.vouchers.unshift({

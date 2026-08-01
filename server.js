@@ -406,19 +406,32 @@ function callRouterOSNativeApi(host, port, user, pass, endpoint, method = 'GET',
 // ============================================================
 // MIKROTIK POLLING SYSTEM QUEUE (Option 2 - CGNAT Compatible)
 // ============================================================
-const pollingQueue = new Map(); // id -> { command, resolve, reject, timeoutId, createdAt }
+const pollingQueue = new Map(); // id -> { command, resolvers: [{resolve, reject}], timeoutId, createdAt, status }
 
 function enqueuePollCommand(command, timeoutMs = 30000) {
+  // Deduplication: Si la MÊME commande est déjà en attente dans la file, attacher le Promise à la commande existante
+  for (const [existingId, item] of pollingQueue.entries()) {
+    if (item.command === command && (item.status === 'pending' || item.status === 'sent')) {
+      return new Promise((resolve, reject) => {
+        item.resolvers.push({ resolve, reject });
+      });
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const id = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const resolvers = [{ resolve, reject }];
+
     const timeoutId = setTimeout(() => {
       if (pollingQueue.has(id)) {
+        const item = pollingQueue.get(id);
         pollingQueue.delete(id);
-        reject(new Error(`Timeout (${timeoutMs}ms) en attente d'exécution par le routeur MikroTik.`));
+        const err = new Error(`Timeout (${timeoutMs}ms) en attente d'exécution par le routeur MikroTik.`);
+        item.resolvers.forEach(r => r.reject(err));
       }
     }, timeoutMs);
 
-    pollingQueue.set(id, { command, resolve, reject, timeoutId, createdAt: Date.now(), status: 'pending' });
+    pollingQueue.set(id, { command, resolvers, timeoutId, createdAt: Date.now(), status: 'pending' });
   });
 }
 
@@ -560,31 +573,10 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
   const cacheKey = `${endpoint}_${method}_${JSON.stringify(body)}`;
   const now = Date.now();
 
-  // Cache GET ultra-rapide avec rafraîchissement silencieux
+  // Cache GET ultra-rapide (5 secondes pour éviter le spammage de la file d'attente)
   if (method === 'GET' && apiCache.data[cacheKey]) {
     const age = now - apiCache.timestamp[cacheKey];
-    if (age < 300000) {
-      if (age > 15000) {
-        (async () => {
-          try {
-            const db = readDb();
-            const { routerIp, connectionMode } = db.settings;
-            const secAgo = lastRouterPollTimestamp > 0 ? Math.round((Date.now() - lastRouterPollTimestamp) / 1000) : 9999;
-            const usePolling = connectionMode === 'polling' || isPrivateIp(routerIp) || (lastRouterPollTimestamp > 0 && secAgo < 60);
-            if (usePolling) {
-              const cmd = buildRouterOSCommand(endpoint, method, body);
-              const bgRes = await enqueuePollCommand(cmd, 30000);
-              if (bgRes && bgRes.success) {
-                bgRes.data = normalizeRouterOSData(bgRes.data);
-                if (Array.isArray(bgRes.data) && bgRes.data.length > 0) {
-                  apiCache.data[cacheKey] = bgRes;
-                  apiCache.timestamp[cacheKey] = Date.now();
-                }
-              }
-            }
-          } catch (e) {}
-        })();
-      }
+    if (age < 5000) {
       return apiCache.data[cacheKey];
     }
   }
@@ -720,23 +712,25 @@ const handlePollResultPost = (req, res) => {
     : (bodyObj?.result !== undefined ? bodyObj.result : (typeof req.body === 'object' ? (req.body?.output || req.body?.result) : ''));
 
   if (id && pollingQueue.has(id)) {
-    const { resolve, timeoutId } = pollingQueue.get(id);
+    const { resolvers, timeoutId } = pollingQueue.get(id);
     clearTimeout(timeoutId);
     pollingQueue.delete(id);
 
     const parsedData = normalizeRouterOSData(executionOutput);
-    resolve({ success: true, data: parsedData, status: status || 'done' });
+    const resultObj = { success: true, data: parsedData, status: status || 'done' };
+    (resolvers || []).forEach(r => r.resolve(resultObj));
     return res.json({ success: true, received: true });
   }
 
   if (pollingQueue.size > 0) {
     const firstKey = pollingQueue.keys().next().value;
-    const { resolve, timeoutId } = pollingQueue.get(firstKey);
+    const { resolvers, timeoutId } = pollingQueue.get(firstKey);
     clearTimeout(timeoutId);
     pollingQueue.delete(firstKey);
 
     const parsedData = normalizeRouterOSData(executionOutput);
-    resolve({ success: true, data: parsedData, status: status || 'done' });
+    const resultObj = { success: true, data: parsedData, status: status || 'done' };
+    (resolvers || []).forEach(r => r.resolve(resultObj));
     return res.json({ success: true, received: true });
   }
 
@@ -1242,7 +1236,8 @@ app.post('/api/fedapay/webhook', express.raw({ type: 'application/json' }), (req
         mode: transaction.mode || 'Mobile Money',
         phone: transaction.customer?.phone_number || 'N/A',
         date: new Date().toISOString(),
-        status: 'SUCCESS'
+        status: 'SUCCESS',
+        source: 'fedapay'
       };
 
       db.sales.unshift(sale);

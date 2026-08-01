@@ -158,9 +158,22 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
         const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         return mk === selectedMonth;
       }
-      return true;
     });
   };
+
+  const fedapaySales = useMemo(() => {
+    return sales.filter(s => {
+      if (s.source === 'fedapay') return true;
+      const idStr = String(s.id || '');
+      const modeStr = String(s.mode || '').toLowerCase();
+      const commentStr = String((s as any).comment || '').toLowerCase();
+      return idStr.startsWith('tx_') || modeStr.includes('fedapay') || modeStr.includes('mobile money') || commentStr.includes('fedapay');
+    });
+  }, [sales]);
+
+  const fedapayRevenue = useMemo(() => {
+    return fedapaySales.reduce((sum, s) => sum + (s.amount || 0), 0);
+  }, [fedapaySales]);
 
   const allTxs = useMemo(() => {
     if (activeSource === 'router') {
@@ -179,8 +192,12 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
         status: 'SUCCESS' as const
       }));
     }
-    return applyPeriod(sales).map(s => ({ ...s, comment: '', source: 'fedapay' }));
-  }, [activeSource, routerTxs, sales, periodFilter, selectedMonth]);
+    return applyPeriod(fedapaySales).map(s => ({
+      ...s,
+      comment: s.comment || 'Paiement FedaPay',
+      source: 'fedapay'
+    }));
+  }, [activeSource, routerTxs, fedapaySales, periodFilter, selectedMonth]);
 
   const filteredTxs = useMemo(() => {
     return allTxs.filter(s => {
@@ -202,7 +219,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
   const avgTicket = filteredTxs.length > 0 ? filteredRevenue / filteredTxs.length : 0;
 
   const monthlyData = useMemo(() => {
-    const src = activeSource === 'router' ? routerTxs : sales;
+    const src = activeSource === 'router' ? routerTxs : fedapaySales;
     const map: Record<string, { label: string; revenue: number; count: number; plans: Record<string, number> }> = {};
     src.forEach(s => {
       const d = new Date(s.date);
@@ -215,7 +232,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
       map[key].plans[pk] = (map[key].plans[pk] || 0) + 1;
     });
     return Object.entries(map).sort(([a], [b]) => b.localeCompare(a)).map(([key, val]) => ({ key, ...val }));
-  }, [activeSource, routerTxs, sales]);
+  }, [activeSource, routerTxs, fedapaySales]);
 
   const chartData = useMemo(() => {
     return monthlyData.slice(0, 6).reverse().map(m => ({
@@ -236,7 +253,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
 
   const uniquePlans = Array.from(new Set(allTxs.map(s => s.plan || s.profile).filter(Boolean)));
   const availableMonths = Array.from(new Set(
-    (activeSource === 'router' ? routerTxs : sales).map(s => {
+    (activeSource === 'router' ? routerTxs : fedapaySales).map(s => {
       const d = new Date(s.date);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     })
@@ -262,7 +279,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
     else { setSortBy(col); setSortDir('desc'); }
   };
 
-  const displayRevenue = activeSource === 'router' ? routerRevenue : totalRevenue;
+  const displayRevenue = activeSource === 'router' ? routerRevenue : fedapayRevenue;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -294,7 +311,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
                   : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
               }`}>
               <Smartphone className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">FedaPay ({sales.length})</span>
+              <span className="truncate">FedaPay ({fedapaySales.length})</span>
             </button>
           </div>
 
