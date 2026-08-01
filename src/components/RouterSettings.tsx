@@ -271,11 +271,9 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
     :if ($action = "run") do={
       :local commandId ($parsedData->"id")
       :local cmdText ($parsedData->"command")
-      :local tmpScript "temp_$commandId"
-      /system script add name=$tmpScript source=$cmdText
-      :local outputText [/execute script=$tmpScript as-value]
-      /system script remove $tmpScript
-      :local resObj { "id"=$commandId; "status"="done"; "output"=$outputText }
+      :local cmdFunc [:parse $cmdText]
+      :local outputData [$cmdFunc]
+      :local resObj { "id"=$commandId; "status"="done"; "output"=$outputData }
       :local resJson [:serialize to=json value=$resObj]
       /tool fetch url=$resultUrl http-method=post http-data=$resJson http-header-field="Authorization: Bearer $authToken" http-header-field="Content-Type: application/json" as-value output=user
     }
@@ -293,8 +291,8 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
 
                 <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-[10px] font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap max-h-36">
 {`# Agent Polling AlwaysData (RouterOS v7)
-:local serverUrl "${typeof window !== 'undefined' ? window.location.origin : 'https://votre-app.alwaysdata.net'}/api/poll"
-:local resultUrl "${typeof window !== 'undefined' ? window.location.origin : 'https://votre-app.alwaysdata.net'}/api/poll/result"
+:local serverUrl "${typeof window !== 'undefined' ? window.location.origin : 'https://2mc.alwaysdata.net'}/api/poll"
+:local resultUrl "${typeof window !== 'undefined' ? window.location.origin : 'https://2mc.alwaysdata.net'}/api/poll/result"
 :local authToken "${settings.pollSecretToken || 'mcwifi_secret_token_2026'}"
 
 :do {
@@ -306,11 +304,9 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
     :if ($action = "run") do={
       :local commandId ($parsedData->"id")
       :local cmdText ($parsedData->"command")
-      :local tmpScript "temp_$commandId"
-      /system script add name=$tmpScript source=$cmdText
-      :local outputText [/execute script=$tmpScript as-value]
-      /system script remove $tmpScript
-      :local resObj { "id"=$commandId; "status"="done"; "output"=$outputText }
+      :local cmdFunc [:parse $cmdText]
+      :local outputData [$cmdFunc]
+      :local resObj { "id"=$commandId; "status"="done"; "output"=$outputData }
       :local resJson [:serialize to=json value=$resObj]
       /tool fetch url=$resultUrl http-method=post http-data=$resJson http-header-field="Authorization: Bearer $authToken" http-header-field="Content-Type: application/json" as-value output=user
     }

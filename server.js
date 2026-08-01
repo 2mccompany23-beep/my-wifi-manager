@@ -320,6 +320,53 @@ function enqueuePollCommand(command, timeoutMs = 30000) {
   });
 }
 
+function normalizeRouterOSData(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'object' && raw !== null) return [raw];
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    try {
+      const json = JSON.parse(trimmed);
+      if (Array.isArray(json)) return json;
+      if (typeof json === 'object' && json !== null) return [json];
+    } catch (e) {}
+
+    const lines = trimmed.split('\n');
+    const items = [];
+    let currentObj = {};
+
+    for (const line of lines) {
+      const lineTrim = line.trim();
+      if (!lineTrim) {
+        if (Object.keys(currentObj).length > 0) {
+          items.push(currentObj);
+          currentObj = {};
+        }
+        continue;
+      }
+
+      const colonIdx = lineTrim.indexOf(':');
+      if (colonIdx > 0 && !lineTrim.startsWith('Flags:') && !lineTrim.startsWith('#')) {
+        const key = lineTrim.substring(0, colonIdx).trim().toLowerCase();
+        const val = lineTrim.substring(colonIdx + 1).trim();
+        currentObj[key] = val;
+      }
+    }
+
+    if (Object.keys(currentObj).length > 0) {
+      items.push(currentObj);
+    }
+
+    return items;
+  }
+
+  return [];
+}
+
 function buildRouterOSCommand(endpoint, method = 'GET', body = null) {
   const parts = endpoint.split('/').filter(Boolean);
   let id = null;
@@ -332,25 +379,31 @@ function buildRouterOSCommand(endpoint, method = 'GET', body = null) {
     }
   }
 
-  const cliPath = '/' + parts.join(' ');
+  const cliPath = '/' + parts.join('/');
 
   if (method === 'GET') {
-    return cliPath.endsWith('print') ? cliPath : `${cliPath} print`;
+    return cliPath.endsWith('/print')
+      ? `${cliPath} as-value`
+      : `${cliPath}/print as-value`;
   } else if (method === 'POST') {
-    let cmd = `${cliPath} add`;
+    let cmd = `${cliPath}/add`;
     if (body && typeof body === 'object') {
       for (const [k, v] of Object.entries(body)) {
-        cmd += ` ${k}="${v}"`;
+        if (k !== '.id') {
+          cmd += ` ${k}="${v}"`;
+        }
       }
     }
     return cmd;
   } else if (method === 'DELETE') {
-    return id ? `${cliPath} remove [find .id="${id}"]` : `${cliPath} remove`;
+    return id ? `${cliPath}/remove numbers="${id}"` : `${cliPath}/remove`;
   } else if (method === 'PATCH' || method === 'PUT') {
-    let cmd = id ? `${cliPath} set [find .id="${id}"]` : `${cliPath} set`;
+    let cmd = id ? `${cliPath}/set numbers="${id}"` : `${cliPath}/set`;
     if (body && typeof body === 'object') {
       for (const [k, v] of Object.entries(body)) {
-        cmd += ` ${k}="${v}"`;
+        if (k !== '.id') {
+          cmd += ` ${k}="${v}"`;
+        }
       }
     }
     return cmd;
@@ -394,9 +447,12 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
     const cmd = buildRouterOSCommand(endpoint, method, body);
     try {
       const pollRes = await enqueuePollCommand(cmd, 30000);
-      if (method === 'GET' && pollRes && pollRes.success) {
-        apiCache.data[cacheKey] = pollRes;
-        apiCache.timestamp[cacheKey] = now;
+      if (pollRes && pollRes.success) {
+        pollRes.data = normalizeRouterOSData(pollRes.data);
+        if (method === 'GET') {
+          apiCache.data[cacheKey] = pollRes;
+          apiCache.timestamp[cacheKey] = now;
+        }
       }
       return pollRes;
     } catch (err) {
@@ -448,9 +504,12 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
     const cmd = buildRouterOSCommand(endpoint, method, body);
     try {
       const pollRes = await enqueuePollCommand(cmd, 30000);
-      if (method === 'GET' && pollRes && pollRes.success) {
-        apiCache.data[cacheKey] = pollRes;
-        apiCache.timestamp[cacheKey] = now;
+      if (pollRes && pollRes.success) {
+        pollRes.data = normalizeRouterOSData(pollRes.data);
+        if (method === 'GET') {
+          apiCache.data[cacheKey] = pollRes;
+          apiCache.timestamp[cacheKey] = now;
+        }
       }
       return pollRes;
     } catch (pollErr) {
@@ -488,21 +547,15 @@ app.get('/api/poll', requirePollAuth, (req, res) => {
 // 2. Router posts command execution result back
 app.post('/api/poll/result', requirePollAuth, (req, res) => {
   const { id, status, output, result } = req.body;
-  const executionOutput = output || result || '';
+  const executionOutput = output !== undefined ? output : (result !== undefined ? result : '');
 
   if (pollingQueue.has(id)) {
     const { resolve, timeoutId } = pollingQueue.get(id);
     clearTimeout(timeoutId);
     pollingQueue.delete(id);
 
-    let parsed = executionOutput;
-    if (typeof executionOutput === 'string' && executionOutput.trim().startsWith('[')) {
-      try {
-        parsed = JSON.parse(executionOutput);
-      } catch (e) {}
-    }
-
-    resolve({ success: true, data: parsed, status: status || 'done' });
+    const parsedData = normalizeRouterOSData(executionOutput);
+    resolve({ success: true, data: parsedData, status: status || 'done' });
     return res.json({ success: true, received: true });
   }
 

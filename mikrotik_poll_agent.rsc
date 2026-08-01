@@ -6,7 +6,7 @@
 :local authToken "mcwifi_secret_token_2026"
 
 :do {
-  # 1. Interrogation du serveur AlwaysData (HTTP GET)
+  # 1. Interrogation du serveur AlwaysData (HTTP GET avec jeton Bearer)
   :local fetchRes [/tool fetch url=$serverUrl http-header-field="Authorization: Bearer $authToken" as-value output=user]
   
   :if (($fetchRes->"status") = "finished" && [:typeof ($fetchRes->"data")] = "str") do={
@@ -20,18 +20,12 @@
       :local commandId ($parsedData->"id")
       :local cmdText ($parsedData->"command")
       
-      # 3. Création d'un script temporaire pour exécuter la commande
-      :local tmpScript "temp_$commandId"
-      /system script add name=$tmpScript source=$cmdText
+      # 3. Exécution directe du code RouterOS via :parse
+      :local cmdFunc [:parse $cmdText]
+      :local outputData [$cmdFunc]
       
-      # Exécution du script temporaire et récupération de la sortie
-      :local outputText [/execute script=$tmpScript as-value]
-      
-      # Suppression du script temporaire (pour éviter de remplir la RAM)
-      /system script remove $tmpScript
-      
-      # 4. Envoi du résultat au serveur AlwaysData (HTTP POST)
-      :local resObj { "id"=$commandId; "status"="done"; "output"=$outputText }
+      # 4. Envoi du résultat en JSON au serveur AlwaysData (HTTP POST)
+      :local resObj { "id"=$commandId; "status"="done"; "output"=$outputData }
       :local resJson [:serialize to=json value=$resObj]
       
       /tool fetch url=$resultUrl http-method=post http-data=$resJson http-header-field="Authorization: Bearer $authToken" http-header-field="Content-Type: application/json" as-value output=user
