@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Printer, ShieldCheck, QrCode, RefreshCw, Layers, Copy, Check } from 'lucide-react';
 import QRCode from 'qrcode';
 import { VoucherItem } from '../types';
+import { ToastContainer, useToast } from './Toast';
 
 interface VoucherGeneratorProps {
   vouchers: VoucherItem[];
@@ -9,6 +10,7 @@ interface VoucherGeneratorProps {
 }
 
 export const VoucherGenerator: React.FC<VoucherGeneratorProps> = ({ vouchers, onRefresh }) => {
+  const { toasts, dismiss, success, error } = useToast();
   const [prefix, setPrefix] = useState('2MC-');
   const [length, setLength] = useState(5);
   const [selectedProfile, setSelectedProfile] = useState('300-F-24h');
@@ -56,10 +58,11 @@ export const VoucherGenerator: React.FC<VoucherGeneratorProps> = ({ vouchers, on
       if (data.vouchers) {
         setGeneratedVouchers(data.vouchers);
         generateQrCodes(data.vouchers);
+        success(`${data.vouchers.length} ticket(s) généré(s) avec succès !`);
       }
       onRefresh();
-    } catch (err) {
-      alert('Erreur lors de la génération des vouchers');
+    } catch {
+      error('Erreur lors de la génération des vouchers.');
     } finally {
       setIsGenerating(false);
     }
@@ -97,7 +100,9 @@ export const VoucherGenerator: React.FC<VoucherGeneratorProps> = ({ vouchers, on
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
+      <div className="space-y-6">
       
       {/* Generator Control Panel */}
       <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-6">
@@ -287,5 +292,6 @@ export const VoucherGenerator: React.FC<VoucherGeneratorProps> = ({ vouchers, on
       </div>
 
     </div>
+    </>
   );
 };

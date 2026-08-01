@@ -1,4 +1,6 @@
+# Fichiers sensibles — NE PAS COMMITER
 node_modules
 dist
 .env
 data/db.json
+.vscode/sftp.json

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wifi, Router, Activity, ShieldCheck, RefreshCw, Zap, ExternalLink, DollarSign, Menu, X, LogOut } from 'lucide-react';
+import { Wifi, Router, Activity, ShieldCheck, RefreshCw, Zap, ExternalLink, DollarSign, Menu, X, LogOut, Settings } from 'lucide-react';
 import { RouterStatus } from '../types';
 
 interface HeaderProps {
@@ -14,12 +14,12 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { id: 'dashboard', label: 'Tableau de Bord', icon: Activity },
-    { id: 'users', label: 'Utilisateurs Hotspot', icon: Wifi },
-    { id: 'active', label: 'Sessions Actives', icon: Zap },
-    { id: 'vouchers', label: 'Générateur Tickets', icon: ShieldCheck },
-    { id: 'sales', label: '💰 Ventes & Finances', icon: DollarSign },
-    { id: 'settings', label: 'Paramètres Routeur', icon: RefreshCw }
+    { id: 'dashboard', label: 'Tableau de Bord',  shortLabel: 'Accueil',    icon: Activity },
+    { id: 'users',     label: 'Utilisateurs',      shortLabel: 'Users',      icon: Wifi },
+    { id: 'active',    label: 'Sessions Actives',  shortLabel: 'Sessions',   icon: Zap },
+    { id: 'vouchers',  label: 'Tickets WiFi',      shortLabel: 'Tickets',    icon: ShieldCheck },
+    { id: 'sales',     label: 'Ventes & Finances', shortLabel: 'Ventes',     icon: DollarSign },
+    { id: 'settings',  label: 'Paramètres',        shortLabel: 'Config',     icon: Settings },
   ];
 
   return (
@@ -181,8 +181,35 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
         </div>
       )}
 
-      {/* Main Tab Navigation bar with smooth horizontal swipe on mobile */}
-      <nav className="flex space-x-1.5 mt-3 border-t border-slate-800/80 pt-2.5 overflow-x-auto no-scrollbar scroll-smooth">
+      {/* Desktop Main Tab Navigation bar */}
+      <div className="hidden lg:block relative mt-3 border-t border-slate-800/80 pt-2.5">
+        <nav className="flex space-x-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+          {navItems.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all touch-target shrink-0 ${
+                  isActive
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 border border-indigo-400/50 scale-[1.02]'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 bg-slate-900/40 border border-slate-800/50'
+                }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Mobile Fixed Bottom Navigation Bar (Barre fixe en bas sur mobile) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/90 px-1 py-1.5 flex items-center justify-around shadow-2xl">
         {navItems.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -193,14 +220,14 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
                 setActiveTab(tab.id);
                 setMobileMenuOpen(false);
               }}
-              className={`flex items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all touch-target shrink-0 ${
+              className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all min-w-[48px] ${
                 isActive
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 border border-indigo-400/50 scale-[1.02]'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 bg-slate-900/40 border border-slate-800/50'
+                  ? 'text-indigo-400 font-bold bg-indigo-500/15 border border-indigo-500/30 scale-105 shadow-sm shadow-indigo-500/20'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span>{tab.label}</span>
+              <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+              <span className="text-[10px] mt-0.5 font-medium tracking-tight truncate max-w-[54px]">{tab.shortLabel}</span>
             </button>
           );
         })}

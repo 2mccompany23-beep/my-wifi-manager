@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Search, Plus, Trash2, Edit3, Lock, Unlock, RotateCcw, Filter, RefreshCw, KeyRound, CheckSquare, Square, Eye, ShieldAlert } from 'lucide-react';
+import { Search, Plus, Trash2, Edit3, Lock, Unlock, RotateCcw, Filter, RefreshCw, KeyRound, CheckSquare, Square, Eye, ShieldAlert, X } from 'lucide-react';
+import { ConfirmModal } from './ConfirmModal';
+import { ToastContainer, useToast } from './Toast';
 import { HotspotUser } from '../types';
 
 interface UserManagerProps {
@@ -12,6 +14,22 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, onRefresh }) =>
   const [selectedProfile, setSelectedProfile] = useState('ALL');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   
+  const { toasts, dismiss, success, error } = useToast();
+
+  // Confirm modal state (replaces all window.confirm)
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    variant: 'danger' | 'warning';
+    onConfirm: () => void;
+  }>({ open: false, title: '', message: '', variant: 'danger', onConfirm: () => {} });
+
+  const openConfirm = (title: string, message: string, variant: 'danger' | 'warning', onConfirm: () => void) => {
+    setConfirmState({ open: true, title, message, variant, onConfirm });
+  };
+  const closeConfirm = () => setConfirmState((s) => ({ ...s, open: false }));
+
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<HotspotUser | null>(null);
@@ -56,65 +74,80 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, onRefresh }) =>
   });
 
   const handleDeleteUser = async (id: string, name: string) => {
-    if (!confirm(`Voulez-vous vraiment supprimer l'utilisateur "${name}" du MikroTik ?`)) return;
-    try {
-      await fetch(`/api/router/users/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-      onRefresh();
-    } catch (err) {
-      alert('Erreur lors de la suppression');
-    }
-  };
-
-  const handleBatchDelete = async () => {
-    if (selectedUserIds.length === 0) return;
-    if (!confirm(`Supprimer définitivement ${selectedUserIds.length} utilisateur(s) sélectionné(s) ?`)) return;
-
-    for (const id of selectedUserIds) {
-      try {
-        await fetch(`/api/router/users/${encodeURIComponent(id)}`, {
-          method: 'DELETE',
-          headers: getAuthHeaders()
-        });
-      } catch (e) {
-        console.error('Batch delete error:', e);
+    openConfirm(
+      'Supprimer l\'utilisateur',
+      `Voulez-vous vraiment supprimer "${name}" du routeur MikroTik ? Cette action est irréversible.`,
+      'danger',
+      async () => {
+        try {
+          await fetch(`/api/router/users/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders() });
+          success(`Utilisateur "${name}" supprimé avec succès.`);
+          onRefresh();
+        } catch {
+          error('Erreur lors de la suppression. Vérifiez la connexion au routeur.');
+        }
       }
-    }
-    setSelectedUserIds([]);
-    onRefresh();
+    );
   };
 
-  const handleToggleDisable = async (user: HotspotUser) => {
+  const handleBatchDelete = () => {
+    if (selectedUserIds.length === 0) return;
+    openConfirm(
+      'Suppression en lot',
+      `Supprimer définitivement ${selectedUserIds.length} utilisateur(s) sélectionné(s) du MikroTik ?`,
+      'danger',
+      async () => {
+        let ok = 0;
+        for (const id of selectedUserIds) {
+          try {
+            await fetch(`/api/router/users/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders() });
+            ok++;
+          } catch (e) { console.error('Batch delete error:', e); }
+        }
+        setSelectedUserIds([]);
+        success(`${ok} utilisateur(s) supprimé(s) avec succès.`);
+        onRefresh();
+      }
+    );
+  };
+
+  const handleToggleDisable = (user: HotspotUser) => {
     const isCurrentlyDisabled = user.disabled === 'true';
-    const actionName = isCurrentlyDisabled ? 'réactiver' : 'suspendre / désactiver';
-    if (!confirm(`Voulez-vous ${actionName} l'utilisateur "${user.name}" ?`)) return;
-
-    try {
-      await fetch(`/api/router/users/${encodeURIComponent(user['.id'])}`, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ disabled: !isCurrentlyDisabled })
-      });
-      onRefresh();
-    } catch (err) {
-      alert('Erreur lors de la modification de l\'état');
-    }
+    const action = isCurrentlyDisabled ? 'réactiver' : 'suspendre';
+    openConfirm(
+      isCurrentlyDisabled ? 'Réactiver le compte' : 'Suspendre le compte',
+      `Voulez-vous ${action} le compte "${user.name}" ?`,
+      isCurrentlyDisabled ? 'warning' : 'danger',
+      async () => {
+        try {
+          await fetch(`/api/router/users/${encodeURIComponent(user['.id'])}`, {
+            method: 'PATCH', headers: getAuthHeaders(),
+            body: JSON.stringify({ disabled: !isCurrentlyDisabled })
+          });
+          success(isCurrentlyDisabled ? `"${user.name}" réactivé avec succès.` : `"${user.name}" suspendu.`);
+          onRefresh();
+        } catch {
+          error('Erreur lors de la modification de l\'état.');
+        }
+      }
+    );
   };
 
-  const handleResetCounters = async (user: HotspotUser) => {
-    if (!confirm(`Réinitialiser les compteurs d'utilisation (temps et volume) pour "${user.name}" ?`)) return;
-    try {
-      await fetch(`/api/router/users/${encodeURIComponent(user['.id'])}/reset`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-      alert(`Compteurs de ${user.name} réinitialisés !`);
-      onRefresh();
-    } catch (err) {
-      alert('Erreur lors de la réinitialisation');
-    }
+  const handleResetCounters = (user: HotspotUser) => {
+    openConfirm(
+      'Réinitialiser les compteurs',
+      `Réinitialiser le temps et le volume utilisé pour "${user.name}" ?`,
+      'warning',
+      async () => {
+        try {
+          await fetch(`/api/router/users/${encodeURIComponent(user['.id'])}/reset`, { method: 'POST', headers: getAuthHeaders() });
+          success(`Compteurs de "${user.name}" réinitialisés.`);
+          onRefresh();
+        } catch {
+          error('Erreur lors de la réinitialisation.');
+        }
+      }
+    );
   };
 
   const handleOpenEdit = (user: HotspotUser) => {
@@ -127,21 +160,16 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, onRefresh }) =>
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
-
     try {
       await fetch(`/api/router/users/${encodeURIComponent(editingUser['.id'])}`, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          profile: editProfile,
-          password: editPassword || undefined,
-          comment: editComment
-        })
+        method: 'PATCH', headers: getAuthHeaders(),
+        body: JSON.stringify({ profile: editProfile, password: editPassword || undefined, comment: editComment })
       });
+      success(`"${editingUser.name}" mis à jour avec succès.`);
       setEditingUser(null);
       onRefresh();
-    } catch (err) {
-      alert('Erreur lors de la mise à jour');
+    } catch {
+      error('Erreur lors de la mise à jour.');
     }
   };
 
@@ -150,27 +178,33 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, onRefresh }) =>
     if (!newUsername) return;
     try {
       await fetch('/api/vouchers/generate', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          prefix: newUsername,
-          length: 0,
-          profile: newProfile,
-          quantity: 1
-        })
+        method: 'POST', headers: getAuthHeaders(),
+        body: JSON.stringify({ prefix: newUsername, length: 0, profile: newProfile, quantity: 1 })
       });
+      success(`Utilisateur "${newUsername}" créé avec succès sur le MikroTik.`);
       setShowAddModal(false);
       setNewUsername('');
       setNewPassword('');
       setNewComment('');
       onRefresh();
-    } catch (err) {
-      alert('Erreur lors de la création de l\'utilisateur');
+    } catch {
+      error('Erreur lors de la création de l\'utilisateur.');
     }
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
+      <ConfirmModal
+        isOpen={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant={confirmState.variant}
+        confirmLabel={confirmState.variant === 'danger' ? 'Confirmer la suppression' : 'Confirmer'}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+      />
+      <div className="space-y-6">
       
       {/* Controls & Filter Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-panel p-4 rounded-2xl">
@@ -656,5 +690,6 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, onRefresh }) =>
       )}
 
     </div>
+    </>
   );
 };

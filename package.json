@@ -7,20 +7,23 @@
     "dev": "concurrently \"npm run dev:server\" \"vite\"",
     "dev:server": "node server.js",
     "build": "tsc && vite build",
+    "deploy": "node deploy.js",
     "preview": "vite preview",
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
+    "canvas-confetti": "^1.9.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "node-fetch": "^3.3.2",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.6.1",
+    "helmet": "^8.3.0",
     "lucide-react": "^0.395.0",
+    "node-fetch": "^3.3.2",
     "qrcode": "^1.5.3",
-    "canvas-confetti": "^1.9.3",
-    "recharts": "^2.12.7",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
@@ -34,6 +37,7 @@
     "autoprefixer": "^10.4.19",
     "concurrently": "^8.2.2",
     "postcss": "^8.4.38",
+    "ssh2-sftp-client": "^12.1.1",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.4.5",
     "vite": "^5.3.1"

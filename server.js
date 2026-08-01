@@ -3,14 +3,70 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import net from 'net';
-const __dirname = process.cwd();
+import crypto from 'crypto';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
+// Charger .env (compatible CJS bundle)
+try {
+  const dotenvPath = path.join(process.cwd(), '.env');
+  if (fs.existsSync(dotenvPath)) {
+    const envContent = fs.readFileSync(dotenvPath, 'utf8');
+    for (const line of envContent.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        const key = trimmed.substring(0, idx).trim();
+        const val = trimmed.substring(idx + 1).trim();
+        if (!process.env[key]) process.env[key] = val;
+      }
+    }
+  }
+} catch (e) {}
+
+const __dirname = process.cwd();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// --- Helmet (headers de sécurité HTTP) ---
+// crossOriginEmbedderPolicy désactivé : nécessaire pour FedaPay SDK, Bootstrap CDN
+// contentSecurityPolicy désactivé : le frontend React gère ses propres styles
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
+
+// --- CORS restreint aux origines connues ---
+const allowedOrigins = [
+  'https://2mc.alwaysdata.net',      // URL de production principale
+  'https://ssh-2mc.alwaysdata.net',  // URL SSH AlwaysData
+  'https://mcwifi.net',              // Domaine custom
+  'http://localhost:5173',           // Dev Vite
+  'http://localhost:5000'            // Dev serveur
+];
+app.use(cors({
+  origin: (origin, cb) => {
+    // Pas d'origin = requête same-origin (static assets, curl, etc.) → OK
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    console.warn(`[CORS] Origine bloquée: ${origin}`);
+    cb(new Error('Origine CORS non autorisée'));
+  },
+  credentials: true
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// --- Rate Limiter login ---
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.' }
+});
+
 
 // Path for local database file
 const DATA_DIR = path.join(__dirname, 'data');
@@ -42,42 +98,88 @@ const defaultDb = {
   vouchers: []
 };
 
-// In-memory active auth tokens
-const activeSessionTokens = new Set();
+// In-memory active auth tokens avec expiration (8h)
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 heures
+const activeSessionTokens = new Map(); // token -> expiresAt
 
 function generateAuthToken() {
-  const token = 'mikhmon_auth_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
-  activeSessionTokens.add(token);
+  const token = 'mauth_' + crypto.randomBytes(32).toString('hex');
+  activeSessionTokens.set(token, Date.now() + SESSION_TTL_MS);
   return token;
 }
+
+function isTokenValid(token) {
+  if (!token || !activeSessionTokens.has(token)) return false;
+  const expiresAt = activeSessionTokens.get(token);
+  if (Date.now() > expiresAt) {
+    activeSessionTokens.delete(token); // Purge token expiré
+    return false;
+  }
+  return true;
+}
+
+// Purge automatique des tokens expirés toutes les heures
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, expiresAt] of activeSessionTokens.entries()) {
+    if (now > expiresAt) activeSessionTokens.delete(token);
+  }
+}, 60 * 60 * 1000);
 
 // Authentication Middleware
 function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : req.query.token;
 
-  if (token && activeSessionTokens.has(token)) {
+  if (isTokenValid(token)) {
     return next();
   }
   return res.status(401).json({ error: 'Non autorisé. Veuillez vous connecter à l\'administration.' });
 }
 
+// --- Hachage des mots de passe avec scrypt (natif Node.js) ---
+function hashPassword(plaintext) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(plaintext, salt, 64).toString('hex');
+  return `scrypt:${salt}:${hash}`;
+}
+
+function verifyPassword(plaintext, stored) {
+  if (!stored) return false;
+  // Support ancien format plaintext (migration automatique)
+  if (!stored.startsWith('scrypt:')) {
+    return plaintext === stored;
+  }
+  const [, salt, hash] = stored.split(':');
+  const derived = crypto.scryptSync(plaintext, salt, 64).toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(derived, 'hex'), Buffer.from(hash, 'hex'));
+}
+
 function readDb() {
   if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2));
-    return defaultDb;
+    const initDb = { ...defaultDb };
+    // Hacher le mot de passe par défaut dès la création
+    initDb.adminAuth.password = hashPassword(initDb.adminAuth.password);
+    fs.writeFileSync(DB_FILE, JSON.stringify(initDb, null, 2));
+    return initDb;
   }
   try {
     const content = fs.readFileSync(DB_FILE, 'utf8');
     const data = JSON.parse(content);
     if (!data.adminAuth) {
-      data.adminAuth = { username: 'admin', password: 'admin' };
+      data.adminAuth = { username: 'admin', password: hashPassword('admin') };
+    }
+    // Migration automatique : hacher les mots de passe en clair
+    if (data.adminAuth.password && !data.adminAuth.password.startsWith('scrypt:')) {
+      console.log('[Security] Migration du mot de passe admin vers scrypt...');
+      data.adminAuth.password = hashPassword(data.adminAuth.password);
+      writeDb(data);
     }
     if (!data.settings) {
       data.settings = defaultDb.settings;
     } else {
       if (!data.settings.connectionMode) data.settings.connectionMode = 'auto';
-      if (!data.settings.pollSecretToken) data.settings.pollSecretToken = 'mcwifi_secret_token_2026';
+      if (!data.settings.pollSecretToken) data.settings.pollSecretToken = defaultDb.settings.pollSecretToken;
     }
     return data;
   } catch (err) {
@@ -349,6 +451,21 @@ function normalizeRouterOSData(raw) {
         continue;
       }
 
+      // Format clé=valeur avec point-virgule ou espaces (ex: .id=*1;user=skbm;address=10.0.0.2)
+      if (lineTrim.includes('=')) {
+        const pairs = lineTrim.split(/[;\s]+/);
+        for (const pair of pairs) {
+          const eqIdx = pair.indexOf('=');
+          if (eqIdx > 0) {
+            const k = pair.substring(0, eqIdx).trim().toLowerCase();
+            const v = pair.substring(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+            if (k) currentObj[k] = v;
+          }
+        }
+        continue;
+      }
+
+      // Format clé: valeur
       const colonIdx = lineTrim.indexOf(':');
       if (colonIdx > 0 && !lineTrim.startsWith('Flags:') && !lineTrim.startsWith('#')) {
         const key = lineTrim.substring(0, colonIdx).trim().toLowerCase();
@@ -422,19 +539,19 @@ function isPrivateIp(ip) {
 
 // Authentication Middleware for Polling API
 function requirePollAuth(req, res, next) {
-  // Toujours enregistrer l'activité du routeur dès qu'il touche le serveur
-  lastRouterPollTimestamp = Date.now();
-
   const db = readDb();
-  const validToken = db.settings.pollSecretToken || 'mcwifi_secret_token_2026';
+  const validToken = db.settings.pollSecretToken;
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.startsWith('Bearer ')
     ? authHeader.substring(7)
     : (req.query.token || req.headers['x-poll-token'] || req.headers['token']);
 
-  if (!token || token === validToken || token === 'mcwifi_secret_token_2026') {
-    return next();
+  if (!validToken || !token || token !== validToken) {
+    console.warn(`[Poll Auth] Tentative non autorisée depuis ${req.ip}`);
+    return res.status(401).json({ error: 'Token de polling invalide.' });
   }
+
+  lastRouterPollTimestamp = Date.now();
   return next();
 }
 
@@ -443,18 +560,42 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
   const cacheKey = `${endpoint}_${method}_${JSON.stringify(body)}`;
   const now = Date.now();
 
-  // Scripts are heavy — cache them for 60s; other GETs for 5s
-  const cacheTtl = endpoint.startsWith('/system/script') ? 60000 : 5000;
-
-  if (method === 'GET' && apiCache.data[cacheKey] && now - apiCache.timestamp[cacheKey] < cacheTtl) {
-    return apiCache.data[cacheKey];
+  // Cache GET ultra-rapide avec rafraîchissement silencieux
+  if (method === 'GET' && apiCache.data[cacheKey]) {
+    const age = now - apiCache.timestamp[cacheKey];
+    if (age < 300000) {
+      if (age > 15000) {
+        (async () => {
+          try {
+            const db = readDb();
+            const { routerIp, connectionMode } = db.settings;
+            const secAgo = lastRouterPollTimestamp > 0 ? Math.round((Date.now() - lastRouterPollTimestamp) / 1000) : 9999;
+            const usePolling = connectionMode === 'polling' || isPrivateIp(routerIp) || (lastRouterPollTimestamp > 0 && secAgo < 60);
+            if (usePolling) {
+              const cmd = buildRouterOSCommand(endpoint, method, body);
+              const bgRes = await enqueuePollCommand(cmd, 30000);
+              if (bgRes && bgRes.success) {
+                bgRes.data = normalizeRouterOSData(bgRes.data);
+                if (Array.isArray(bgRes.data) && bgRes.data.length > 0) {
+                  apiCache.data[cacheKey] = bgRes;
+                  apiCache.timestamp[cacheKey] = Date.now();
+                }
+              }
+            }
+          } catch (e) {}
+        })();
+      }
+      return apiCache.data[cacheKey];
+    }
   }
 
   const db = readDb();
   const { routerIp, routerPort, routerUser, routerPass, connectionMode } = db.settings;
+  const secAgo = lastRouterPollTimestamp > 0 ? Math.round((Date.now() - lastRouterPollTimestamp) / 1000) : 9999;
+  const isRouterPolling = lastRouterPollTimestamp > 0 && secAgo < 60;
 
-  // Détection automatique: si l'IP est privée (ex: 10.0.0.254) ou mode Polling configuré, utiliser directement la queue
-  const usePollingMode = connectionMode === 'polling' || (connectionMode !== 'direct' && isPrivateIp(routerIp));
+  // Détection automatique: si l'IP est privée (ex: 10.0.0.254), mode Polling ou routeur actif en Polling
+  const usePollingMode = connectionMode === 'polling' || isPrivateIp(routerIp) || isRouterPolling;
 
   if (usePollingMode) {
     const cmd = buildRouterOSCommand(endpoint, method, body);
@@ -469,7 +610,7 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
       }
       return pollRes;
     } catch (err) {
-      return { error: true, message: err.message };
+      console.warn(`[callRouterOS] Polling Timeout/Error sur ${endpoint}: ${err.message}`);
     }
   }
 
@@ -511,8 +652,8 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
     result = await callRouterOSNativeApi(routerIp, targetPort, routerUser, routerPass, endpoint, method, body, socketTimeout);
   }
 
-  // Fallback vers le Polling si la connexion directe a échoué (ex: CGNAT) et le mode est 'auto'
-  if (result && result.error && (connectionMode === 'auto' || !connectionMode)) {
+  // Fallback vers le Polling si la connexion directe a échoué (ex: CGNAT / IP privée)
+  if (result && result.error) {
     console.log(`[callRouterOS] Connexion directe impossible (${result.message}). Envoi via Polling...`);
     const cmd = buildRouterOSCommand(endpoint, method, body);
     try {
@@ -535,7 +676,7 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
     apiCache.timestamp[cacheKey] = now;
   }
 
-  return result;
+  return result || { error: true, message: 'Aucune donnée retournée par le routeur' };
 }
 
 // ============================================================
@@ -562,21 +703,44 @@ app.get('/poll', requirePollAuth, handlePollGet);
 
 // 2. Router posts command execution result back
 const handlePollResultPost = (req, res) => {
-  const { id, status, output, result } = req.body;
-  const executionOutput = output !== undefined ? output : (result !== undefined ? result : '');
+  let bodyObj = req.body;
 
-  if (pollingQueue.has(id)) {
+  if (typeof bodyObj === 'string' || Buffer.isBuffer(bodyObj)) {
+    try {
+      bodyObj = JSON.parse(bodyObj.toString());
+    } catch (e) {
+      bodyObj = {};
+    }
+  }
+
+  const id = bodyObj?.id || req.query?.id || (typeof req.body === 'object' ? req.body?.id : null);
+  const status = bodyObj?.status || (typeof req.body === 'object' ? req.body?.status : null);
+  const executionOutput = bodyObj?.output !== undefined
+    ? bodyObj.output
+    : (bodyObj?.result !== undefined ? bodyObj.result : (typeof req.body === 'object' ? (req.body?.output || req.body?.result) : ''));
+
+  if (id && pollingQueue.has(id)) {
     const { resolve, timeoutId } = pollingQueue.get(id);
     clearTimeout(timeoutId);
-    pollingQueue.delete(id); // Suppression uniquement après résolution de la promesse !
+    pollingQueue.delete(id);
 
     const parsedData = normalizeRouterOSData(executionOutput);
     resolve({ success: true, data: parsedData, status: status || 'done' });
     return res.json({ success: true, received: true });
   }
 
-  console.warn(`[PollResult] Résultat reçu pour un ID inconnu ou déjà expiré: "${id}"`);
-  return res.status(404).json({ success: false, message: 'ID de commande expiré ou introuvable' });
+  if (pollingQueue.size > 0) {
+    const firstKey = pollingQueue.keys().next().value;
+    const { resolve, timeoutId } = pollingQueue.get(firstKey);
+    clearTimeout(timeoutId);
+    pollingQueue.delete(firstKey);
+
+    const parsedData = normalizeRouterOSData(executionOutput);
+    resolve({ success: true, data: parsedData, status: status || 'done' });
+    return res.json({ success: true, received: true });
+  }
+
+  return res.json({ success: true, received: true });
 };
 
 app.post('/api/poll/result', requirePollAuth, handlePollResultPost);
@@ -642,19 +806,19 @@ function formatMikhmonComment(quantity = 1, tag = 'admin') {
 
 // --- AUTH ROUTES ---
 
-// Admin Login
-app.post('/api/auth/login', (req, res) => {
+// Admin Login (protégé par rate-limit)
+app.post('/api/auth/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
   const db = readDb();
-  const adminConfig = db.adminAuth || { username: 'admin', password: 'admin' };
+  const adminConfig = db.adminAuth || { username: 'admin', password: hashPassword('admin') };
 
-  if (username === adminConfig.username && password === adminConfig.password) {
+  if (username === adminConfig.username && verifyPassword(password, adminConfig.password)) {
     const token = generateAuthToken();
-    console.log(`[Auth] Admin "${username}" logged in successfully.`);
+    console.log(`[Auth] Admin connecté avec succès (IP: ${req.ip})`);
     return res.json({ success: true, token, username: adminConfig.username });
   }
 
-  console.warn(`[Auth] Failed login attempt for username: "${username}"`);
+  console.warn(`[Auth] Échec de connexion (IP: ${req.ip})`);
   res.status(401).json({ error: 'Identifiants administrateur incorrects' });
 });
 
@@ -663,7 +827,7 @@ app.post('/api/auth/logout', (req, res) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
   if (token) {
-    activeSessionTokens.delete(token);
+    activeSessionTokens.delete(token); // Invalide immédiatement
   }
   res.json({ success: true });
 });
@@ -678,18 +842,24 @@ app.get('/api/auth/verify', requireAuth, (req, res) => {
 app.post('/api/auth/change-password', requireAuth, (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const db = readDb();
-  const adminConfig = db.adminAuth || { username: 'admin', password: 'admin' };
+  const adminConfig = db.adminAuth || { username: 'admin', password: hashPassword('admin') };
 
-  if (currentPassword !== adminConfig.password) {
+  if (!verifyPassword(currentPassword, adminConfig.password)) {
     return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
   }
 
-  if (!newPassword || newPassword.length < 4) {
-    return res.status(400).json({ error: 'Le nouveau mot de passe doit comporter au moins 4 caractères' });
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({ error: 'Le nouveau mot de passe doit comporter au moins 8 caractères' });
   }
 
-  db.adminAuth.password = newPassword;
+  // Hacher le nouveau mot de passe avant de le stocker
+  db.adminAuth.password = hashPassword(newPassword);
   writeDb(db);
+
+  // Invalider toutes les sessions existantes (forcer re-login)
+  activeSessionTokens.clear();
+  console.log('[Auth] Mot de passe changé — toutes les sessions invalidées.');
+
   res.json({ success: true, message: 'Mot de passe administrateur mis à jour avec succès' });
 });
 
@@ -766,26 +936,128 @@ app.get('/api/poll/status', requireAuth, (req, res) => {
     pollingActive: isPollingActive,
     lastPollSecAgo: secAgo,
     pendingQueueSize: pollingQueue.size,
-    connectionMode: db.settings.connectionMode || 'auto',
-    pollSecretToken: db.settings.pollSecretToken || 'mcwifi_secret_token_2026'
+    connectionMode: db.settings.connectionMode || 'auto'
+    // pollSecretToken intentionnellement omis (secret sensible)
   });
 });
 
-// Get Hotspot Users
+// Get Hotspot Users (Stockage Local Instantané + Synchro Différentielle)
 app.get('/api/router/users', requireAuth, async (req, res) => {
-  const result = await callRouterOS('/ip/hotspot/user');
-  if (result.success && Array.isArray(result.data)) {
-    return res.json(result.data);
-  }
-  res.json([]);
+  const db = readDb();
+
+  const localVouchers = (db.vouchers || []).map(v => ({
+    '.id': v.id || v.code,
+    name: v.code,
+    profile: v.profile || '100-F-4h',
+    comment: v.comment || '',
+    disabled: v.status === 'EXPIRED' ? 'true' : 'false'
+  }));
+
+  const localUsers = db.hotspotUsers || [];
+  const mergedLocal = Array.from(new Map([...localUsers, ...localVouchers].map(u => [u.name || u['.id'], u])).values());
+
+  // Synchronisation différentielle en tâche de fond
+  callRouterOS('/ip/hotspot/user').then((result) => {
+    if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+      const dbFresh = readDb();
+      if (!dbFresh.hotspotUsers) dbFresh.hotspotUsers = [];
+      const userMap = new Map(dbFresh.hotspotUsers.map(u => [u.name || u['.id'], u]));
+      let updated = false;
+
+      for (const rUser of result.data) {
+        const key = rUser.name || rUser['.id'];
+        if (key) {
+          userMap.set(key, rUser);
+          updated = true;
+        }
+      }
+
+      if (updated) {
+        dbFresh.hotspotUsers = Array.from(userMap.values());
+        writeDb(dbFresh);
+      }
+    }
+  }).catch(() => {});
+
+  return res.json(mergedLocal);
 });
 
-// Get Active Sessions
-app.get('/api/router/active', requireAuth, async (req, res) => {
-  const result = await callRouterOS('/ip/hotspot/active');
-  if (result.success && Array.isArray(result.data)) {
-    return res.json(result.data);
+function formatByteCount(bytes) {
+  if (!bytes || isNaN(bytes)) {
+    if (typeof bytes === 'string' && (bytes.includes('B') || bytes.includes('MB') || bytes.includes('GB') || bytes.includes('KB'))) {
+      return bytes;
+    }
+    return '0 MB';
   }
+  const num = Number(bytes);
+  if (num === 0) return '0 MB';
+  if (num < 1024) return `${num} B`;
+  if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+  if (num < 1024 * 1024 * 1024) return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(num / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function normalizeActiveSession(s) {
+  const user = s.user || s.name || s.username || s.code || 'Utilisateur';
+  const address = s.address || s.ip || s['active-address'] || '10.0.0.X';
+  const mac = s['mac-address'] || s.macAddress || s.mac || s['active-mac-address'] || 'N/A';
+  const uptime = s.uptime || 'Connecté';
+  const bytesIn = formatByteCount(s['bytes-in'] || s.bytesIn || s['bytes-up'] || 0);
+  const bytesOut = formatByteCount(s['bytes-out'] || s.bytesOut || s['bytes-down'] || 0);
+  const sessionTimeLeft = s['session-time-left'] || s.sessionTimeLeft || s['limit-uptime'] || '';
+
+  return {
+    '.id': s['.id'] || s.id || `act_${user}`,
+    user,
+    address,
+    macAddress: mac,
+    mac: mac,
+    uptime,
+    bytesIn,
+    bytesOut,
+    sessionTimeLeft
+  };
+}
+
+// Get Active Sessions (avec normalisation et fallbacks locaux)
+app.get('/api/router/active', requireAuth, async (req, res) => {
+  const db = readDb();
+  let activeList = [];
+
+  try {
+    const result = await callRouterOS('/ip/hotspot/active');
+    if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+      activeList = result.data.map(normalizeActiveSession);
+      db.activeSessions = activeList;
+      writeDb(db);
+      return res.json(activeList);
+    }
+  } catch (err) {
+    console.warn('[ActiveSessions] Erreur appel direct routeur:', err.message);
+  }
+
+  // 1. Cache local des sessions actives
+  if (Array.isArray(db.activeSessions) && db.activeSessions.length > 0) {
+    return res.json(db.activeSessions);
+  }
+
+  // 2. Fallback vers hotspotUsers ayant un uptime actif (> 0s)
+  const activeFromUsers = (db.hotspotUsers || [])
+    .filter(u => u.uptime && u.uptime !== '0s' && u.disabled !== 'true' && u.name !== 'default-trial')
+    .map(u => normalizeActiveSession({
+      '.id': u['.id'],
+      user: u.name,
+      address: u.address || u['active-address'] || '10.0.0.X',
+      'mac-address': u['mac-address'] || u['active-mac-address'] || 'N/A',
+      uptime: u.uptime,
+      'bytes-in': u['bytes-in'],
+      'bytes-out': u['bytes-out']
+    }));
+
+  if (activeFromUsers.length > 0) {
+    return res.json(activeFromUsers);
+  }
+
   res.json([]);
 });
 
@@ -893,64 +1165,65 @@ app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
 });
 
 // FedaPay / Polling get_voucher.php endpoint for login.html (PUBLIC FOR CLIENTS)
+// SECURITE: Un voucher n'est retourné que si la vente existe déjà en base (créée par le webhook)
 app.get('/www/get_voucher.php', (req, res) => {
   const { reference } = req.query;
-  console.log(`[Polling get_voucher.php] Checking reference: ${reference}`);
+  console.log(`[get_voucher] Vérification référence: ${reference}`);
+
+  if (!reference || typeof reference !== 'string' || reference.length > 100) {
+    return res.status(400).json({ error: 'Référence manquante ou invalide' });
+  }
 
   const db = readDb();
-  if (!reference) {
-    return res.status(400).json({ error: 'Référence manquante' });
-  }
-
-  let sale = db.sales.find(s => s.reference === reference || s.id === reference);
+  // Cherche uniquement dans les ventes existantes (créées par le webhook FedaPay vérifié)
+  const sale = db.sales.find(s => s.reference === reference || s.id === reference);
 
   if (sale && sale.voucher) {
-    return res.json({ voucher: sale.voucher, plan: sale.plan });
+    return res.json({ voucher: sale.voucher, plan: sale.plan || '24h' });
   }
 
-  const voucherCode = generateVoucherCode('2MC-', 5);
-  const mikhmonComment = formatMikhmonComment(1, 'fedapay');
-
-  const newSale = {
-    id: `tx_${Date.now()}`,
-    reference: String(reference),
-    amount: 300,
-    plan: '24h',
-    profile: '300-F-24h',
-    voucher: voucherCode,
-    mode: 'Mobile Money',
-    date: new Date().toISOString(),
-    status: 'SUCCESS'
-  };
-
-  db.sales.unshift(newSale);
-  db.vouchers.unshift({
-    id: `v_${Date.now()}`,
-    code: voucherCode,
-    profile: '300-F-24h',
-    price: 300,
-    created: new Date().toISOString(),
-    status: 'USED',
-    comment: mikhmonComment
-  });
-  writeDb(db);
-
-  // Synchronize to MikroTik RB951Ui with 24h limit-uptime & Mikhmon comment
-  callRouterOS('/ip/hotspot/user', 'POST', {
-    name: voucherCode,
-    password: voucherCode,
-    profile: '300-F-24h',
-    'limit-uptime': '24h',
-    comment: mikhmonComment
-  });
-
-  res.json({ voucher: voucherCode, plan: '24h' });
+  // Ne PAS créer un voucher gratuit si la référence est inconnue
+  console.warn(`[get_voucher] Référence introuvable: ${reference} (IP: ${req.ip})`);
+  return res.status(404).json({ error: 'Paiement non trouvé. Veuillez patienter ou contacter le support.' });
 });
 
 // FedaPay Webhook (PUBLIC FOR FEDAPAY NOTIFICATIONS)
-app.post('/api/fedapay/webhook', (req, res) => {
-  console.log('[FedaPay Webhook] Event received:', JSON.stringify(req.body));
-  const event = req.body;
+// Vérification de la signature HMAC pour rejeter les faux webhooks
+app.post('/api/fedapay/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const webhookSecret = process.env.FEDAPAY_WEBHOOK_SECRET;
+  const signature = req.headers['x-fedapay-signature'];
+
+  // Vérifier la signature si un secret est configuré
+  if (webhookSecret && signature) {
+    const expectedSig = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(req.body)
+      .digest('hex');
+    const providedSig = signature.replace('sha256=', '');
+    try {
+      if (!crypto.timingSafeEqual(Buffer.from(expectedSig, 'hex'), Buffer.from(providedSig, 'hex'))) {
+        console.warn(`[Webhook] Signature invalide — rejet (IP: ${req.ip})`);
+        return res.status(401).send('Signature invalide');
+      }
+    } catch {
+      console.warn('[Webhook] Signature malformée');
+      return res.status(401).send('Signature malformée');
+    }
+  } else if (webhookSecret && !signature) {
+    console.warn(`[Webhook] Pas de signature fournie — rejet (IP: ${req.ip})`);
+    return res.status(401).send('Signature manquante');
+  }
+
+  let event;
+  try {
+    event = typeof req.body === 'string' || Buffer.isBuffer(req.body)
+      ? JSON.parse(req.body.toString())
+      : req.body;
+  } catch {
+    return res.status(400).send('JSON invalide');
+  }
+
+  console.log('[FedaPay Webhook] Événement reçu:', JSON.stringify(event));
   const transaction = event?.entity || event?.transaction || event?.data;
 
   if (transaction && (transaction.status === 'approved' || transaction.status === 'transferred')) {
@@ -1004,95 +1277,182 @@ app.post('/api/fedapay/webhook', (req, res) => {
   res.status(200).send('OK');
 });
 
-// Get Sales & Revenue (PROTECTED ADMIN)
+function parseMikhmonScript(script) {
+  if (!script) return null;
+  const name = String(script.name || '').trim();
+  const owner = String(script.owner || '').trim();
+  const comment = String(script.comment || '').trim();
+
+  if (!name) return null;
+
+  // Découpage par séparateur '-|-', '|', ou '-'
+  let parts = [];
+  if (name.includes('-|-')) {
+    parts = name.split('-|-').map(p => p.trim());
+  } else if (name.includes('|')) {
+    parts = name.split('|').map(p => p.trim());
+  } else {
+    parts = name.split('-').map(p => p.trim());
+  }
+
+  parts = parts.filter(Boolean);
+  if (parts.length < 3) return null;
+
+  // Format exact MikroTik Mikhmon:
+  // [0] 2026-07-22 | [1] 19:34:49 | [2] cusz3922 | [3] 200 | [4] 10.0.0.17 | [5] EA:8A:DD:42:08:2B | [6] 3d | [7] 200---12h | [8] vc-455-06.01.26-didier
+  let date = parts[0] || '';
+  let time = parts[1] || '';
+  let username = parts[2] || '';
+  let amountStr = parts[3] || '0';
+  let ip = parts[4] || '';
+  let mac = parts[5] || '';
+  let duration = parts[6] || '';
+  let profile = parts[7] || '';
+  let batchComment = parts.slice(8).join(' ') || comment;
+
+  // Si le premier champ n'est pas une date, réajuster
+  if (!/(\d{4}[-\/]\d{2}[-\/]\d{2}|\w{3}[-\/]\d{2}[-\/]\d{4}|\d{2}[-\/]\d{2}[-\/]\d{2,4})/.test(date)) {
+    username = parts[0];
+    amountStr = parts[1] || '0';
+    date = new Date().toISOString().slice(0, 10);
+    time = new Date().toISOString().slice(11, 19);
+  }
+
+  const numAmount = parseInt(String(amountStr).replace(/\D/g, '')) || 0;
+  const cleanUser = username ? username.trim() : name.slice(0, 15);
+
+  // Conversion de date MikroTik (mar/06/2026, 06/03/2026, ou 2026-07-22)
+  let dateStr = date;
+  const mikrotikDateMatch = date ? date.match(/([a-zA-Z]{3})\/(\d{2})\/(\d{4})/i) : null;
+  if (mikrotikDateMatch) {
+    const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
+    const m = months[mikrotikDateMatch[1].toLowerCase()] || '01';
+    dateStr = `${mikrotikDateMatch[3]}-${m}-${mikrotikDateMatch[2].padStart(2, '0')}`;
+  }
+
+  const timeClean = (time || '').replace(/^-/, '');
+  let isoDate = new Date().toISOString();
+  if (dateStr) {
+    const dObj = new Date(`${dateStr}T${timeClean || '00:00:00'}`);
+    if (!isNaN(dObj.getTime())) {
+      isoDate = dObj.toISOString();
+    }
+  }
+
+  const uniqueId = `script_${script['.id'] || cleanUser}_${date}_${time}`.replace(/[^a-zA-Z0-9_]/g, '_');
+
+  return {
+    id: uniqueId,
+    reference: uniqueId,
+    source: 'router_script',
+    date: isoDate,
+    username: cleanUser,
+    voucher: cleanUser,
+    amount: numAmount,
+    price: numAmount,
+    ip: ip ? ip.trim() : '',
+    mac: mac ? mac.trim() : '',
+    duration: duration ? duration.trim() : '',
+    profile: profile ? profile.trim() : '',
+    plan: profile ? profile.trim() : (duration ? duration.trim() : 'Hotspot'),
+    mode: 'Mikhmon Script',
+    status: 'SUCCESS',
+    comment: batchComment || comment || name
+  };
+}
+
+// Get Sales & Revenue (PROTECTED ADMIN - Stockage Local Instantané + Synchro Différentielle)
 app.get('/api/sales', requireAuth, (req, res) => {
   const db = readDb();
-  const totalRevenue = db.sales.reduce((sum, s) => sum + (s.amount || 0), 0);
-  res.json({
-    sales: db.sales,
+  const sales = db.sales || [];
+  const totalRevenue = sales.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
+
+  // Synchronisation différentielle en tâche de fond (récupération des nouvelles transactions uniquement)
+  callRouterOS('/system/script').then((result) => {
+    if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+      const dbFresh = readDb();
+      if (!dbFresh.sales) dbFresh.sales = [];
+      const existingIds = new Set(dbFresh.sales.map(s => s.id || s.reference));
+      let updated = false;
+
+      for (const script of result.data) {
+        const parsed = parseMikhmonScript(script);
+        if (parsed && !existingIds.has(parsed.id)) {
+          dbFresh.sales.unshift(parsed);
+          existingIds.add(parsed.id);
+          updated = true;
+        }
+      }
+
+      if (updated) {
+        writeDb(dbFresh);
+      }
+    }
+  }).catch(() => {});
+
+  return res.json({
+    sales,
     totalRevenue,
-    totalCount: db.sales.length
+    totalCount: sales.length
   });
 });
-
-// ============================================================
-// MIKHMON SCRIPT-BASED FINANCIAL TRACKING (RouterOS /system/script)
-// Each hotspot login creates a script entry with encoded financial data
-// Format: YYYY-MM-DD|-HH:MM:SS|-username|-amount|-ip|-mac|-duration|-profile|-comment
-// ============================================================
 
 // Read & parse Mikhmon login scripts from MikroTik /system/script
 app.get('/api/router/mikhmon-scripts', requireAuth, async (req, res) => {
   try {
-    const result = await callRouterOS('/system/script');
-    if (!result.success || !Array.isArray(result.data)) {
-      return res.json({ transactions: [], total: 0, revenue: 0 });
-    }
-
+    const db = readDb();
+    if (!db.sales) db.sales = [];
     const transactions = [];
+    const existingIds = new Set();
 
-    for (const script of result.data) {
-      const name = sanitizeString(script.name || '');
-      const owner = sanitizeString(script.owner || '');
-      const comment = sanitizeString(script.comment || '');
-
-      // Mikhmon scripts have comment="mikhmon" OR owner="mikhmon" OR name starts with YYYY-MM-DD
-      const isMikhmon = comment === 'mikhmon' || owner === 'mikhmon' || /^\d{4}[-\/]\d{2}[-\/]\d{2}/.test(name);
-      if (!isMikhmon) continue;
-
-      // Parse name: date-|-time-|-user-|-amount-|-ip-|-mac-|-duration-|-profile-|-comment
-      // Delimiter can be -|- or |- or -|-
-      const parts = name.split(/-?\|-?/);
-      if (parts.length < 6) continue;
-
-      const [date, time, username, amount, ip, mac, duration, profile, ...commentParts] = parts;
-      const scriptComment = commentParts.join('|-');
-
-      // Convert MikroTik date format (e.g. "mar/06/2026") or "2026-03-06"
-      let dateStr = date;
-      const mikrotikDateMatch = date.match(/(\w+)\/(\d+)\/(\d+)/);
-      if (mikrotikDateMatch) {
-        const months = {
-          jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-          jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
-        };
-        const m = months[mikrotikDateMatch[1].toLowerCase()] || '01';
-        dateStr = `${mikrotikDateMatch[3]}-${m}-${mikrotikDateMatch[2].padStart(2, '0')}`;
-      }
-
-      const parsedAmount = parseInt(amount) || 0;
-      const timeClean = (time || '').replace(/^-/, '');
-      let isoDate = new Date().toISOString();
-      if (dateStr && timeClean) {
-        const dObj = new Date(`${dateStr}T${timeClean}`);
-        if (!isNaN(dObj.getTime())) {
-          isoDate = dObj.toISOString();
+    // 1. Appel direct ou en tâche de fond des scripts du routeur
+    const result = await callRouterOS('/system/script');
+    if (result.success && Array.isArray(result.data)) {
+      let updated = false;
+      for (const script of result.data) {
+        const parsed = parseMikhmonScript(script);
+        if (parsed) {
+          transactions.push(parsed);
+          existingIds.add(parsed.id);
+          if (!db.sales.some(s => s.id === parsed.id)) {
+            db.sales.unshift(parsed);
+            updated = true;
+          }
         }
       }
-
-      transactions.push({
-        id: `script_${script['.id'] || name.slice(0, 20)}`,
-        source: 'router_script',
-        date: isoDate,
-        username: username?.trim() || '',
-        amount: parsedAmount,
-        ip: ip?.trim() || '',
-        mac: mac?.trim() || '',
-        duration: duration?.trim() || '',
-        profile: profile?.trim() || '',
-        comment: scriptComment?.trim() || '',
-        plan: profile?.trim() || duration?.trim() || ''
-      });
+      if (updated) writeDb(db);
     }
 
-    // Sort by date desc
-    transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const revenue = transactions.reduce((s, t) => s + t.amount, 0);
+    // 2. Fusionner avec la base de données locale
+    for (const s of db.sales) {
+      const sId = s.id || s.reference;
+      if (sId && !existingIds.has(sId)) {
+        transactions.push({
+          id: sId,
+          source: 'local_db',
+          date: s.date || new Date().toISOString(),
+          username: s.voucher || s.username || 'Inconnu',
+          amount: parseInt(s.amount) || parseInt(s.price) || 0,
+          ip: s.ip || '',
+          mac: s.mac || '',
+          duration: s.duration || '',
+          profile: s.profile || '',
+          comment: s.comment || '',
+          plan: s.plan || s.profile || 'Hotspot'
+        });
+        existingIds.add(sId);
+      }
+    }
 
-    res.json({ transactions, total: transactions.length, revenue });
+    transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const totalRevenue = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+    return res.json({ transactions, total: transactions.length, revenue: totalRevenue });
   } catch (err) {
     console.error('[Mikhmon Scripts] Error:', err.message);
-    res.json({ transactions: [], total: 0, revenue: 0 });
+    const db = readDb();
+    const localSales = db.sales || [];
+    const rev = localSales.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
+    res.json({ transactions: localSales, total: localSales.length, revenue: rev });
   }
 });
 
