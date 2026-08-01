@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   DollarSign, Search, Download, Smartphone, TrendingUp,
   Calendar, Filter, BarChart2, ChevronDown, ChevronUp,
-  Cpu, RefreshCw, Database
+  Cpu, RefreshCw, Database, Zap, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
@@ -27,6 +27,7 @@ interface SalesHistoryProps {
   sales: SaleTransaction[];
   totalRevenue: number;
   token?: string;
+  onRefresh?: () => void;
 }
 
 const PLAN_COLORS: Record<string, string> = {
@@ -40,7 +41,7 @@ const getPlanColor = (plan: string) => {
   return '#64748b';
 };
 
-export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue, token }) => {
+export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue, token, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [periodFilter, setPeriodFilter] = useState<'all' | '7d' | '30d' | '90d' | 'month'>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -52,11 +53,13 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
 
-  // Router script state (read-only)
+  // Router script state
   const [routerTxs, setRouterTxs] = useState<RouterScriptTx[]>([]);
   const [routerRevenue, setRouterRevenue] = useState(0);
   const [routerTotal, setRouterTotal] = useState(0);
   const [loadingScripts, setLoadingScripts] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Default source: 'router' = 320+ scripts from MikroTik, 'fedapay' = db.json sales
   const [activeSource, setActiveSource] = useState<'router' | 'fedapay'>('router');
@@ -66,29 +69,37 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
     'Authorization': `Bearer ${token || sessionStorage.getItem('mikhmon_token')}`
   };
 
-  const loadRouterScripts = async () => {
-    setLoadingScripts(true);
+  const loadRouterScripts = async (force = false) => {
+    if (force) setSyncing(true);
+    else setLoadingScripts(true);
+
     try {
+      const endpoint = force ? '/api/router/mikhmon-scripts?force=true' : '/api/router/mikhmon-scripts';
       const [scriptsRes, salesRes] = await Promise.all([
-        fetch('/api/router/mikhmon-scripts', { headers: authHeaders }),
-        fetch('/api/sales', { headers: authHeaders })
+        fetch(endpoint, { headers: authHeaders }),
+        fetch('/api/sales' + (force ? '?force=true' : ''), { headers: authHeaders })
       ]);
 
       let scriptTxs: RouterScriptTx[] = [];
+      let newCount = 0;
       if (scriptsRes.ok) {
         const data = await scriptsRes.json();
         scriptTxs = data.transactions || [];
+        newCount = data.newlyAddedCount || 0;
       }
 
       if (salesRes.ok) {
         const salesData = await salesRes.json();
-        const localSales: any[] = salesData.sales || [];
+        // Conserver uniquement les ventes non-script (ex: FedaPay)
+        const localSales: any[] = (salesData.sales || []).filter((s: any) =>
+          s.source === 'fedapay' || (s.mode && String(s.mode).toLowerCase().includes('fedapay'))
+        );
         const scriptUsernames = new Set(scriptTxs.map(t => t.username.toLowerCase()));
 
         for (const s of localSales) {
           const voucherKey = (s.voucher || '').toLowerCase();
           const refKey = (s.reference || '').toLowerCase();
-          if (!scriptUsernames.has(voucherKey) && !scriptUsernames.has(refKey)) {
+          if (voucherKey && !scriptUsernames.has(voucherKey) && !scriptUsernames.has(refKey)) {
             scriptTxs.push({
               id: s.id || `local_${s.reference}`,
               source: 'local_db',
@@ -112,8 +123,26 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
       setRouterTxs(scriptTxs);
       setRouterRevenue(totalRev);
       setRouterTotal(scriptTxs.length);
-    } catch (e) { console.warn('Failed to load router scripts:', e); }
+
+      if (force) {
+        setSyncStatus({
+          message: `Synchronisation réussie ! Cache remplacé par les ${scriptTxs.length} transaction(s) réelles actuellement sur le routeur.`,
+          type: 'success'
+        });
+        if (onRefresh) onRefresh();
+      }
+    } catch (e) {
+      console.warn('Failed to load router scripts:', e);
+      if (force) {
+        setSyncStatus({ message: 'Erreur lors de la connexion au routeur MikroTik.', type: 'error' });
+      }
+    }
     setLoadingScripts(false);
+    setSyncing(false);
+
+    if (force) {
+      setTimeout(() => setSyncStatus(null), 6000);
+    }
   };
 
   useEffect(() => { loadRouterScripts(); }, []);
@@ -238,38 +267,68 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
   return (
     <div className="space-y-4 sm:space-y-6">
 
-      {/* Source Toggle */}
+      {/* Source Toggle & Router Sync Action Bar */}
       <div className="glass-panel p-3.5 sm:p-4 rounded-2xl border border-slate-800 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BarChart2 className="w-4 h-4 text-indigo-400 shrink-0" />
-          <span className="text-xs sm:text-sm font-bold text-white">Source des données financières</span>
+        <div className="flex items-center justify-between sm:justify-start gap-2">
+          <div className="flex items-center gap-2">
+            <BarChart2 className="w-4 h-4 text-indigo-400 shrink-0" />
+            <span className="text-xs sm:text-sm font-bold text-white">Source des données financières</span>
+          </div>
         </div>
-        <div className="grid grid-cols-2 sm:flex gap-2">
-          <button onClick={() => setActiveSource('router')}
-            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
-              activeSource === 'router'
-                ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20'
-                : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-            }`}>
-            <Cpu className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Scripts Mikhmon ({routerTotal})</span>
-          </button>
-          <button onClick={() => setActiveSource('fedapay')}
-            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
-              activeSource === 'fedapay'
-                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/20'
-                : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-            }`}>
-            <Smartphone className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">FedaPay ({sales.length})</span>
-          </button>
-          <button onClick={loadRouterScripts} disabled={loadingScripts}
-            title="Actualiser"
-            className="hidden sm:flex p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors items-center justify-center">
-            <RefreshCw className={`w-4 h-4 ${loadingScripts ? 'animate-spin' : ''}`} />
+
+        <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center justify-end">
+          <div className="grid grid-cols-2 sm:flex gap-1.5 w-full sm:w-auto">
+            <button onClick={() => setActiveSource('router')}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                activeSource === 'router'
+                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+              }`}>
+              <Cpu className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Scripts Mikhmon ({routerTotal})</span>
+            </button>
+            <button onClick={() => setActiveSource('fedapay')}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                activeSource === 'fedapay'
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/20'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+              }`}>
+              <Smartphone className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">FedaPay ({sales.length})</span>
+            </button>
+          </div>
+
+          {/* Dedicated Router Sync Button */}
+          <button
+            onClick={() => loadRouterScripts(true)}
+            disabled={syncing || loadingScripts}
+            title="Synchroniser en direct les données du routeur MikroTik"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs transition-all shadow-md shadow-indigo-600/25 border border-indigo-400/30 active:scale-95 disabled:opacity-50 shrink-0"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing || loadingScripts ? 'animate-spin' : ''}`} />
+            <span>{syncing ? 'Synchronisation...' : 'Synchroniser avec le routeur'}</span>
           </button>
         </div>
       </div>
+
+      {/* Sync Status Toast/Banner */}
+      {syncStatus && (
+        <div className={`flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-medium border animate-in fade-in slide-in-from-top-2 duration-200 ${
+          syncStatus.type === 'success'
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+        }`}>
+          <div className="flex items-center gap-2">
+            {syncStatus.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            )}
+            <span className="font-semibold">{syncStatus.message}</span>
+          </div>
+          <button onClick={() => setSyncStatus(null)} className="text-slate-400 hover:text-white ml-2 text-sm font-bold">✕</button>
+        </div>
+      )}
 
       {/* Info banner */}
       <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-2xl bg-indigo-500/8 border border-indigo-500/20 text-xs text-indigo-300">

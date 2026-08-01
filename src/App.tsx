@@ -10,6 +10,8 @@ import { AdminLogin } from './components/AdminLogin';
 import { BlockingSpinner } from './components/BlockingSpinner';
 import { RouterStatus, HotspotUser, ActiveSession, SaleTransaction, VoucherItem } from './types';
 
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 export function App() {
   const [authToken, setAuthToken] = useState<string | null>(() => sessionStorage.getItem('mikhmon_token'));
   const [adminUser, setAdminUser] = useState<string | null>(() => sessionStorage.getItem('mikhmon_user'));
@@ -151,39 +153,41 @@ export function App() {
 
       {/* Main Content View Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 pb-24 lg:p-8 lg:pb-8">
-        {activeTab === 'dashboard' && (
-          <DashboardOverview
-            routerStatus={routerStatus}
-            users={users}
-            activeSessions={activeSessions}
-            sales={sales}
-            totalRevenue={totalRevenue}
-            onNavigate={(tab) => {
-              setActiveTab(tab);
-              fetchAllData(true, `Chargement de la section ${tab}...`);
-            }}
-          />
-        )}
+        <ErrorBoundary key={activeTab}>
+          {activeTab === 'dashboard' && (
+            <DashboardOverview
+              routerStatus={routerStatus}
+              users={users}
+              activeSessions={activeSessions}
+              sales={sales}
+              totalRevenue={totalRevenue}
+              onNavigate={(tab) => {
+                setActiveTab(tab);
+                fetchAllData(true, `Chargement de la section ${tab}...`);
+              }}
+            />
+          )}
 
-        {activeTab === 'users' && (
-          <UserManager users={users} onRefresh={handleManualRefresh} />
-        )}
+          {activeTab === 'users' && (
+            <UserManager users={users} onRefresh={handleManualRefresh} />
+          )}
 
-        {activeTab === 'active' && (
-          <ActiveSessions sessions={activeSessions} onRefresh={handleManualRefresh} />
-        )}
+          {activeTab === 'active' && (
+            <ActiveSessions sessions={activeSessions} onRefresh={handleManualRefresh} />
+          )}
 
-        {activeTab === 'vouchers' && (
-          <VoucherGenerator vouchers={vouchers} onRefresh={handleManualRefresh} />
-        )}
+          {activeTab === 'vouchers' && (
+            <VoucherGenerator vouchers={vouchers} onRefresh={handleManualRefresh} />
+          )}
 
-        {activeTab === 'sales' && (
-          <SalesHistory sales={sales} totalRevenue={totalRevenue} token={sessionStorage.getItem('mikhmon_token') || ''} />
-        )}
+          {activeTab === 'sales' && (
+            <SalesHistory sales={sales} totalRevenue={totalRevenue} token={sessionStorage.getItem('mikhmon_token') || ''} onRefresh={handleManualRefresh} />
+          )}
 
-        {activeTab === 'settings' && (
-          <RouterSettings onRefresh={handleManualRefresh} />
-        )}
+          {activeTab === 'settings' && (
+            <RouterSettings onRefresh={handleManualRefresh} />
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* Footer */}

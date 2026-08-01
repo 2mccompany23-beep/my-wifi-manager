@@ -7,8 +7,8 @@ export interface RouterStatus {
   freeMemory: number;
   totalMemory: number;
   uptime: string;
-  rxRate: number | string;
-  txRate: number | string;
+  rxRate?: number | string;
+  txRate?: number | string;
   pollingActive?: boolean;
   lastRouterPollSecAgo?: number;
   pendingCommandsCount?: number;

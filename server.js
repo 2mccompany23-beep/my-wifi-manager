@@ -890,9 +890,7 @@ app.get('/api/router/status', requireAuth, async (req, res) => {
       cpuLoad: parseInt(r['cpu-load'] || r['cpuload'] || '0'),
       freeMemory: Math.round(parseInt(r['free-memory'] || r['freememory'] || '0') / 1024 / 1024),
       totalMemory: Math.round(parseInt(r['total-memory'] || r['totalmemory'] || '0') / 1024 / 1024),
-      uptime: r['uptime'] || '0s',
-      rxRate: 0,
-      txRate: 0
+      uptime: r['uptime'] || '0s'
     });
   }
 
@@ -905,9 +903,7 @@ app.get('/api/router/status', requireAuth, async (req, res) => {
       cpuLoad: 5,
       freeMemory: 64,
       totalMemory: 128,
-      uptime: 'En ligne via Polling',
-      rxRate: 0,
-      txRate: 0
+      uptime: 'En ligne via Polling'
     });
   }
 
@@ -920,8 +916,6 @@ app.get('/api/router/status', requireAuth, async (req, res) => {
     freeMemory: 0,
     totalMemory: 0,
     uptime: 'Déconnecté',
-    rxRate: 0,
-    txRate: 0,
     error: `Impossible de joindre le routeur MikroTik à ${routerIp}:${routerPort}`
   });
 });
@@ -1361,8 +1355,23 @@ function parseMikhmonScript(script) {
   };
 }
 
+// Helper to clear script cache for forced router sync
+function clearScriptCache() {
+  for (const k of Object.keys(apiCache.data)) {
+    if (k.startsWith('/system/script')) {
+      delete apiCache.data[k];
+      delete apiCache.timestamp[k];
+    }
+  }
+}
+
 // Get Sales & Revenue (PROTECTED ADMIN - Stockage Local Instantané + Synchro Différentielle)
 app.get('/api/sales', requireAuth, (req, res) => {
+  const isForce = req.query.force === 'true' || req.query.refresh === 'true' || req.query.sync === 'true';
+  if (isForce) {
+    clearScriptCache();
+  }
+
   const db = readDb();
   const sales = db.sales || [];
   const totalRevenue = sales.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
@@ -1397,62 +1406,82 @@ app.get('/api/sales', requireAuth, (req, res) => {
   });
 });
 
+// Helper for parsing and syncing router scripts
+async function fetchAndSyncRouterScripts(force = false) {
+  if (force) {
+    clearScriptCache();
+  }
+  const db = readDb();
+  if (!db.sales) db.sales = [];
+
+  // 1. Appel direct ou via Polling des scripts du routeur
+  const result = await callRouterOS('/system/script');
+  if (result.success && Array.isArray(result.data)) {
+    const currentRouterTxs = [];
+    const currentScriptIds = new Set();
+
+    for (const script of result.data) {
+      const parsed = parseMikhmonScript(script);
+      if (parsed) {
+        currentRouterTxs.push(parsed);
+        currentScriptIds.add(parsed.id);
+      }
+    }
+
+    // Purger de db.sales les anciens scripts du routeur qui ont été supprimés (ex: via Winbox)
+    // On conserve uniquement les ventes d'autres sources (ex: FedaPay webhooks)
+    const nonRouterSales = db.sales.filter(s =>
+      s.source !== 'router_script' && !(s.id && String(s.id).startsWith('script_'))
+    );
+
+    db.sales = [...currentRouterTxs, ...nonRouterSales];
+    writeDb(db);
+
+    currentRouterTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const totalRevenue = currentRouterTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    return {
+      transactions: currentRouterTxs,
+      total: currentRouterTxs.length,
+      revenue: totalRevenue,
+      newlyAddedCount: currentRouterTxs.length,
+      routerOnline: true
+    };
+  }
+
+  // Fallback si le routeur est hors-ligne: renvoyer ce qu'on a en base locale
+  const localSales = db.sales || [];
+  const scriptTxs = localSales
+    .filter(s => s.source === 'router_script' || (s.id && String(s.id).startsWith('script_')))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const rev = scriptTxs.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
+  return { transactions: scriptTxs, total: scriptTxs.length, revenue: rev, newlyAddedCount: 0, routerOnline: false };
+}
+
 // Read & parse Mikhmon login scripts from MikroTik /system/script
 app.get('/api/router/mikhmon-scripts', requireAuth, async (req, res) => {
   try {
-    const db = readDb();
-    if (!db.sales) db.sales = [];
-    const transactions = [];
-    const existingIds = new Set();
-
-    // 1. Appel direct ou en tâche de fond des scripts du routeur
-    const result = await callRouterOS('/system/script');
-    if (result.success && Array.isArray(result.data)) {
-      let updated = false;
-      for (const script of result.data) {
-        const parsed = parseMikhmonScript(script);
-        if (parsed) {
-          transactions.push(parsed);
-          existingIds.add(parsed.id);
-          if (!db.sales.some(s => s.id === parsed.id)) {
-            db.sales.unshift(parsed);
-            updated = true;
-          }
-        }
-      }
-      if (updated) writeDb(db);
-    }
-
-    // 2. Fusionner avec la base de données locale
-    for (const s of db.sales) {
-      const sId = s.id || s.reference;
-      if (sId && !existingIds.has(sId)) {
-        transactions.push({
-          id: sId,
-          source: 'local_db',
-          date: s.date || new Date().toISOString(),
-          username: s.voucher || s.username || 'Inconnu',
-          amount: parseInt(s.amount) || parseInt(s.price) || 0,
-          ip: s.ip || '',
-          mac: s.mac || '',
-          duration: s.duration || '',
-          profile: s.profile || '',
-          comment: s.comment || '',
-          plan: s.plan || s.profile || 'Hotspot'
-        });
-        existingIds.add(sId);
-      }
-    }
-
-    transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const totalRevenue = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
-    return res.json({ transactions, total: transactions.length, revenue: totalRevenue });
+    const isForce = req.query.force === 'true' || req.query.refresh === 'true' || req.query.sync === 'true';
+    const data = await fetchAndSyncRouterScripts(isForce);
+    return res.json(data);
   } catch (err) {
     console.error('[Mikhmon Scripts] Error:', err.message);
     const db = readDb();
     const localSales = db.sales || [];
     const rev = localSales.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
-    res.json({ transactions: localSales, total: localSales.length, revenue: rev });
+    res.json({ transactions: localSales, total: localSales.length, revenue: rev, newlyAddedCount: 0, routerOnline: false });
+  }
+});
+
+// Explicit Sync endpoint for router sales data
+app.post('/api/router/mikhmon-scripts/sync', requireAuth, async (req, res) => {
+  try {
+    const data = await fetchAndSyncRouterScripts(true);
+    return res.json({ success: true, message: 'Synchronisation effectuée avec succès', ...data });
+  } catch (err) {
+    console.error('[Sync Router Scripts] Error:', err.message);
+    res.status(500).json({ error: 'Erreur lors de la synchronisation avec le routeur: ' + err.message });
   }
 });
 

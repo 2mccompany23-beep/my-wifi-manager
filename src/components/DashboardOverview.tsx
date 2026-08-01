@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Cpu, HardDrive, Clock, DollarSign, Users, Zap, TrendingUp, RefreshCw, ShoppingCart, ArrowUpRight, ChevronRight, Banknote, WifiOff } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import React from 'react';
+import { Cpu, HardDrive, Clock, Users, Zap, TrendingUp, ShoppingCart, ArrowUpRight, ChevronRight, Banknote, WifiOff, KeyRound } from 'lucide-react';
 import { RouterStatus, HotspotUser, ActiveSession, SaleTransaction } from '../types';
 
 interface DashboardOverviewProps {
@@ -20,35 +19,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   totalRevenue,
   onNavigate
 }) => {
-  const [trafficData, setTrafficData] = useState<{ time: string; rx: number; tx: number }[]>([]);
-
-  useEffect(() => {
-    // Zero initial traffic when offline, or real rates when online
-    const isOnline = routerStatus?.online;
-    const initial = Array.from({ length: 12 }).map((_, i) => ({
-      time: `${i * 5}s`,
-      rx: isOnline ? Number(routerStatus?.rxRate || 0) : 0,
-      tx: isOnline ? Number(routerStatus?.txRate || 0) : 0
-    }));
-    setTrafficData(initial);
-
-    if (!isOnline) return;
-
-    const interval = setInterval(() => {
-      setTrafficData((prev) => {
-        const nextTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        const newPoint = {
-          time: nextTime,
-          rx: Number(routerStatus?.rxRate || 0),
-          tx: Number(routerStatus?.txRate || 0)
-        };
-        return [...prev.slice(1), newPoint];
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [routerStatus]);
-
   return (
     <div className="space-y-6">
       
@@ -154,103 +124,120 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
       </div>
 
-      {/* Traffic Graph & Router Gauges */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Bandwidth Chart */}
-        <div className="lg:col-span-2 glass-panel p-6 rounded-2xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <span>Bande Passante (Mbps)</span>
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping" />
-              </h3>
-              <p className="text-xs text-slate-500">ether1 / wlan1</p>
-            </div>
-            <div className="flex items-center gap-4 text-xs font-medium">
-              <span className="flex items-center gap-1.5 text-indigo-400"><span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />RX</span>
-              <span className="flex items-center gap-1.5 text-emerald-400"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />TX</span>
-            </div>
+      {/* Router Resources & Quick Actions Panel */}
+      <div className="glass-panel p-6 rounded-2xl space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Cpu className="w-5 h-5 text-indigo-400" />
+              <span>Ressources & État du Routeur</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              MikroTik RouterOS {routerStatus?.boardName || 'RB951Ui-2HnD'}
+            </p>
           </div>
-
-          <div className="h-64 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trafficData}>
-                <defs>
-                  <linearGradient id="colorRx" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorTx" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="time" stroke="#64748b" fontSize={11} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={11} tickLine={false} unit="M" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                  itemStyle={{ color: '#fff', fontSize: '12px' }}
-                />
-                <Area type="monotone" dataKey="rx" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorRx)" name="RX Mbps" />
-                <Area type="monotone" dataKey="tx" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorTx)" name="TX Mbps" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+            <span className={`w-2 h-2 rounded-full ${routerStatus?.online ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
+            <span className="font-semibold text-slate-200">{routerStatus?.online ? 'Connecté' : 'Hors ligne'}</span>
           </div>
         </div>
 
-        {/* Router Resources */}
-        <div className="glass-panel p-6 rounded-2xl space-y-5">
-          <h3 className="text-sm font-bold text-white">Ressources Routeur</h3>
-
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs font-semibold">
-              <span className="text-slate-300 flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5 text-indigo-400" />CPU</span>
-              <span className="text-indigo-400">{routerStatus?.cpuLoad || 0}%</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Gauges Column */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-semibold">
+                <span className="text-slate-300 flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Charge Processeur (CPU)</span>
+                </span>
+                <span className="text-indigo-400 font-bold">{routerStatus?.cpuLoad || 0}%</span>
+              </div>
+              <div className="w-full h-3 bg-slate-800/80 rounded-full overflow-hidden p-0.5 border border-slate-700/50">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
+                  style={{ width: `${routerStatus?.cpuLoad || 0}%` }}
+                />
+              </div>
             </div>
-            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500" style={{ width: `${routerStatus?.cpuLoad || 0}%` }} />
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-semibold">
+                <span className="text-slate-300 flex items-center gap-1.5">
+                  <HardDrive className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Mémoire RAM Disponible</span>
+                </span>
+                <span className="text-emerald-400 font-bold">{routerStatus?.freeMemory || 0} / {routerStatus?.totalMemory || 128} MB</span>
+              </div>
+              <div className="w-full h-3 bg-slate-800/80 rounded-full overflow-hidden p-0.5 border border-slate-700/50">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.round(((routerStatus?.freeMemory || 0) / (routerStatus?.totalMemory || 128)) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 shrink-0 border border-amber-500/20">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Temps de Fonctionnement (Uptime)</div>
+                <div className="text-sm font-extrabold text-slate-200">{routerStatus?.uptime || '—'}</div>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs font-semibold">
-              <span className="text-slate-300 flex items-center gap-1.5"><HardDrive className="w-3.5 h-3.5 text-emerald-400" />RAM</span>
-              <span className="text-emerald-400">{routerStatus?.freeMemory || 0} / {routerStatus?.totalMemory || 128} MB</span>
-            </div>
-            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
-                style={{ width: `${Math.round(((routerStatus?.freeMemory || 0) / (routerStatus?.totalMemory || 128)) * 100)}%` }} />
+          {/* Quick Actions Column */}
+          <div className="flex flex-col justify-between space-y-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800/60">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Raccourcis de Gestion Rapide</h4>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                onClick={() => onNavigate('vouchers')}
+                className="py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center justify-between shadow-lg shadow-indigo-600/20"
+              >
+                <div className="flex items-center gap-2">
+                  <ArrowUpRight className="w-4 h-4" />
+                  <span>Générer Tickets</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-indigo-300" />
+              </button>
+
+              <button
+                onClick={() => onNavigate('users')}
+                className="py-3 px-4 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 font-semibold text-xs border border-purple-500/30 transition-colors flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-purple-400" />
+                  <span>Comptes Clients</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-purple-400" />
+              </button>
+
+              <button
+                onClick={() => onNavigate('active')}
+                className="py-3 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 font-semibold text-xs border border-emerald-500/30 transition-colors flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                  <span>Sessions Actives</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-emerald-400" />
+              </button>
+
+              <button
+                onClick={() => onNavigate('sales')}
+                className="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors flex items-center justify-between border border-slate-700"
+              >
+                <div className="flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-slate-400" />
+                  <span>Bilan Financier</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
             </div>
           </div>
-
-          <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
-              <Clock className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Uptime</div>
-              <div className="text-sm font-bold text-slate-200">{routerStatus?.uptime || '—'}</div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <button
-              onClick={() => onNavigate('vouchers')}
-              className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20"
-            >
-              <span>Générer des Tickets</span>
-              <ArrowUpRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => onNavigate('active')}
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors flex items-center justify-center gap-2 border border-slate-700"
-            >
-              <span>Sessions Actives</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
         </div>
 
       </div>
