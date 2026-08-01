@@ -9,6 +9,10 @@ export interface RouterStatus {
   uptime: string;
   rxRate: number | string;
   txRate: number | string;
+  pollingActive?: boolean;
+  lastRouterPollSecAgo?: number;
+  pendingCommandsCount?: number;
+  mode?: string;
 }
 
 export interface HotspotUser {

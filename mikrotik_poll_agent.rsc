@@ -1,8 +1,8 @@
 # ==============================================================================
 # Script MikroTik RouterOS v7 : AlwaysData Polling Agent (Option 2 - CGNAT)
 # ==============================================================================
-:local serverUrl "https://2mc.alwaysdata.net/api/poll"
-:local resultUrl "https://2mc.alwaysdata.net/api/poll/result"
+:local serverUrl "https://2mc.alwaysdata.net/api/poll?token=mcwifi_secret_token_2026"
+:local resultUrl "https://2mc.alwaysdata.net/api/poll/result?token=mcwifi_secret_token_2026"
 :local authToken "mcwifi_secret_token_2026"
 
 :do {

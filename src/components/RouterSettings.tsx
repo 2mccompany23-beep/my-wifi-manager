@@ -21,6 +21,7 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [pollDiag, setPollDiag] = useState<{ pollingActive: boolean; lastPollSecAgo: number | null; pendingQueueSize: number } | null>(null);
 
   useEffect(() => {
     const token = sessionStorage.getItem('mikhmon_token');
@@ -30,6 +31,19 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
       .then((res) => res.json())
       .then((data) => setSettings(data))
       .catch((err) => console.error('Failed to load settings:', err));
+
+    const checkPollStatus = () => {
+      fetch('/api/poll/status', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then((res) => res.json())
+        .then((data) => setPollDiag(data))
+        .catch(() => {});
+    };
+
+    checkPollStatus();
+    const interval = setInterval(checkPollStatus, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -97,6 +111,41 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
               <span>Paramètres enregistrés !</span>
             </div>
           )}
+        </div>
+
+        {/* Live Polling Status Banner */}
+        <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs transition-all ${
+          pollDiag?.pollingActive
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+            : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full shrink-0 ${pollDiag?.pollingActive ? 'bg-emerald-400 animate-ping' : 'bg-amber-400 animate-pulse'}`}></div>
+            <div>
+              <div className="font-bold text-sm text-white">
+                {pollDiag?.pollingActive ? '🟢 Polling Inverse Actif & Connecté' : '🟡 Polling Inactif (En attente du routeur)'}
+              </div>
+              <div className="text-[11px] opacity-80 mt-0.5">
+                {pollDiag?.pollingActive
+                  ? `Le routeur MikroTik communique en direct avec AlwaysData. Dernier signal reçu il y a ${pollDiag.lastPollSecAgo ?? 0}s.`
+                  : 'Le serveur AlwaysData attend que votre script MikroTik exécute sa première interrogation HTTP GET vers /api/poll.'}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 text-[11px] font-mono shrink-0 bg-slate-950/60 px-3 py-2 rounded-lg border border-slate-800">
+            <div>
+              <span className="text-slate-400">File d'attente : </span>
+              <span className="font-bold text-white">{pollDiag?.pendingQueueSize ?? 0} cmd</span>
+            </div>
+            <span className="text-slate-700">|</span>
+            <div>
+              <span className="text-slate-400">Signal : </span>
+              <span className="font-bold text-emerald-400">
+                {pollDiag?.lastPollSecAgo !== null && pollDiag?.lastPollSecAgo !== undefined ? `${pollDiag.lastPollSecAgo}s` : 'Aucun'}
+              </span>
+            </div>
+          </div>
         </div>
 
         <form onSubmit={handleSave} className="space-y-6 text-xs">

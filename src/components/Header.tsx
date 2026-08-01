@@ -63,15 +63,20 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
             </div>
           </div>
 
-          {routerStatus?.online ? (
+          {routerStatus?.pollingActive ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold" title="Le routeur MikroTik interroge AlwaysData en direct">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span>Polling Actif ({routerStatus.lastRouterPollSecAgo !== null && routerStatus.lastRouterPollSecAgo !== undefined ? `Signal ${routerStatus.lastRouterPollSecAgo}s` : 'En ligne'})</span>
+            </div>
+          ) : routerStatus?.online ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
               <span>MikroTik Connecté</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 font-medium">
-              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-              <span>Non Connecté</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-medium" title="En attente de la première interrogation du script RouterOS">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              <span>Polling Inactif (En attente routeur)</span>
             </div>
           )}
 
@@ -108,12 +113,16 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
         <div className="flex items-center gap-2 lg:hidden">
           {/* Quick status dot */}
           <div className={`px-2.5 py-1 rounded-full border text-[11px] font-semibold flex items-center gap-1.5 ${
-            routerStatus?.online
+            routerStatus?.pollingActive
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+              : routerStatus?.online
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+              : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
           }`}>
-            <span className={`w-2 h-2 rounded-full ${routerStatus?.online ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`}></span>
-            <span className="hidden xs:inline">{routerStatus?.online ? 'Connecté' : 'Déconnecté'}</span>
+            <span className={`w-2 h-2 rounded-full ${routerStatus?.pollingActive ? 'bg-emerald-400 animate-ping' : routerStatus?.online ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`}></span>
+            <span className="hidden xs:inline">
+              {routerStatus?.pollingActive ? `Polling (${routerStatus.lastRouterPollSecAgo ?? 0}s)` : routerStatus?.online ? 'Connecté' : 'En attente Polling'}
+            </span>
           </div>
 
           <button
