@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>@yield('title', __('Ori Ola OBS Photography'))</title>
+    <meta name="description" content="@yield('description', __('Ori Ola OBS - Photographe polyvalent spécialisé en sport, événementiel, studio, nature et voyage.'))">
+
+    <!-- Preconnect pour améliorer les performances de chargement -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+
+    <!-- Tailwind CSS (CDN optimisé) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Polices avec chargement asynchrone -->
+    <link rel="preload" as="style"
+        href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@300;400;600&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@300;400;600&display=swap"
+        media="print" onload="this.media='all'">
+    <noscript>
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@300;400;600&display=swap">
+    </noscript>
+
+    <style>
+        /* === STYLES CRITIQUES (First Paint) === */
+        :root {
+            --black-deep: #050505;
+            --neon-electric: #00D4FF;
+            --vibrant-pink: #FF00E5;
+            --pure-white: #FFFFFF;
+        }
+
+        /* Reset et base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--black-deep);
+            color: var(--pure-white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .font-oswald {
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+        }
+
+        /* Loader minimal */
+        #loader {
+            position: fixed;
+            inset: 0;
+            background: var(--black-deep);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Navigation de base - TRANSPARENTE au départ */
+        #navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background-color: transparent; /* ← TRANSPARENT au début */
+            backdrop-filter: blur(0px);    /* ← Pas de flou au début */
+            transition: all 0.3s ease;
+        }
+
+        /* Classe ajoutée par JavaScript au scroll */
+        #navbar.scrolled {
+            background-color: rgba(5, 5, 5, 0.95);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Protection simplifiée */
+        body {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        input,
+        textarea {
+            user-select: text !important;
+        }
+
+        /* Cache le contenu pendant le chargement */
+        [data-loaded="false"] {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        [data-loaded="true"] {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease;
+        }
+
+        #mobile-menu {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 5, 5, 0.98);
+            backdrop-filter: blur(10px);
+            z-index: 40;
+            display: none;
+            flex-direction: column;
+            justify-content: start;
+            align-items: center;
+        }
+
+        .mobile-link {
+            display: block;
+            width: 90%;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+    </style>
+    <!-- Styles non-critiques (chargés après) -->
+    <style>
+        /* === STYLES NON-CRITIQUES === */
+        .badge-base {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 99px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            backdrop-filter: blur(4px);
+        }
+
+        .badge-sport {
+            background: rgba(0, 212, 255, 0.15);
+            color: #00D4FF;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .badge-event {
+            background: rgba(255, 0, 229, 0.15);
+            color: #FF00E5;
+            border: 1px solid rgba(255, 0, 229, 0.3);
+        }
+
+        .badge-nature {
+            background: rgba(0, 255, 136, 0.15);
+            color: #00FF88;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        /* Animation du menu hamburger */
+        .menu-toggle {
+            width: 30px;
+            height: 20px;
+            position: relative;
+            cursor: pointer;
+            z-index: 60;
+        }
+
+        .menu-toggle span {
+            display: block;
+            position: absolute;
+            height: 2px;
+            width: 100%;
+            background: white;
+            left: 0;
+            transition: .25s ease-in-out;
+        }
+
+        .menu-toggle span:nth-child(1) {
+            top: 0px;
+        }
+
+        .menu-toggle span:nth-child(2) {
+            top: 9px;
+        }
+
+        .menu-toggle span:nth-child(3) {
+            top: 18px;
+        }
+
+        .menu-toggle.open span:nth-child(1) {
+            transform: rotate(45deg);
+            top: 9px;
+        }
+
+        .menu-toggle.open span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .menu-toggle.open span:nth-child(3) {
+            transform: rotate(-45deg);
+            top: 9px;
+        }
+
+        /* Grid lines (optionnel - peut être lourd) */
+        .grid-line {
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.3;
+        }
+
+        /* Effets de texte */
+        .neon-text {
+            text-shadow: 0 0 5px rgba(0, 212, 255, 0.3);
+        }
+
+        /* Portfolio grid responsive */
+        .portfolio-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: 1fr;
+        }
+
+        @media (min-width: 640px) {
+            .portfolio-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .portfolio-grid {
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            }
+        }
+    </style>
+    <!-- Protection légère non-bloquante -->
+    <script>
+        // Version légère de la protection
+        document.addEventListener('DOMContentLoaded', function() {
+            // Empêcher le clic droit sur les images seulement
+            document.addEventListener('contextmenu', function(e) {
+                if (e.target.tagName === 'IMG') {
+                    e.preventDefault();
+                }
+            }, {
+                passive: false
+            });
+
+            // Empêcher seulement Ctrl+U (code source)
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+                    e.preventDefault();
+                }
+            }, {
+                passive: false
+            });
+        });
+    </script>
+
+    @stack('styles')
+</head>
+
+<body data-loaded="false">
+    <!-- Loader minimal -->
+    <div id="loader">
+        <div class="font-oswald text-xl text-[#00D4FF]">
+            ORI OLA OBS
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 py-3 px-4 md:px-8 lg:px-12 transition-all duration-300"
+        id="navbar">
+        <div class="container mx-auto flex justify-between items-center">
+            <!-- Logo -->
+            <a href="{{ route('home') }}"
+                class="font-oswald tracking-tighter group z-50 relative inline-flex flex-col items-start">
+                <!-- Nom principal -->
+                <div class="flex items-baseline leading-none">
+                    <span
+                        class="text-white group-hover:text-gray-200 transition-colors text-xl md:text-2xl lg:text-3xl">
+                        {{ __('Ori Ola') }}
+                    </span>
+                    <span class="text-white neon-text ml-1 text-xl md:text-2xl lg:text-3xl">
+                        {{ __('Johson') }}
+                    </span>
+                </div>
+
+                <!-- Sous-titre de métier -->
+                <span
+                    class="text-[#00D4FF] neon-text text-[11px] md:text-xs lg:text-sm uppercase font-normal not-italic tracking-widest mt-[-2px] opacity-80"
+                    style="letter-spacing: normal;">
+                    {{ __('ORI OLA OBS Photography') }}
+                </span>
+            </a>
+
+            <!-- Desktop Nav -->
+            <div
+                class="hidden lg:flex items-center space-x-6 md:space-x-8 font-oswald text-xs md:text-sm uppercase tracking-widest">
+                <a href="{{ route('home') }}" class="hover:text-[#00D4FF] transition-colors relative group py-2">
+                    {{ __('ACCUEIL') }}
+                    <span
+                        class="absolute bottom-0 left-0 w-0 h-[1px] bg-[#00D4FF] group-hover:w-full transition-all duration-300"></span>
+                </a>
+                <a href="{{ route('portfolio') }}" class="hover:text-[#00D4FF] transition-colors relative group py-2">
+                    {{ __('PORTFOLIO') }}
+                    <span
+                        class="absolute bottom-0 left-0 w-0 h-[1px] bg-[#00D4FF] group-hover:w-full transition-all duration-300"></span>
+                </a>
+                <a href="{{ route('about') }}" class="hover:text-[#FF00E5] transition-colors relative group py-2">
+                    {{ __('À PROPOS') }}
+                    <span
+                        class="absolute bottom-0 left-0 w-0 h-[1px] bg-[#FF00E5] group-hover:w-full transition-all duration-300"></span>
+                </a>
+                <a href="{{ route('contact') }}" class="hover:text-[#00D4FF] transition-colors relative group py-2">
+                    {{ __('CONTACT') }}
+                    <span
+                        class="absolute bottom-0 left-0 w-0 h-[1px] bg-[#00D4FF] group-hover:w-full transition-all duration-300"></span>
+                </a>
+                <a href="{{ route('contact') }}"
+                    class="px-4 md:px-6 py-2 border border-white/20 hover:bg-white hover:text-black transition-all duration-300 text-xs md:text-sm ml-2">
+                    {{ __('PROJET SUR MESURE') }}
+                </a>
+            </div>
+
+            <!-- Mobile Toggle -->
+            <div class="lg:hidden">
+                <div class="menu-toggle" id="mobile-menu-toggle" aria-label="{{ __('Menu') }}">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Overlay -->
+        <div id="mobile-menu"
+            class="lg:hidden fixed inset-0 bg-black hidden flex-col justify-center items-center transform transition-transform duration-300">
+            <div
+                class="flex flex-col space-y-8 bg-black text-center font-oswald text-2xl uppercase tracking-widest w-full p-8">
+                <a href="{{ route('home') }}"
+                    class="mobile-link hover:text-[#00D4FF] transition-colors border-b border-white/10 pb-4">{{ __('ACCUEIL') }}</a>
+                <a href="{{ route('portfolio') }}"
+                    class="mobile-link hover:text-[#00D4FF] transition-colors border-b border-white/10 pb-4">{{ __('PORTFOLIO') }}</a>
+                <a href="{{ route('about') }}"
+                    class="mobile-link hover:text-[#FF00E5] transition-colors border-b border-white/10 pb-4">{{ __('À PROPOS') }}</a>
+                <a href="{{ route('contact') }}"
+                    class="mobile-link hover:text-[#00D4FF] transition-colors border-b border-white/10 pb-4">{{ __('CONTACT') }}</a>
+                <a href="{{ route('contact') }}"
+                    class="mobile-link px-8 py-4 mt-4 border border-white/20 hover:bg-white hover:text-black transition-all">{{ __('PROJET SUR MESURE') }}</a>
+            </div>
+        </div>
+    </nav>
+
+    <main id="main-content">
+        @yield('content')
+    </main>
+
+    @include('partials.footer')
+
+    <!-- Scripts non-critiques chargés après le contenu -->
+    <script>
+        // === GESTION DU CHARGEMENT ===
+        window.addEventListener('load', function() {
+            // Cacher le loader
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    document.body.setAttribute('data-loaded', 'true');
+                }, 300);
+            } else {
+                document.body.setAttribute('data-loaded', 'true');
+            }
+
+            // Initialiser les composants de base
+            initNavigation();
+        });
+
+        // === NAVIGATION SIMPLIFIÉE ===
+        function initNavigation() {
+            const menuToggle = document.getElementById('mobile-menu-toggle');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const navbar = document.getElementById('navbar');
+
+            // Gestion du Menu Mobile
+            if (menuToggle && mobileMenu) {
+                const toggleMenu = (open) => {
+                    if (open) {
+                        mobileMenu.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                        menuToggle.classList.add('open');
+                        menuToggle.setAttribute('aria-expanded', 'true');
+                    } else {
+                        mobileMenu.style.display = 'none';
+                        document.body.style.overflow = 'auto';
+                        menuToggle.classList.remove('open');
+                        menuToggle.setAttribute('aria-expanded', 'false');
+                    }
+                };
+
+                menuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isVisible = mobileMenu.style.display === 'flex';
+                    toggleMenu(!isVisible);
+                });
+
+                // Fermer au clic sur les liens
+                document.querySelectorAll('.mobile-link').forEach(link => {
+                    link.addEventListener('click', () => toggleMenu(false));
+                });
+
+                // Fermer au clic en dehors
+                document.addEventListener('click', (e) => {
+                    if (mobileMenu.style.display === 'flex' &&
+                        !mobileMenu.contains(e.target) &&
+                        !menuToggle.contains(e.target)) {
+                        toggleMenu(false);
+                    }
+                });
+            }
+
+            // Gestion du Scroll Navbar - TRANSPARENT → NOIR
+            if (navbar) {
+                window.addEventListener('scroll', () => {
+                    if (window.scrollY > 50) { // Seuil à 50px
+                        navbar.classList.add('scrolled');
+                    } else {
+                        navbar.classList.remove('scrolled');
+                    }
+                }, {
+                    passive: true
+                });
+                
+                // Vérifier la position au chargement
+                if (window.scrollY > 50) {
+                    navbar.classList.add('scrolled');
+                }
+            }
+        }
+
+        // === CHARGEMENT INTELLIGENT DE GSAP ===
+        let gsapLoadingStarted = false;
+
+        function loadGSAP() {
+            if (gsapLoadingStarted) return;
+            if (!document.querySelector('.gsap-reveal') && !document.querySelector('.animate-on-scroll')) return;
+
+            gsapLoadingStarted = true;
+
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js';
+            script.onload = function() {
+                const scrollTrigger = document.createElement('script');
+                scrollTrigger.src = 'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js';
+                scrollTrigger.onload = initAnimations;
+                document.body.appendChild(scrollTrigger);
+            };
+            document.body.appendChild(script);
+        }
+
+        function initAnimations() {
+            if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+                gsap.registerPlugin(ScrollTrigger);
+
+                const reveals = document.querySelectorAll('.gsap-reveal');
+                reveals.forEach(el => {
+                    gsap.fromTo(el, {
+                        y: 30,
+                        opacity: 0
+                    }, {
+                        y: 0,
+                        opacity: 1,
+                        duration: 0.6,
+                        scrollTrigger: {
+                            trigger: el,
+                            start: "top 85%",
+                            toggleActions: "play none none none"
+                        }
+                    });
+                });
+            }
+        }
+
+        setTimeout(loadGSAP, 1000);
+        window.addEventListener('scroll', loadGSAP, {
+            once: true,
+            passive: true
+        });
+    </script>
+
+    @stack('scripts')
+</body>
+
+</html>

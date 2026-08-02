@@ -1,0 +1,56 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PageController;
+use App\Http\Controllers\PortfolioController;
+use App\Http\Controllers\Admin\EventController;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "web" middleware group. Make something great!
+|
+*/
+
+Route::get('/', [PageController::class, 'home'])->name('home');
+Route::get('/portfolio', [PortfolioController::class, 'index'])->name('portfolio');
+Route::get('/portfolio/{slug}', [PortfolioController::class, 'show'])->name('event.detail');
+Route::get('/a-propos', [PageController::class, 'about'])->name('about');
+Route::get('/contact', [PageController::class, 'contact'])->name('contact');
+Route::get('/plan-du-site', [PageController::class, 'sitemap'])->name('sitemap');
+
+Route::get('/mentions-legales', [PageController::class, 'legalMentions'])->name('legal.mentions');
+Route::get('/confidentialite', [PageController::class, 'legalPrivacy'])->name('legal.privacy');
+Route::get('/conditions-utilisation', [PageController::class, 'legalTerms'])->name('legal.terms');
+Route::get('/plan-du-site', [PageController::class, 'sitemap'])->name('sitemap');
+
+// Routes admin (protégées par middleware)
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    Route::resource('events', EventController::class)->except(['show']);
+    Route::post('events/reorder', [EventController::class, 'reorder'])->name('events.reorder');
+    Route::post('events/{event}/images', [EventController::class, 'addImages'])->name('events.images.add');
+    Route::delete('events/images/{image}', [EventController::class, 'deleteImage'])->name('events.images.delete');
+    Route::post('events/{event}/images/reorder', [EventController::class, 'reorderImages'])->name('events.images.reorder');
+});
+// Routes d'authentification de base pour Filament
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
+
+Route::get('/login', function () {
+    return redirect(env('APP_PATH', '') . '/admin/login');
+})->name('login');
+
+Route::post('/logout', function (Request $request) {
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    return redirect('/');
+})->name('logout');
+
+Route::fallback(function () {
+    return redirect(env('APP_PATH', '') . '/admin/login');
+});

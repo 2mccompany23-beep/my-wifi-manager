@@ -516,6 +516,11 @@ function buildRouterOSCommand(endpoint, method = 'GET', body = null) {
   const itemId = id || (body && (body['.id'] || body.numbers || body.name));
 
   if (method === 'GET') {
+    if (cliPath.includes('user') || cliPath.includes('active')) {
+      return cliPath.endsWith('print')
+        ? `${cliPath} detail as-value`
+        : `${cliPath} print detail as-value`;
+    }
     return cliPath.endsWith('print')
       ? `${cliPath} as-value`
       : `${cliPath} print as-value`;
@@ -941,28 +946,48 @@ app.get('/api/poll/status', requireAuth, (req, res) => {
   });
 });
 
-// Get Hotspot Users (Stockage Local Instantané + Synchro Différentielle)
+// Get Hotspot Users (Direct Sync RouterOS + Base Locale)
 app.get('/api/router/users', requireAuth, async (req, res) => {
   const db = readDb();
+  let localUsers = db.hotspotUsers || [];
+  let activeSessions = db.activeSessions || [];
 
-  const localVouchers = (db.vouchers || []).map(v => ({
-    '.id': v.id || v.code,
-    name: v.code,
-    profile: v.profile || '100-F-4h',
-    comment: v.comment || '',
-    disabled: v.status === 'EXPIRED' ? 'true' : 'false'
-  }));
+  // Récupérer en direct les utilisateurs ET les sessions actives depuis RouterOS
+  try {
+    const [userRes, activeRes] = await Promise.all([
+      callRouterOS('/ip/hotspot/user'),
+      callRouterOS('/ip/hotspot/active')
+    ]);
 
-  const localUsers = db.hotspotUsers || [];
+    if (userRes && userRes.success && Array.isArray(userRes.data) && userRes.data.length > 0) {
+      localUsers = userRes.data;
+      db.hotspotUsers = localUsers;
+    }
+    if (activeRes && activeRes.success && Array.isArray(activeRes.data)) {
+      activeSessions = activeRes.data;
+      db.activeSessions = activeSessions;
+    }
+    writeDb(db);
+  } catch (err) {
+    console.warn('[Users] Impossible de récupérer les utilisateurs/sessions RouterOS en direct, utilisation du cache local:', err.message);
+  }
+
+  const localVouchers = db.vouchers || [];
+  const activeMap = new Map();
+  for (const s of activeSessions) {
+    const key = s.user || s.name;
+    if (key) activeMap.set(key, s);
+  }
+
   const userMap = new Map();
 
   // 1. Charger d'abord les vouchers créés en base locale
   for (const v of localVouchers) {
-    const key = v.name || v['.id'];
+    const key = v.name || v.code || v['.id'];
     if (key) userMap.set(key, v);
   }
 
-  // 2. Superposer les utilisateurs RouterOS réels (RouterOS est la source de vérité pour bytes-in, bytes-out, uptime)
+  // 2. Superposer les utilisateurs RouterOS réels (source de vérité pour bytes-in, bytes-out, uptime)
   for (const u of localUsers) {
     const key = u.name || u['.id'];
     if (key) {
@@ -976,75 +1001,94 @@ app.get('/api/router/users', requireAuth, async (req, res) => {
     }
   }
 
-  // 3. Fallback vers les sessions actives si l'utilisateur est connecté en ce moment
-  const activeSessions = db.activeSessions || [];
-  const activeMap = new Map(activeSessions.map(s => [s.user || s.name, s]));
-
-  const mergedLocal = Array.from(userMap.values()).map(u => {
+  const merged = Array.from(userMap.values()).map(u => {
     const active = activeMap.get(u.name || u['.id']);
+    let bytesInNum = parseBytesValue(u['bytes-in'] ?? u.bytesIn ?? u['bytes-up']);
+    let bytesOutNum = parseBytesValue(u['bytes-out'] ?? u.bytesOut ?? u['bytes-down']);
+
     if (active) {
-      if (!u['bytes-out'] || u['bytes-out'] === '0' || u['bytes-out'] === 0) {
-        if (active.bytesOut || active['bytes-out']) {
-          u['bytes-out'] = active.bytesOut || active['bytes-out'];
-        }
-      }
-      if (!u['bytes-in'] || u['bytes-in'] === '0' || u['bytes-in'] === 0) {
-        if (active.bytesIn || active['bytes-in']) {
-          u['bytes-in'] = active.bytesIn || active['bytes-in'];
-        }
-      }
-      if (!u.uptime || u.uptime === '0s') {
+      const activeIn = parseBytesValue(active['bytes-in'] ?? active.bytesIn ?? active['bytes-up']);
+      const activeOut = parseBytesValue(active['bytes-out'] ?? active.bytesOut ?? active['bytes-down']);
+      if (activeIn > bytesInNum) bytesInNum = activeIn;
+      if (activeOut > bytesOutNum) bytesOutNum = activeOut;
+
+      if (!u.uptime || u.uptime === '0s' || u.uptime === '0') {
         if (active.uptime) u.uptime = active.uptime;
       }
     }
-    return normalizeHotspotUser(u);
+
+    const totalNum = bytesInNum + bytesOutNum;
+
+    return {
+      ...u,
+      '.id': u['.id'] || u.id || u.name,
+      name: u.name || u.code || u['.id'],
+      bytesIn: formatByteCount(bytesInNum),
+      bytesOut: formatByteCount(bytesOutNum),
+      bytesTotal: formatByteCount(totalNum > 0 ? totalNum : (bytesOutNum || bytesInNum)),
+      'bytes-in': bytesInNum,
+      'bytes-out': bytesOutNum,
+      'bytes-total': totalNum
+    };
   });
 
-  // Synchronisation différentielle en tâche de fond
-  callRouterOS('/ip/hotspot/user').then((result) => {
-    if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-      const dbFresh = readDb();
-      if (!dbFresh.hotspotUsers) dbFresh.hotspotUsers = [];
-      const freshMap = new Map(dbFresh.hotspotUsers.map(u => [u.name || u['.id'], u]));
-      let updated = false;
-
-      for (const rUser of result.data) {
-        const key = rUser.name || rUser['.id'];
-        if (key) {
-          freshMap.set(key, rUser);
-          updated = true;
-        }
-      }
-
-      if (updated) {
-        dbFresh.hotspotUsers = Array.from(freshMap.values());
-        writeDb(dbFresh);
-      }
-    }
-  }).catch(() => {});
-
-  return res.json(mergedLocal);
+  return res.json(merged);
 });
+
+function parseBytesValue(val) {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === '0' || trimmed === '0s') return 0;
+
+    // Direct integer string e.g. "123456"
+    if (/^\d+$/.test(trimmed)) {
+      return parseInt(trimmed, 10);
+    }
+    // Formatted string e.g. "12.5 MB", "500 KB"
+    const match = trimmed.match(/([\d\.]+)\s*(B|KB|MB|GB|TB)/i);
+    if (match) {
+      const num = parseFloat(match[1]);
+      const unit = match[2].toUpperCase();
+      if (unit === 'B') return num;
+      if (unit === 'KB') return Math.round(num * 1024);
+      if (unit === 'MB') return Math.round(num * 1024 * 1024);
+      if (unit === 'GB') return Math.round(num * 1024 * 1024 * 1024);
+      if (unit === 'TB') return Math.round(num * 1024 * 1024 * 1024 * 1024);
+    }
+    const n = Number(trimmed);
+    return isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
 
 function normalizeHotspotUser(u) {
   if (!u) return u;
   const name = u.name || u.code || u['.id'] || 'Utilisateur';
-  const bytesInRaw = u['bytes-in'] ?? u.bytesIn ?? u['bytes-up'] ?? 0;
-  const bytesOutRaw = u['bytes-out'] ?? u.bytesOut ?? u['bytes-down'] ?? 0;
+
+  const rawIn = u['bytes-in'] ?? u.bytesIn ?? u['bytes-up'] ?? u['bytes_in'] ?? 0;
+  const rawOut = u['bytes-out'] ?? u.bytesOut ?? u['bytes-down'] ?? u['bytes_out'] ?? 0;
+
+  const numIn = parseBytesValue(rawIn);
+  const numOut = parseBytesValue(rawOut);
+  const totalNum = numIn + numOut;
 
   return {
     ...u,
     '.id': u['.id'] || u.id || name,
     name,
-    bytesIn: formatByteCount(bytesInRaw),
-    bytesOut: formatByteCount(bytesOutRaw),
-    'bytes-in': bytesInRaw,
-    'bytes-out': bytesOutRaw
+    bytesIn: formatByteCount(numIn),
+    bytesOut: formatByteCount(numOut),
+    bytesTotal: formatByteCount(totalNum > 0 ? totalNum : (numOut || numIn)),
+    'bytes-in': numIn,
+    'bytes-out': numOut,
+    'bytes-total': totalNum
   };
 }
 
 function formatByteCount(bytes) {
-  if (!bytes || isNaN(bytes)) {
+  if (bytes === undefined || bytes === null || isNaN(bytes)) {
     if (typeof bytes === 'string' && (bytes.includes('B') || bytes.includes('MB') || bytes.includes('GB') || bytes.includes('KB'))) {
       return bytes;
     }

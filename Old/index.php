@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2MC WIFI ZONE | Paiement Mobile Money</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a56d4;
+            --primary-light: #4895ef;
+            --secondary: #7209b7;
+            --secondary-dark: #5e08a0;
+            --accent: #f72585;
+            --accent-light: #ff4da6;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --dark-light: #343a40;
+            --success: #4cc9f0;
+            --success-dark: #3aa8d0;
+            --warning: #f8961e;
+            --danger: #e63946;
+            --gray: #6c757d;
+            --gray-light: #e9ecef;
+            --gray-lighter: #f8f9fa;
+            --border-radius: 16px;
+            --border-radius-sm: 8px;
+            --box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+            --box-shadow-lg: 0 25px 60px rgba(0, 0, 0, 0.15);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            --transition-fast: all 0.15s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
+            color: var(--dark);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-top: 30px;
+            line-height: 1.6;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .login-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        @media (min-width: 1024px) {
+            .login-wrapper {
+                display: grid;
+                grid-template-columns: 1fr 2.5fr;
+                gap: 30px;
+                align-items: start;
+            }
+
+            .header-section {
+                order: 1;
+            }
+
+            .auth-section {
+                order: 2;
+            }
+        }
+
+        /* Header Section */
+        .header-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--box-shadow-lg);
+            height: fit-content;
+            order: 2;
+        }
+
+        @media (min-width: 1024px) {
+            .header-section {
+                order: 1;
+            }
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: white;
+            margin-right: 20px;
+            box-shadow: 0 8px 20px rgba(67, 97, 238, 0.3);
+        }
+
+        .logo-text h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 5px;
+        }
+
+        .logo-text p {
+            color: var(--gray);
+            font-size: 16px;
+        }
+
+        .wifi-features {
+            margin: 30px 0;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .feature-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--gray-lighter);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            color: var(--primary);
+            font-size: 20px;
+        }
+
+        .feature-text h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .feature-text p {
+            color: var(--gray);
+            font-size: 14px;
+        }
+
+        .support-info {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--gray-light);
+        }
+
+        .support-info h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+
+        .support-info p {
+            margin-bottom: 10px;
+            color: var(--gray);
+        }
+
+        .support-info a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .support-info a:hover {
+            text-decoration: underline;
+        }
+
+        /* Auth Section */
+        .auth-section {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--box-shadow-lg);
+            height: fit-content;
+            order: 1;
+        }
+
+        @media (min-width: 1024px) {
+            .auth-section {
+                order: 2;
+            }
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            color: var(--dark);
+            text-align: center;
+        }
+
+        .auth-toggle {
+            display: flex;
+            background-color: var(--gray-lighter);
+            border-radius: 50px;
+            padding: 6px;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .auth-toggle button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            background: transparent;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            z-index: 1;
+            font-size: 15px;
+        }
+
+        .auth-toggle .active {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 15px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 16px 18px;
+            border: 2px solid var(--gray-light);
+            border-radius: var(--border-radius-sm);
+            font-size: 16px;
+            transition: var(--transition);
+            background: white;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.15);
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: 0 6px 15px rgba(67, 97, 238, 0.25);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(67, 97, 238, 0.35);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 30px 0;
+            color: var(--gray);
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--gray-light);
+        }
+
+        .divider span {
+            padding: 0 15px;
+            font-size: 14px;
+        }
+
+        /* Pricing Section */
+        .pricing-section {
+            margin-top: 40px;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        /* Mobile: 1 colonne */
+        @media (min-width: 768px) {
+            .pricing-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* PC: 3 colonnes */
+        @media (min-width: 1200px) {
+            .pricing-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .pricing-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            padding: 25px;
+            text-align: center;
+            transition: var(--transition);
+            border: 2px solid transparent;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+            border-color: rgba(67, 97, 238, 0.2);
+        }
+
+        .pricing-card.featured {
+            border-color: var(--primary);
+            transform: scale(1.03);
+        }
+
+        .pricing-card.featured .badge {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            color: white;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            box-shadow: 0 5px 15px rgba(247, 37, 133, 0.3);
+        }
+
+        .pricing-card h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+
+        .price {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 15px;
+            line-height: 1;
+        }
+
+        .price span {
+            font-size: 16px;
+            color: var(--gray);
+            font-weight: normal;
+        }
+
+        .features {
+            list-style: none;
+            margin-bottom: 25px;
+            flex-grow: 1;
+        }
+
+        .features li {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--gray-light);
+            color: var(--gray);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .features li:last-child {
+            border-bottom: none;
+        }
+
+        .features li i {
+            margin-right: 8px;
+            color: var(--success);
+            font-size: 12px;
+        }
+
+        .mobile-money-badge {
+            display: inline-flex;
+            align-items: center;
+            background: linear-gradient(135deg, #e8f4fd, #d4e9fa);
+            color: var(--primary);
+            padding: 10px 18px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.1);
+        }
+
+        .mobile-money-badge i {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+
+        .btn-mobile-money {
+            background: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
+            box-shadow: 0 6px 15px rgba(114, 9, 183, 0.25);
+        }
+
+        .btn-mobile-money:hover {
+            box-shadow: 0 10px 20px rgba(114, 9, 183, 0.35);
+        }
+
+
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+    <style>
+.pricing-card {
+    perspective: 1000px;
+    cursor: pointer;
+    overflow: visible; /* important pour ne pas cacher les flips */
+}
+
+.pricing-card .card-inner {
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+    position: relative;
+}
+
+/* Flip activé */
+.pricing-card.flipped .card-inner {
+    transform: rotateY(180deg);
+}
+
+/* Front (contenu original) */
+.pricing-card .card-front {
+    backface-visibility: hidden;
+    position: relative; /* pas absolute pour garder le flow */
+}
+
+/* Back (message MOMO) */
+.pricing-card .card-back {
+    backface-visibility: hidden;
+    transform: rotateY(180deg);
+    position: absolute; /* overlay sur le front */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    /*padding: 15px;*/  
+    background: #f8f8f8;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    box-sizing: border-box;
+    font-size: 0.9em;
+    color: #333;
+}
+
+    </style>
+    <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="login-wrapper">
+            <!-- Auth Section - Premier sur mobile -->
+            <div class="auth-section">
+                <div class="logo-container">
+                    <div class="logo">
+                        <i class="fas fa-wifi"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>2MC WIFI ZONE</h1>
+                        <p>Connexion haut débit sécurisée</p>
+                    </div>
+                </div>
+
+                <!-- Authentication Toggle -->
+                <div class="auth-toggle">
+                    <button id="toggle-simple" class="active">Code Unique</button>
+                    <button id="toggle-classic">Mode Classique</button>
+                </div>
+
+                <!-- Simple Authentication Form -->
+                <form id="simple-form" class="auth-form active">
+                    <div class="form-group">
+                        <label for="simple-code">Code d'accès unique</label>
+                        <input type="text" id="simple-code" class="form-control" placeholder="Entrez votre code d'accès"
+                            required>
+                    </div>
+                    <button type="submit" class="btn">Se connecter</button>
+                </form>
+
+                <!-- Classic Authentication Form -->
+                <form id="classic-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="username">Nom d'utilisateur</label>
+                        <input type="text" id="username" class="form-control"
+                            placeholder="Entrez votre nom d'utilisateur" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Mot de passe</label>
+                        <input type="password" id="password" class="form-control"
+                            placeholder="Entrez votre mot de passe" required>
+                    </div>
+                    <button type="submit" class="btn">Se connecter</button>
+                </form>
+
+                <div class="divider">
+                    <span>OU</span>
+                </div>
+
+                <!-- Pricing Section -->
+                <!-- Pricing Section -->
+                <div class="pricing-section">
+
+                    <h2 class="section-title">Forfaits WiFi Disponibles</h2>
+                    <div class="pricing-grid">
+
+
+                        <!-- Forfait 24h -->
+                        <!-- Forfait 4h -->
+                        <div class="pricing-card">
+                            <h3>4 Heures</h3>
+                            <div class="price">100 FCFA <span>/ 4h</span></div>
+                            <ul class="features">
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
+                                <li><i class="fas fa-check"></i> Validité 2 jours</li>
+                            </ul>
+                            <div class="mobile-money-badge">
+                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
+                            </div>
+                            <button class="btn btn-mobile-money select-plan" data-plan="4h" data-price="100">Choisir ce
+                                forfait</button>
+                        </div>
+                        <!-- Forfait 12h -->
+                        <div class="pricing-card">
+                            <h3>12 Heures</h3>
+                            <div class="price">200 FCFA <span>/ 12h</span></div>
+                            <ul class="features">
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
+                                <li><i class="fas fa-check"></i> Validité 2 jours</li>
+                            </ul>
+                            <div class="mobile-money-badge">
+                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
+                            </div>
+                            <button class="btn btn-mobile-money select-plan" data-price="100" data-plan="4h">Choisir ce
+                                forfait</button>
+                        </div>
+
+                        <!-- Forfait 24h -->
+                        <div class="pricing-card">
+                            <h3>24 Heures</h3>
+                            <div class="price">300 FCFA <span>/ 24h</span></div>
+                            <ul class="features">
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
+                                <li><i class="fas fa-check"></i> Validité 2 jours</li>
+                            </ul>
+                            <div class="mobile-money-badge">
+                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
+                            </div>
+                            <button class="btn btn-mobile-money select-plan" data-plan="24h" data-price="300">Choisir ce
+                                forfait</button>
+                        </div>
+
+                        <!-- Forfait 24h / 4 jours -->
+                        <div class="pricing-card">
+                            <h3>4 jours</h3>
+                            <div class="price">500 FCFA <span>/ 4 jours</span></div>
+                            <ul class="features">
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
+                                <li><i class="fas fa-check"></i> Validité 4 jours</li>
+                            </ul>
+                            <div class="mobile-money-badge">
+                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
+                            </div>
+                            <button class="btn btn-mobile-money select-plan" data-plan="4j" data-price="500">Choisir ce
+                                forfait</button>
+                        </div>
+
+
+
+                        <!-- Forfait 7 jours -->
+                        <div class="pricing-card">
+                            <h3>7 Jours</h3>
+                            <div class="price">1 200 FCFA <span>/ 7j</span></div>
+                            <ul class="features">
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
+                                <li><i class="fas fa-check"></i> Validité 7 jours</li>
+                            </ul>
+                            <div class="mobile-money-badge">
+                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
+                            </div>
+                            <button class="btn btn-mobile-money select-plan" data-plan="7j" data-price="1200">Choisir ce
+                                forfait</button>
+                        </div>
+
+                        <!-- Forfait 30 jours -->
+                        <div class="pricing-card">
+                            <h3>30 Jours</h3>
+                            <div class="price">4 000 FCFA <span>/ 30j</span></div>
+                            <ul class="features">
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
+                                <li><i class="fas fa-check"></i> Validité 30 jours</li>
+                            </ul>
+                            <div class="mobile-money-badge">
+                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
+                            </div>
+                            <button class="btn btn-mobile-money select-plan" data-plan="30j" data-price="4000">Choisir
+                                ce forfait</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Header Section - Deuxième sur mobile -->
+            <div class="header-section">
+                <div class="logo-container">
+                    <div class="logo">
+                        <i class="fas fa-wifi"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>2MC WIFI ZONE</h1>
+                        <p>Connexion haut débit sécurisée</p>
+                    </div>
+                </div>
+
+                <div class="wifi-features">
+                    <div class="feature">
+                        <div class="feature-icon">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <div class="feature-text">
+                            <h3>Débit Ultra Rapide</h3>
+                            <p>Jusqu'à 50 Mbps en téléchargement</p>
+                        </div>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="feature-text">
+                            <h3>Connexion Sécurisée</h3>
+                            <p>Protocole de chiffrement avancé</p>
+                        </div>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <div class="feature-text">
+                            <h3>Paiement Mobile Money</h3>
+                            <p>Payez facilement avec votre téléphone</p>
+                        </div>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">
+                            <i class="fas fa-headset"></i>
+                        </div>
+                        <div class="feature-text">
+                            <h3>Support 24h/24</h3>
+                            <p>Assistance technique toujours disponible</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="support-info">
+                    <h3>Besoin d'aide ?</h3>
+                    <p>Notre équipe est disponible 24h/24 pour vous assister</p>
+                    <p><i class="fas fa-phone"></i> <a href="tel:+229 44">+229 44</a></p>
+                    <p><i class="fas fa-envelope"></i> <a
+                            href="mailto:2mccompany23@gmail.com">2mccompany23@gmail.com</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>© 2025 2MC COMPANY ETS. Tous droits réservés. | <a href="#">Conditions d'utilisation</a> | <a
+                    href="#">Politique de confidentialité</a></p>
+        </div>
+    </div>
+
+    <!-- Spinner caché au départ -->
+    <div id="loadingSpinner" class="d-none justify-content-center align-items-center"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1050;">
+        <div class="spinner-border text-light" role="status" style="width:5rem; height:5rem;">
+            <span class="visually-hidden">Chargement...</span>
+        </div>
+    </div>
+
+    <!-- Modal voucher -->
+    <div class="modal fade" id="voucherModal" tabindex="-1" aria-labelledby="voucherModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content text-dark">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="voucherModalLabel">✅ Voucher prêt</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Votre code voucher :</p>
+                    <h3 id="voucherCode" class="text-center"></h3>
+                    <button class="btn btn-outline-primary w-100 mb-2" id="copyVoucherBtn">📋 Copier le code</button>
+                </div>
+                <div class="modal-footer">
+                    <a href="#" id="connectBtn" class="btn btn-success w-100">Se connecter au portail</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleSimple = document.getElementById('toggle-simple');
+            const toggleClassic = document.getElementById('toggle-classic');
+            const simpleForm = document.getElementById('simple-form');
+            const classicForm = document.getElementById('classic-form');
+
+            // === Toggle entre les formulaires ===
+            toggleSimple.addEventListener('click', () => {
+                toggleSimple.classList.add('active');
+                toggleClassic.classList.remove('active');
+                simpleForm.classList.add('active');
+                classicForm.classList.remove('active');
+            });
+
+            toggleClassic.addEventListener('click', () => {
+                toggleClassic.classList.add('active');
+                toggleSimple.classList.remove('active');
+                classicForm.classList.add('active');
+                simpleForm.classList.remove('active');
+            });
+
+            // === Fonction de login GET pour Mikrotik ===
+            function submitMikrotikLogin(params) {
+                const hotspotUrl = 'http://mcwifi.net/login'; // Adapté à ton Mikrotik
+                const queryString = Object.keys(params)
+                    .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key]))
+                    .join('&');
+                window.location.href = hotspotUrl + '?' + queryString;
+            }
+
+            // === Gestion Code Unique ===
+            simpleForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const code = document.getElementById('simple-code').value.trim();
+                if (!code) {
+                    alert('Veuillez entrer votre code d’accès');
+                    return;
+                }
+                submitMikrotikLogin({
+                    username: code,
+                    password: code
+                });
+            });
+
+            // === Gestion Mode Classique ===
+            classicForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                if (!username || !password) {
+                    alert('Veuillez remplir tous les champs');
+                    return;
+                }
+                submitMikrotikLogin({
+                    username,
+                    password
+                });
+            });
+        });
+    </script>
+    <!-- Script de paiement: -->
+    <script>
+        let momoactive = false; // variable globale
+        function setupCards() {
+            document.querySelectorAll('.pricing-card').forEach(card => {
+                if (!card.querySelector('.card-inner')) {
+                    const inner = document.createElement('div');
+                    inner.className = 'card-inner';
+
+                    // Tout le contenu actuel devient card-front
+                    const front = document.createElement('div');
+                    front.className = 'card-front';
+                    while (card.firstChild) {
+                        front.appendChild(card.firstChild);
+                    }
+
+                    // Création de la face arrière avec le message MOMO
+                    const back = document.createElement('div');
+                    back.className = 'card-back';
+                    back.innerHTML = `<div style="font-family: Arial, sans-serif; text-align: center; padding: 5px; line-height: 1.3; 
+            max-height: 100%; overflow-y: auto; box-sizing: border-box;">
+  <h4 style="color: #2E86C1; font-size: 1.5em; margin: 10px 0;">Paiement Mobile Money bientôt disponible !</h4>
+  <p style="font-size: 0.95em; margin: 10px 0;">Pour le moment, vous pouvez :</p>
+  <ul style="list-style-type: none; padding: 0; font-size: 0.95em; margin: 0;">
+    <li>📍 Retirer votre ticket physique au Carrefour après l'école (en quittant le goudron)</li>
+    <li>📱 Ou nous contacter au <strong>01 44 04 44 114</strong> pour effectuer un dépôt et recevoir votre code</li>
+  </ul>
+  <p style="margin-top: 15px; font-style: italic; font-size: 0.9em;">Merci de votre compréhension et de votre patience !</p>
+</div>
+
+            `;
+
+                    inner.appendChild(front);
+                    inner.appendChild(back);
+                    card.appendChild(inner);
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            let currentReference = null;
+            let voucherInterval = null;
+            setupCards();
+
+            // Ajoute le clic pour flip / paiement
+            document.querySelectorAll('.pricing-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const btn = card.querySelector('.select-plan');
+                    if (!btn) return;
+
+                    const price = btn.dataset.price;
+                    const plan = btn.dataset.plan;
+                    if (!price || !plan) return;
+
+                    if (!momoactive) {
+                        // Flip / dé-flip
+                        card.classList.toggle('flipped');
+                    } else {
+                        // MOMO actif : déclenche le paiement
+                        initiatePayment(parseInt(price) * 100, plan);
+                    }
+                });
+            });
+
+        function initiatePayment(amount, plan) {
+            const widget = FedaPay.init({
+                public_key: 'pk_live_jYf2mjUa0Y_wHn4DWBDNseMm',
+                transaction: {
+                    amount,
+                    description: `Accès Internet Hotspot ${plan}`
+                },
+                customer: {
+                    email: 'client@example.com',
+                    lastname: 'Client'
+                },
+                onComplete: function(response) {
+                    let ref = response?.transaction?.reference || response?.data?.transaction?.reference || response?.transaction_key;
+                    if (ref) {
+                        currentReference = ref;
+                        startVoucherCheck(plan);
+                    } else {
+                        alert('Paiement terminé mais référence introuvable.');
+                    }
+                }
+            });
+            widget.open();
+        }
+
+        function startVoucherCheck(plan) {
+            if (!currentReference) return;
+            const spinner = document.getElementById('loadingSpinner');
+            if (spinner) spinner.classList.remove('d-none');
+
+            if (voucherInterval) clearInterval(voucherInterval);
+
+            voucherInterval = setInterval(() => {
+                fetch(`get_voucher.php?reference=${encodeURIComponent(currentReference)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.voucher) {
+                            clearInterval(voucherInterval);
+                            if (spinner) spinner.classList.add('d-none');
+                            document.getElementById('voucherCode').textContent = data.voucher;
+                            document.getElementById('copyVoucherBtn').onclick = () => {
+                                navigator.clipboard.writeText(data.voucher).then(() => alert('Code copié !'));
+                            };
+                            document.getElementById('connectBtn').href =
+                                `http://mcwifi.net/login?username=${encodeURIComponent(data.voucher)}&password=${encodeURIComponent(data.voucher)}`;
+                            new bootstrap.Modal(document.getElementById('voucherModal')).show();
+                        }
+                    })
+                    .catch(err => {
+                        clearInterval(voucherInterval);
+                        if (spinner) spinner.classList.add('d-none');
+                        console.error('Erreur serveur lors de la vérification du voucher:', err);
+                    });
+            }, 1000);
+        }
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,47 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    /* Polices personnalisées */
+    --font-oswald: 'Oswald', sans-serif;
+    --font-inter: 'Inter', sans-serif;
+
+    /* Couleurs de la marque Ori Ola */
+    --color-obs-dark: #050505;
+    --color-obs-cyan: #00D4FF;
+    --color-obs-magenta: #FF00E5;
+
+    /* Animation de base */
+    --animate-float: float 3s ease-in-out infinite;
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+}
+
+/* Utilitaires personnalisés (Layer components) */
+@utility text-gradient {
+    background: linear-gradient(to right, var(--color-obs-cyan), var(--color-obs-magenta));
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+@utility outline-text {
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.3);
+    color: transparent;
+}
+
+/* Style pour le grain de pellicule photo */
+.grain-overlay {
+    position: fixed;
+    inset: 0;
+    background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+    opacity: 0.05;
+    pointer-events: none;
+    z-index: 100;
+} 

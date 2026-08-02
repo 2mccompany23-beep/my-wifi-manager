@@ -44,7 +44,6 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<HotspotUser | null>(null);
   const [inspectingUser, setInspectingUser] = useState<HotspotUser | null>(null);
 
   // Add user form state
@@ -53,9 +52,6 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
   const [newProfile, setNewProfile] = useState('100-F-4h');
   const [newComment, setNewComment] = useState('');
 
-  // Edit user form state
-  const [editProfile, setEditProfile] = useState('');
-  const [editPassword, setEditPassword] = useState('');
   const [editComment, setEditComment] = useState('');
 
   const formatBytes = (bytes?: string | number): string => {
@@ -81,6 +77,69 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
     if (!u) return '0 MB';
     const val = u.bytesIn || (u as any)['bytes-in'] || (u as any)['bytes-up'];
     return formatBytes(val);
+  };
+
+  const getUserTotalBytes = (u?: HotspotUser): string => {
+    if (!u) return '0 MB';
+
+    if ((u as any).bytesTotal && (u as any).bytesTotal !== '0 MB') return (u as any).bytesTotal;
+    if ((u as any)['bytes-total'] && typeof (u as any)['bytes-total'] === 'string') return (u as any)['bytes-total'];
+
+    const parseNum = (v: any) => {
+      if (!v) return 0;
+      if (typeof v === 'number') return isNaN(v) ? 0 : v;
+      if (typeof v === 'string') {
+        const trimmed = v.trim();
+        if (/^\d+$/.test(trimmed)) return parseInt(trimmed, 10);
+        const match = trimmed.match(/([\d\.]+)\s*(B|KB|MB|GB|TB)/i);
+        if (match) {
+          const num = parseFloat(match[1]);
+          const unit = match[2].toUpperCase();
+          if (unit === 'B') return num;
+          if (unit === 'KB') return num * 1024;
+          if (unit === 'MB') return num * 1024 * 1024;
+          if (unit === 'GB') return num * 1024 * 1024 * 1024;
+          if (unit === 'TB') return num * 1024 * 1024 * 1024 * 1024;
+        }
+        const n = Number(trimmed);
+        return isNaN(n) ? 0 : n;
+      }
+      return 0;
+    };
+
+    const inVal = parseNum(u.bytesIn || (u as any)['bytes-in'] || (u as any)['bytes-up']);
+    const outVal = parseNum(u.bytesOut || (u as any)['bytes-out'] || (u as any)['bytes-down']);
+    const total = inVal + outVal;
+    if (total > 0) return formatBytes(total);
+
+    return '0 MB';
+  };
+
+  const formatUptimeDisplay = (uptimeStr?: string | number): string => {
+    if (!uptimeStr || uptimeStr === '0' || uptimeStr === '0s') return '0s';
+    const str = String(uptimeStr).trim();
+
+    if (/^\d{1,2}:\d{2}:\d{2}$/.test(str) || /^\d+[dhms]$/.test(str)) {
+      return str;
+    }
+
+    if (str.startsWith('1970') || str.includes('T')) {
+      const timeMatch = str.match(/(\d{2}):(\d{2}):(\d{2})/);
+      if (timeMatch) return timeMatch[0];
+    }
+
+    const sec = parseDurationToSeconds(str);
+    if (sec <= 0) return '0s';
+
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+
+    if (d > 0) {
+      return `${d}d ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
   const safeUsers = useMemo(() => (Array.isArray(users) ? users : []), [users]);
@@ -421,70 +480,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
     );
   };
 
-  const handleToggleDisable = (user: HotspotUser) => {
-    const isCurrentlyDisabled = String(user.disabled) === 'true';
-    const action = isCurrentlyDisabled ? 'réactiver' : 'suspendre';
-    const id = user['.id'] || user.name;
-    openConfirm(
-      isCurrentlyDisabled ? 'Réactiver le compte' : 'Suspendre le compte',
-      `Voulez-vous ${action} le compte "${user.name || id}" ?`,
-      isCurrentlyDisabled ? 'warning' : 'danger',
-      async () => {
-        try {
-          await fetch(`/api/router/users/${encodeURIComponent(id)}`, {
-            method: 'PATCH', headers: getAuthHeaders(),
-            body: JSON.stringify({ disabled: !isCurrentlyDisabled })
-          });
-          success(isCurrentlyDisabled ? `"${user.name || id}" réactivé avec succès.` : `"${user.name || id}" suspendu.`);
-          onRefresh();
-        } catch {
-          error('Erreur lors de la modification de l\'état.');
-        }
-      }
-    );
-  };
 
-  const handleResetCounters = (user: HotspotUser) => {
-    const id = user['.id'] || user.name;
-    openConfirm(
-      'Réinitialiser les compteurs',
-      `Réinitialiser le temps et le volume utilisé pour "${user.name || id}" ?`,
-      'warning',
-      async () => {
-        try {
-          await fetch(`/api/router/users/${encodeURIComponent(id)}/reset`, { method: 'POST', headers: getAuthHeaders() });
-          success(`Compteurs de "${user.name || id}" réinitialisés.`);
-          onRefresh();
-        } catch {
-          error('Erreur lors de la réinitialisation.');
-        }
-      }
-    );
-  };
-
-  const handleOpenEdit = (user: HotspotUser) => {
-    setEditingUser(user);
-    setEditProfile(user.profile || '100-F-4h');
-    setEditPassword('');
-    setEditComment(user.comment || '');
-  };
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingUser) return;
-    const id = editingUser['.id'] || editingUser.name;
-    try {
-      await fetch(`/api/router/users/${encodeURIComponent(id)}`, {
-        method: 'PATCH', headers: getAuthHeaders(),
-        body: JSON.stringify({ profile: editProfile, password: editPassword || undefined, comment: editComment })
-      });
-      success(`"${editingUser.name || id}" mis à jour avec succès.`);
-      setEditingUser(null);
-      onRefresh();
-    } catch {
-      error('Erreur lors de la mise à jour.');
-    }
-  };
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -763,9 +759,9 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
                     <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-semibold border border-indigo-500/20 text-[10px]">{u.profile || '100-F-4h'}</span>
                     <span className="text-[10px] text-slate-400 flex items-center gap-1">
                       <Clock className="w-3 h-3 text-purple-400" />
-                      <span>{u.uptime || '0s'}</span>
+                      <span>{formatUptimeDisplay(u.uptime)}</span>
                       <span className="text-slate-600">•</span>
-                      <span>{getUserBytesOut(u)}</span>
+                      <span>{getUserTotalBytes(u)}</span>
                     </span>
                   </div>
 
@@ -779,15 +775,6 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
                   <div className="flex items-center justify-end gap-1.5 border-t border-slate-800/60 pt-2">
                     <button onClick={() => setInspectingUser(u)} className="p-2 rounded-lg bg-slate-800 text-slate-300 border border-slate-700" title="Détails">
                       <Eye className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => handleOpenEdit(u)} className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" title="Modifier">
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => handleResetCounters(u)} className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20" title="Réinitialiser">
-                      <RotateCcw className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => handleToggleDisable(u)} className={`p-2 rounded-lg border ${isDisabled ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`} title={isDisabled ? 'Activer' : 'Suspendre'}>
-                      {isDisabled ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                     </button>
                     <button
                       onClick={() => handleDeleteUser(userId, userName)}
@@ -895,9 +882,9 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
                         <td className="p-4 text-slate-400">
                           <div className="font-semibold text-slate-200 flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5 text-purple-400" />
-                            <span>{u.uptime || '0s'}</span>
+                            <span>{formatUptimeDisplay(u.uptime)}</span>
                           </div>
-                          <div className="text-[10px] text-slate-500">{getUserBytesOut(u)} consommés</div>
+                          <div className="text-[10px] text-slate-500">{getUserTotalBytes(u)} consommés</div>
                         </td>
 
                         <td className="p-4">
@@ -925,37 +912,6 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
                             <Eye className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* Edit User */}
-                          <button
-                            onClick={() => handleOpenEdit(u)}
-                            className="p-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 transition-colors border border-indigo-500/20"
-                            title="Modifier l'utilisateur"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Reset Counters */}
-                          <button
-                            onClick={() => handleResetCounters(u)}
-                            className="p-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors border border-amber-500/20"
-                            title="Réinitialiser compteurs & temps"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Disable/Enable */}
-                          <button
-                            onClick={() => handleToggleDisable(u)}
-                            className={`p-2 rounded-lg transition-colors border ${
-                              isDisabled
-                                ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
-                                : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20'
-                            }`}
-                            title={isDisabled ? 'Activer le compte' : 'Suspendre le compte'}
-                          >
-                            {isDisabled ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                          </button>
-
                           {/* Delete User */}
                           <button
                             onClick={() => handleDeleteUser(userId, userName)}
@@ -976,75 +932,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
           </div>
         </div>
 
-        {/* EDIT USER MODAL */}
-        {editingUser && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="glass-panel bg-slate-900 p-6 rounded-2xl max-w-md w-full border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Edit3 className="w-5 h-5 text-indigo-400" />
-                  <span>Modifier Utilisateur "{editingUser.name || editingUser['.id'] || ''}"</span>
-                </h3>
-                <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-white font-bold text-sm">✕</button>
-              </div>
 
-              <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Profil Forfait Hotspot</label>
-                  <select
-                    value={editProfile}
-                    onChange={(e) => setEditProfile(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="100-F-4h">100-F-4h (4 Heures - 100 FCFA)</option>
-                    <option value="200---12h">200---12h (12 Heures - 200 FCFA)</option>
-                    <option value="300-F-24h">300-F-24h (24 Heures - 300 FCFA)</option>
-                    <option value="500---4j">500---4j (4 Jours - 500 FCFA)</option>
-                    <option value="1200---7j">1200---7j (7 Jours - 1 200 FCFA)</option>
-                    <option value="4000--30j">4000--30j (30 Jours - 4 000 FCFA)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Nouveau Mot de passe (laisser vide si inchangé)</label>
-                  <input
-                    type="text"
-                    placeholder="Laissez vide pour conserver"
-                    value={editPassword}
-                    onChange={(e) => setEditPassword(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Commentaire / Référence client</label>
-                  <input
-                    type="text"
-                    value={editComment}
-                    onChange={(e) => setEditComment(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setEditingUser(null)}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/20"
-                  >
-                    Enregistrer Modifications
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         {/* INSPECT USER MODAL */}
         {inspectingUser && (
@@ -1075,14 +963,18 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-800">
                   <span className="text-slate-400 font-medium">Temps écoulé (Uptime):</span>
-                  <span className="text-slate-200">{inspectingUser.uptime || '0s'}</span>
+                  <span className="text-slate-200">{formatUptimeDisplay(inspectingUser.uptime)}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-800">
-                  <span className="text-slate-400 font-medium">Volume Téléchargé (Out):</span>
+                  <span className="text-slate-400 font-medium">Volume Total Consommé:</span>
+                  <span className="font-bold text-indigo-400">{getUserTotalBytes(inspectingUser)}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-800">
+                  <span className="text-slate-400 font-medium">Volume Téléchargé (Down):</span>
                   <span className="text-slate-200">{getUserBytesOut(inspectingUser)}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-800">
-                  <span className="text-slate-400 font-medium">Volume Envoyé (In):</span>
+                  <span className="text-slate-400 font-medium">Volume Envoyé (Up):</span>
                   <span className="text-slate-200">{getUserBytesIn(inspectingUser)}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-800">
