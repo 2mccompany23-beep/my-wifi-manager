@@ -4,3 +4,4 @@ dist
 .env
 data/db.json
 .vscode/sftp.json
+.Old
