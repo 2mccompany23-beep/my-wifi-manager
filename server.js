@@ -500,40 +500,52 @@ function normalizeRouterOSData(raw) {
 let lastRouterPollTimestamp = 0;
 
 function buildRouterOSCommand(endpoint, method = 'GET', body = null) {
-  const parts = endpoint.split('/').filter(Boolean);
+  let cleanEndpoint = endpoint.split('?')[0];
+  let parts = cleanEndpoint.split('/').filter(Boolean);
   let id = null;
 
   if (parts.length > 0) {
     const lastPart = parts[parts.length - 1];
-    if (lastPart.startsWith('*') || /^\d+$/.test(lastPart)) {
+    if (!['user', 'active', 'profile', 'script', 'resource', 'reset-counters'].includes(lastPart)) {
       id = lastPart;
       parts.pop();
     }
   }
 
   const cliPath = '/' + parts.join(' ');
+  const itemId = id || (body && (body['.id'] || body.numbers || body.name));
 
   if (method === 'GET') {
     return cliPath.endsWith('print')
       ? `${cliPath} as-value`
       : `${cliPath} print as-value`;
   } else if (method === 'POST') {
+    if (cliPath.endsWith('reset-counters')) {
+      const parentPath = cliPath.replace(/\/reset-counters$/, '');
+      return itemId
+        ? `${parentPath} reset-counters [find where .id="${itemId}" || name="${itemId}"]`
+        : `${parentPath} reset-counters`;
+    }
     let cmd = `${cliPath} add`;
     if (body && typeof body === 'object') {
       for (const [k, v] of Object.entries(body)) {
-        if (k !== '.id') {
+        if (k !== '.id' && v !== undefined) {
           cmd += ` ${k}="${v}"`;
         }
       }
     }
     return cmd;
   } else if (method === 'DELETE') {
-    return id ? `${cliPath} remove numbers="${id}"` : `${cliPath} remove`;
+    return itemId
+      ? `${cliPath} remove [find where .id="${itemId}" || name="${itemId}"]`
+      : `${cliPath} remove`;
   } else if (method === 'PATCH' || method === 'PUT') {
-    let cmd = id ? `${cliPath} set numbers="${id}"` : `${cliPath} set`;
+    let cmd = itemId
+      ? `${cliPath} set [find where .id="${itemId}" || name="${itemId}"]`
+      : `${cliPath} set`;
     if (body && typeof body === 'object') {
       for (const [k, v] of Object.entries(body)) {
-        if (k !== '.id') {
+        if (k !== '.id' && v !== undefined) {
           cmd += ` ${k}="${v}"`;
         }
       }
@@ -942,27 +954,70 @@ app.get('/api/router/users', requireAuth, async (req, res) => {
   }));
 
   const localUsers = db.hotspotUsers || [];
-  const mergedLocal = Array.from(new Map([...localUsers, ...localVouchers].map(u => [u.name || u['.id'], u])).values())
-    .map(normalizeHotspotUser);
+  const userMap = new Map();
+
+  // 1. Charger d'abord les vouchers créés en base locale
+  for (const v of localVouchers) {
+    const key = v.name || v['.id'];
+    if (key) userMap.set(key, v);
+  }
+
+  // 2. Superposer les utilisateurs RouterOS réels (RouterOS est la source de vérité pour bytes-in, bytes-out, uptime)
+  for (const u of localUsers) {
+    const key = u.name || u['.id'];
+    if (key) {
+      const existing = userMap.get(key) || {};
+      userMap.set(key, {
+        ...existing,
+        ...u,
+        comment: u.comment || existing.comment || '',
+        profile: u.profile || existing.profile || '100-F-4h'
+      });
+    }
+  }
+
+  // 3. Fallback vers les sessions actives si l'utilisateur est connecté en ce moment
+  const activeSessions = db.activeSessions || [];
+  const activeMap = new Map(activeSessions.map(s => [s.user || s.name, s]));
+
+  const mergedLocal = Array.from(userMap.values()).map(u => {
+    const active = activeMap.get(u.name || u['.id']);
+    if (active) {
+      if (!u['bytes-out'] || u['bytes-out'] === '0' || u['bytes-out'] === 0) {
+        if (active.bytesOut || active['bytes-out']) {
+          u['bytes-out'] = active.bytesOut || active['bytes-out'];
+        }
+      }
+      if (!u['bytes-in'] || u['bytes-in'] === '0' || u['bytes-in'] === 0) {
+        if (active.bytesIn || active['bytes-in']) {
+          u['bytes-in'] = active.bytesIn || active['bytes-in'];
+        }
+      }
+      if (!u.uptime || u.uptime === '0s') {
+        if (active.uptime) u.uptime = active.uptime;
+      }
+    }
+    return normalizeHotspotUser(u);
+  });
 
   // Synchronisation différentielle en tâche de fond
   callRouterOS('/ip/hotspot/user').then((result) => {
     if (result.success && Array.isArray(result.data) && result.data.length > 0) {
       const dbFresh = readDb();
       if (!dbFresh.hotspotUsers) dbFresh.hotspotUsers = [];
-      const userMap = new Map(dbFresh.hotspotUsers.map(u => [u.name || u['.id'], u]));
+      const freshMap = new Map(dbFresh.hotspotUsers.map(u => [u.name || u['.id'], u]));
       let updated = false;
 
       for (const rUser of result.data) {
         const key = rUser.name || rUser['.id'];
         if (key) {
-          userMap.set(key, rUser);
+          freshMap.set(key, rUser);
           updated = true;
         }
       }
 
       if (updated) {
-        dbFresh.hotspotUsers = Array.from(userMap.values());
+        dbFresh.hotspotUsers = Array.from(freshMap.values());
         writeDb(dbFresh);
       }
     }
@@ -1085,16 +1140,76 @@ app.delete('/api/router/users/:id', requireAuth, async (req, res) => {
   const decodedId = decodeURIComponent(id);
   console.log(`[RouterOS] Deleting user ${decodedId}`);
 
-  // For both REST (DELETE /ip/hotspot/user/*1) and Native API (/remove with .id param)
+  // Send command to RouterOS
   const result = await callRouterOS(`/ip/hotspot/user/${decodedId}`, 'DELETE', { '.id': decodedId });
   console.log(`[RouterOS] Delete result:`, JSON.stringify(result));
 
-  // Also remove from local DB if present
+  // Remove from local DB immediately (both db.vouchers AND db.hotspotUsers)
   const db = readDb();
-  db.vouchers = db.vouchers.filter(v => v.code !== decodedId && v.id !== decodedId);
+  const targetUser = (db.hotspotUsers || []).find(u => u['.id'] === decodedId || u.name === decodedId || u.id === decodedId);
+  const targetName = targetUser?.name || decodedId;
+
+  db.vouchers = (db.vouchers || []).filter(v =>
+    v.id !== decodedId && v.code !== decodedId && v.code !== targetName && v.id !== targetUser?.['.id']
+  );
+  db.hotspotUsers = (db.hotspotUsers || []).filter(u =>
+    u['.id'] !== decodedId && u.name !== decodedId && u.id !== decodedId && u.name !== targetName
+  );
   writeDb(db);
 
-  res.json({ success: true, message: 'Utilisateur supprimé' });
+  // Invalidate API cache immediately
+  apiCache.data = {};
+  apiCache.timestamp = {};
+
+  res.json({ success: true, message: 'Utilisateur supprimé avec succès' });
+});
+
+// Batch Delete Hotspot Users
+app.post('/api/router/users/batch-delete', requireAuth, async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: true, message: 'Liste d\'identifiants requise pour la suppression.' });
+  }
+
+  console.log(`[RouterOS] Batch deleting ${ids.length} user(s)...`);
+
+  // Parallel RouterOS calls
+  const results = await Promise.allSettled(
+    ids.map((id) => {
+      const decodedId = decodeURIComponent(id);
+      return callRouterOS(`/ip/hotspot/user/${decodedId}`, 'DELETE', { '.id': decodedId });
+    })
+  );
+
+  // Update local DB in one single operation
+  const db = readDb();
+  const idSet = new Set(ids);
+  const targetNames = new Set();
+
+  (db.hotspotUsers || []).forEach((u) => {
+    if (idSet.has(u['.id']) || idSet.has(u.name) || idSet.has(u.id)) {
+      if (u.name) targetNames.add(u.name);
+      if (u['.id']) targetNames.add(u['.id']);
+      if (u.id) targetNames.add(u.id);
+    }
+  });
+  ids.forEach((id) => targetNames.add(id));
+
+  db.vouchers = (db.vouchers || []).filter(
+    (v) => !targetNames.has(v.id) && !targetNames.has(v.code) && !idSet.has(v.id) && !idSet.has(v.code)
+  );
+  db.hotspotUsers = (db.hotspotUsers || []).filter(
+    (u) => !targetNames.has(u['.id']) && !targetNames.has(u.name) && !targetNames.has(u.id) && !idSet.has(u['.id']) && !idSet.has(u.name) && !idSet.has(u.id)
+  );
+  writeDb(db);
+
+  // Invalidate API cache immediately
+  apiCache.data = {};
+  apiCache.timestamp = {};
+
+  const okCount = results.filter((r) => r.status === 'fulfilled' && !r.value?.error).length;
+  console.log(`[RouterOS] Batch delete completed: ${okCount}/${ids.length} succeeded.`);
+  res.json({ success: true, count: okCount, total: ids.length, message: `${okCount} utilisateur(s) supprimé(s) avec succès.` });
 });
 
 // Update / Edit Existing Hotspot User
@@ -1112,13 +1227,22 @@ app.patch('/api/router/users/:id', requireAuth, async (req, res) => {
 
   await callRouterOS(`/ip/hotspot/user/${decodedId}`, 'PATCH', payload);
 
-  // Update local DB if present
+  // Update local DB immediately
   const db = readDb();
-  const found = db.vouchers.find(v => v.code === decodedId || v.id === decodedId);
-  if (found) {
-    if (profile) found.profile = profile;
-    if (comment !== undefined) found.comment = comment;
-    if (disabled !== undefined) found.status = disabled ? 'EXPIRED' : 'AVAILABLE';
+  const foundVoucher = (db.vouchers || []).find(v => v.code === decodedId || v.id === decodedId);
+  if (foundVoucher) {
+    if (profile) foundVoucher.profile = profile;
+    if (comment !== undefined) foundVoucher.comment = comment;
+    if (disabled !== undefined) foundVoucher.status = disabled ? 'EXPIRED' : 'AVAILABLE';
+  }
+
+  const targetName = foundVoucher?.code || decodedId;
+  const foundUser = (db.hotspotUsers || []).find(u => u['.id'] === decodedId || u.name === decodedId || u.name === targetName);
+  if (foundUser) {
+    if (profile) foundUser.profile = profile;
+    if (comment !== undefined) foundUser.comment = comment;
+    if (disabled !== undefined) foundUser.disabled = String(disabled);
+    if (password) foundUser.password = password;
   }
   writeDb(db);
 
@@ -1130,7 +1254,21 @@ app.post('/api/router/users/:id/reset', requireAuth, async (req, res) => {
   const { id } = req.params;
   const decodedId = decodeURIComponent(id);
   console.log(`[RouterOS] Resetting counters for user ${decodedId}`);
-  await callRouterOS(`/ip/hotspot/user/reset-counters`, 'POST', { numbers: decodedId });
+
+  await callRouterOS(`/ip/hotspot/user/${decodedId}/reset-counters`, 'POST', { numbers: decodedId, '.id': decodedId });
+
+  // Update local DB immediately
+  const db = readDb();
+  const foundUser = (db.hotspotUsers || []).find(u => u['.id'] === decodedId || u.name === decodedId);
+  if (foundUser) {
+    foundUser['bytes-in'] = '0';
+    foundUser['bytes-out'] = '0';
+    foundUser['bytesIn'] = '0 MB';
+    foundUser['bytesOut'] = '0 MB';
+    foundUser['uptime'] = '0s';
+  }
+  writeDb(db);
+
   res.json({ success: true, message: 'Compteurs réinitialisés avec succès' });
 });
 

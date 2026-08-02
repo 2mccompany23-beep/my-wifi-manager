@@ -14,6 +14,7 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ sessions, onRefr
 
   // Confirm modal state
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [pendingSession, setPendingSession] = useState<{ id: string; user: string } | null>(null);
 
   const openDisconnectConfirm = useCallback((id: string, user: string) => {
@@ -23,16 +24,19 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ sessions, onRefr
 
   const handleDisconnect = useCallback(async () => {
     if (!pendingSession) return;
+    setIsDisconnecting(true);
     try {
       await fetch(`/api/router/active/${encodeURIComponent(pendingSession.id)}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${sessionStorage.getItem('mikhmon_token')}` }
       });
       success(`Session de "${pendingSession.user}" déconnectée avec succès.`);
+      setConfirmOpen(false);
       onRefresh();
     } catch {
       error('Impossible de déconnecter la session. Vérifiez la connexion au routeur.');
     } finally {
+      setIsDisconnecting(false);
       setPendingSession(null);
     }
   }, [pendingSession, success, error, onRefresh]);
@@ -46,10 +50,12 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ sessions, onRefr
         title="Déconnecter la session"
         message={`Voulez-vous déconnecter immédiatement "${pendingSession?.user}" du hotspot WiFi ? La connexion sera coupée sans préavis.`}
         confirmLabel="Déconnecter"
+        loadingLabel="Déconnexion..."
         cancelLabel="Annuler"
         variant="danger"
+        isLoading={isDisconnecting}
         onConfirm={handleDisconnect}
-        onCancel={() => { setConfirmOpen(false); setPendingSession(null); }}
+        onCancel={() => { if (!isDisconnecting) { setConfirmOpen(false); setPendingSession(null); } }}
       />
 
       <div className="space-y-4 sm:space-y-6">

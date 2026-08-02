@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Search, Plus, Trash2, Edit3, Lock, Unlock, RotateCcw, Filter, RefreshCw,
   KeyRound, CheckSquare, Square, Eye, Clock, ShieldAlert, CheckCircle2,
-  XCircle, SlidersHorizontal, X, Activity, Zap
+  XCircle, SlidersHorizontal, X, Activity, Zap, Loader2
 } from 'lucide-react';
 import { ConfirmModal } from './ConfirmModal';
 import { ToastContainer, useToast } from './Toast';
@@ -20,6 +20,11 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRED'>('ALL');
   const [quickTab, setQuickTab] = useState<'ALL' | 'ACTIVE' | 'USED' | 'UNUSED' | 'EXPIRED'>('ALL');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
+  // Deletion loading states
+  const [deletingUserIds, setDeletingUserIds] = useState<string[]>([]);
+  const [isDeletingModal, setIsDeletingModal] = useState(false);
+  const [deleteLoadingLabel, setDeleteLoadingLabel] = useState('Suppression en cours...');
   
   const { toasts, dismiss, success, error } = useToast();
 
@@ -86,10 +91,137 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
     return up !== '' && up !== '0s' && up !== '0' && up !== '00:00:00';
   };
 
+  const extractDateFromComment = (comment?: string): Date | null => {
+    if (!comment) return null;
+
+    // ISO format: YYYY-MM-DD HH:mm:ss or YYYY-MM-DDTHH:mm:ss or YYYY-MM-DD
+    const isoMatch = comment.match(/(\d{4})[-\/](\d{2})[-\/](\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+    if (isoMatch) {
+      const [_, y, m, d, hh = '00', mm = '00', ss = '00'] = isoMatch;
+      const dateObj = new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}`);
+      if (!isNaN(dateObj.getTime())) return dateObj;
+    }
+
+    // French/Mikhmon format: DD/MM/YYYY HH:mm:ss or DD.MM.YY or DD/MM/YYYY
+    const frMatch = comment.match(/(\d{2})[\/\.](\d{2})[\/\.](\d{2,4})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+    if (frMatch) {
+      let [_, d, m, y, hh = '00', mm = '00', ss = '00'] = frMatch;
+      if (y.length === 2) y = '20' + y;
+      const dateObj = new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}`);
+      if (!isNaN(dateObj.getTime())) return dateObj;
+    }
+
+    return null;
+  };
+
+  const parseDurationToSeconds = (durationStr?: string | number): number => {
+    if (!durationStr) return 0;
+    if (typeof durationStr === 'number') return durationStr;
+    const str = String(durationStr).trim().toLowerCase();
+    if (!str || str === '0' || str === '0s' || str === '00:00:00') return 0;
+
+    let totalSeconds = 0;
+    let remainingStr = str;
+
+    // Check days e.g. 1d04:02:10 or 1d
+    const dayMatch = remainingStr.match(/^(\d+)d\s*/);
+    if (dayMatch) {
+      totalSeconds += parseInt(dayMatch[1], 10) * 86400;
+      remainingStr = remainingStr.replace(/^(\d+)d\s*/, '');
+    }
+
+    // Check HH:MM:SS or HH:MM
+    const timeMatch = remainingStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (timeMatch) {
+      const hours = parseInt(timeMatch[1], 10);
+      const minutes = parseInt(timeMatch[2], 10);
+      const seconds = parseInt(timeMatch[3] || '0', 10);
+      return totalSeconds + (hours * 3600) + (minutes * 60) + seconds;
+    }
+
+    // Check dhms formats e.g. 4h, 30m, 4h30m, 1d4h
+    const hMatch = remainingStr.match(/(\d+)\s*h/);
+    if (hMatch) totalSeconds += parseInt(hMatch[1], 10) * 3600;
+
+    const mMatch = remainingStr.match(/(\d+)\s*m(?!s)/);
+    if (mMatch) totalSeconds += parseInt(mMatch[1], 10) * 60;
+
+    const sMatch = remainingStr.match(/(\d+)\s*s/);
+    if (sMatch) totalSeconds += parseInt(sMatch[1], 10);
+
+    if (totalSeconds > 0) return totalSeconds;
+
+    const num = parseInt(str, 10);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const getProfileDurationLimit = (profileName?: string, limitUptimeStr?: string): number => {
+    if (limitUptimeStr) {
+      const sec = parseDurationToSeconds(limitUptimeStr);
+      if (sec > 0) return sec;
+    }
+
+    if (!profileName) return 0;
+    const name = String(profileName).trim().toLowerCase();
+
+    // Check for days: 500---4j / 500---4d / 1200---7j / 4000--30j
+    const dayMatch = name.match(/(\d+)\s*(?:j|d|jour|jours|day|days)\b/);
+    if (dayMatch) {
+      return parseInt(dayMatch[1], 10) * 86400;
+    }
+
+    // Check for hours: 100-F-4h / 200---12h / 300-F-24h
+    const hourMatch = name.match(/(\d+)\s*(?:h|hr|hrs|heure|heures)\b/);
+    if (hourMatch) {
+      return parseInt(hourMatch[1], 10) * 3600;
+    }
+
+    // Check for minutes
+    const minMatch = name.match(/(\d+)\s*(?:m|min|minute|minutes)\b/);
+    if (minMatch) {
+      return parseInt(minMatch[1], 10) * 60;
+    }
+
+    return 0;
+  };
+
   const isExpiredOrExhausted = (u: HotspotUser) => {
+    if (!u) return false;
     const isDisabled = String(u.disabled) === 'true';
-    const comment = String(u.comment || '').toUpperCase();
-    return isDisabled || comment.includes('EXPIRED') || comment.includes('EPUIS') || comment.includes('EXPIR');
+    if (isDisabled) return true;
+
+    const comment = String(u.comment || '').trim();
+    const commentUpper = comment.toUpperCase();
+    if (
+      commentUpper.includes('EXPIRED') ||
+      commentUpper.includes('EPUIS') ||
+      commentUpper.includes('EXPIR') ||
+      commentUpper.includes('FIN') ||
+      commentUpper.includes('OUT')
+    ) {
+      return true;
+    }
+
+    // 1. Un utilisateur avec uptime > 0s et dont la date du commentaire est inférieure à la date actuelle est EXPIRÉ
+    const hasUp = hasUptime(u);
+    if (hasUp && comment) {
+      const expirationDate = extractDateFromComment(comment);
+      if (expirationDate && expirationDate.getTime() < Date.now()) {
+        return true;
+      }
+    }
+
+    // 2. Un utilisateur dont l'uptime consommé correspond ou dépasse la durée de son profil (ex: 04:00:00 pour 100-F-4h) est ÉPUISÉ
+    const userUptimeSec = parseDurationToSeconds(u.uptime);
+    const limitUptimeSec = getProfileDurationLimit(u.profile, u['limit-uptime'] || (u as any).limitUptime);
+
+    if (limitUptimeSec > 0 && userUptimeSec > 0) {
+      if (userUptimeSec >= limitUptimeSec - 5) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   // Counters for tabs and profiles
@@ -184,6 +316,27 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
     }
   };
 
+  const handleSelectExpired = () => {
+    const expiredIds = safeUsers
+      .filter((u) => isExpiredOrExhausted(u))
+      .map((u) => u['.id'] || u.name || '')
+      .filter(Boolean);
+
+    if (expiredIds.length === 0) {
+      error('Aucun utilisateur épuisé ou expiré à marquer.');
+      return;
+    }
+
+    const allExpiredSelected = expiredIds.every((id) => selectedUserIds.includes(id));
+
+    if (allExpiredSelected) {
+      setSelectedUserIds((prev) => prev.filter((id) => !expiredIds.includes(id)));
+    } else {
+      setSelectedUserIds((prev) => Array.from(new Set([...prev, ...expiredIds])));
+      success(`${expiredIds.length} utilisateur(s) épuisé(s) marqué(s).`);
+    }
+  };
+
   const toggleSelectUser = (id: string) => {
     if (!id) return;
     setSelectedUserIds((prev) =>
@@ -196,18 +349,26 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
     'Authorization': `Bearer ${sessionStorage.getItem('mikhmon_token')}`
   });
 
-  const handleDeleteUser = async (id: string, name: string) => {
+  const handleDeleteUser = (id: string, name: string) => {
+    setDeleteLoadingLabel(`Suppression de "${name}"...`);
     openConfirm(
       'Supprimer l\'utilisateur',
       `Voulez-vous vraiment supprimer "${name}" du routeur MikroTik ? Cette action est irréversible.`,
       'danger',
       async () => {
+        setIsDeletingModal(true);
+        setDeletingUserIds((prev) => [...prev, id]);
         try {
-          await fetch(`/api/router/users/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders() });
+          const res = await fetch(`/api/router/users/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders() });
+          if (!res.ok) throw new Error('Échec de la suppression');
           success(`Utilisateur "${name}" supprimé avec succès.`);
+          closeConfirm();
           onRefresh();
         } catch {
           error('Erreur lors de la suppression. Vérifiez la connexion au routeur.');
+        } finally {
+          setIsDeletingModal(false);
+          setDeletingUserIds((prev) => prev.filter((i) => i !== id));
         }
       }
     );
@@ -215,21 +376,47 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
 
   const handleBatchDelete = () => {
     if (selectedUserIds.length === 0) return;
+    const count = selectedUserIds.length;
+    setDeleteLoadingLabel(`Suppression de ${count} utilisateur(s)...`);
     openConfirm(
       'Suppression en lot',
-      `Supprimer définitivement ${selectedUserIds.length} utilisateur(s) sélectionné(s) du MikroTik ?`,
+      `Supprimer définitivement ${count} utilisateur(s) sélectionné(s) du routeur MikroTik ?`,
       'danger',
       async () => {
-        let ok = 0;
-        for (const id of selectedUserIds) {
-          try {
-            await fetch(`/api/router/users/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders() });
-            ok++;
-          } catch (e) { console.error('Batch delete error:', e); }
+        setIsDeletingModal(true);
+        setDeletingUserIds(selectedUserIds);
+        try {
+          const res = await fetch('/api/router/users/batch-delete', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ ids: selectedUserIds })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            success(`${data.count || count} utilisateur(s) supprimé(s) avec succès.`);
+          } else {
+            // Fallback en parallèle si l'endpoint batch n'est pas dispo
+            let ok = 0;
+            await Promise.all(
+              selectedUserIds.map(async (id) => {
+                try {
+                  const r = await fetch(`/api/router/users/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders() });
+                  if (r.ok) ok++;
+                } catch (e) { console.error('Batch delete error:', e); }
+              })
+            );
+            success(`${ok} utilisateur(s) supprimé(s) avec succès.`);
+          }
+          setSelectedUserIds([]);
+          closeConfirm();
+          onRefresh();
+        } catch {
+          error('Erreur lors de la suppression en lot. Vérifiez la connexion au routeur.');
+        } finally {
+          setIsDeletingModal(false);
+          setDeletingUserIds([]);
         }
-        setSelectedUserIds([]);
-        success(`${ok} utilisateur(s) supprimé(s) avec succès.`);
-        onRefresh();
       }
     );
   };
@@ -327,6 +514,8 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
         message={confirmState.message}
         variant={confirmState.variant}
         confirmLabel={confirmState.variant === 'danger' ? 'Confirmer la suppression' : 'Confirmer'}
+        loadingLabel={deleteLoadingLabel}
+        isLoading={isDeletingModal}
         onConfirm={confirmState.onConfirm}
         onCancel={closeConfirm}
       />
@@ -479,13 +668,25 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {counts.expired > 0 && (
+                <button
+                  onClick={handleSelectExpired}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-xs border border-rose-500/20 transition-colors shrink-0"
+                  title="Marquer/sélectionner tous les utilisateurs épuisés ou expirés"
+                >
+                  <XCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>Marquer les épuisés ({counts.expired})</span>
+                </button>
+              )}
+
               {selectedUserIds.length > 0 && (
                 <button
                   onClick={handleBatchDelete}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-colors shadow-md shadow-rose-600/20"
+                  disabled={isDeletingModal}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-colors shadow-md shadow-rose-600/20 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {isDeletingModal ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Trash2 className="w-4 h-4 shrink-0" />}
                   <span>Supprimer ({selectedUserIds.length})</span>
                 </button>
               )}
@@ -588,8 +789,13 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
                     <button onClick={() => handleToggleDisable(u)} className={`p-2 rounded-lg border ${isDisabled ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`} title={isDisabled ? 'Activer' : 'Suspendre'}>
                       {isDisabled ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                     </button>
-                    <button onClick={() => handleDeleteUser(userId, userName)} className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20" title="Supprimer">
-                      <Trash2 className="w-3.5 h-3.5" />
+                    <button
+                      onClick={() => handleDeleteUser(userId, userName)}
+                      disabled={deletingUserIds.includes(userId) || isDeletingModal}
+                      className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Supprimer"
+                    >
+                      {deletingUserIds.includes(userId) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
@@ -753,10 +959,11 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
                           {/* Delete User */}
                           <button
                             onClick={() => handleDeleteUser(userId, userName)}
-                            className="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors border border-rose-500/20"
+                            disabled={deletingUserIds.includes(userId) || isDeletingModal}
+                            className="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors border border-rose-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Supprimer du MikroTik"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            {deletingUserIds.includes(userId) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
 
                         </td>
