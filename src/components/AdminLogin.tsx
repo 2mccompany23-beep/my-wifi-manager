@@ -55,7 +55,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             Accès Administrateur
           </h2>
           <p className="text-xs text-slate-400">
-            Cloud Mikhmon 2.0 • 2MC WIFI ZONE (RB951Ui)
+            2MC SpotCloud 2.0 • Plateforme Hotspot MikroTik (RB951Ui)
           </p>
         </div>
 

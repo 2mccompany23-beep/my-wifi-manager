@@ -199,103 +199,55 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
               </div>
             </div>
 
-            {/* Polling / CGNAT Section */}
-            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4 mt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h5 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
-                    <Activity className="w-4 h-4" />
-                    <span>Mode de Connexion (Contournement CGNAT / Polling Inverse)</span>
-                  </h5>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Sélectionnez le mode de liaison entre AlwaysData et votre routeur MikroTik.
+            {/* Mode de Connexion Fixé Automatiquement */}
+            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 mt-4">
+              {settings.connectionMode === 'polling' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                      <Activity className="w-4 h-4" />
+                      <span>Mode de Connexion : Polling HTTP (AlwaysData Cloud)</span>
+                    </h5>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Fixé (Cloud AlwaysData)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    L'application est exécutée sur AlwaysData. La communication avec votre routeur MikroTik s'effectue obligatoirement en mode <strong>Polling Inverse HTTP</strong> pour franchir les pare-feux et NAT/CGNAT. Le choix manuel est désactivé.
                   </p>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <label
-                  className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
-                    (settings.connectionMode || 'auto') === 'auto'
-                      ? 'bg-indigo-600/10 border-indigo-500 text-white'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold">Automatique (Recommandé)</span>
-                    <input
-                      type="radio"
-                      name="connectionMode"
-                      value="auto"
-                      checked={(settings.connectionMode || 'auto') === 'auto'}
-                      onChange={() => setSettings({ ...settings, connectionMode: 'auto' })}
-                      className="accent-indigo-500"
-                    />
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-xs font-bold text-indigo-400 flex items-center gap-2">
+                      <Server className="w-4 h-4" />
+                      <span>Mode de Connexion : Direct TCP (Réseau Local)</span>
+                    </h5>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      Fixé (Réseau Local)
+                    </span>
                   </div>
-                  <p className="text-[10px] text-slate-400">
-                    Essaie la connexion TCP directe ; si bloqué par CGNAT, bascule sur le Polling.
+                  <p className="text-[11px] text-slate-300">
+                    L'application est exécutée en réseau local. La communication avec le routeur MikroTik s'effectue en direct via <strong>TCP (REST API / Winbox)</strong>. Le Polling est désactivé.
                   </p>
-                </label>
+                </div>
+              )}
 
-                <label
-                  className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
-                    settings.connectionMode === 'polling'
-                      ? 'bg-emerald-600/10 border-emerald-500 text-white'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold">Polling Uniquement</span>
-                    <input
-                      type="radio"
-                      name="connectionMode"
-                      value="polling"
-                      checked={settings.connectionMode === 'polling'}
-                      onChange={() => setSettings({ ...settings, connectionMode: 'polling' })}
-                      className="accent-emerald-500"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400">
-                    Le routeur interroge AlwaysData toutes les 5s (Option 2 sans VPN/VPS).
+              {settings.connectionMode === 'polling' && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  <label className="block text-slate-400 mb-1 font-medium">Jeton de Sécurité Polling (Bearer Token)</label>
+                  <input
+                    type="text"
+                    value={settings.pollSecretToken || 'mcwifi_secret_token_2026'}
+                    onChange={(e) => setSettings({ ...settings, pollSecretToken: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Ce token sécurise les requêtes de votre routeur MikroTik vers AlwaysData.
                   </p>
-                </label>
-
-                <label
-                  className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
-                    settings.connectionMode === 'direct'
-                      ? 'bg-purple-600/10 border-purple-500 text-white'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold">Direct TCP Seul</span>
-                    <input
-                      type="radio"
-                      name="connectionMode"
-                      value="direct"
-                      checked={settings.connectionMode === 'direct'}
-                      onChange={() => setSettings({ ...settings, connectionMode: 'direct' })}
-                      className="accent-purple-500"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400">
-                    Connexion REST (80/443) ou Winbox (8728) directe avec IP Publique/Port Forwarding.
-                  </p>
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Jeton de Sécurité Polling (Bearer Token)</label>
-                <input
-                  type="text"
-                  value={settings.pollSecretToken || 'mcwifi_secret_token_2026'}
-                  onChange={(e) => setSettings({ ...settings, pollSecretToken: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs"
-                />
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Ce token sécurise les requêtes de votre routeur MikroTik vers AlwaysData.
-                </p>
-              </div>
+                </div>
+              )}
+            </div>
 
               {/* MikroTik RouterOS Script Generator Box */}
               <div className="pt-2 border-t border-slate-800">
@@ -364,7 +316,6 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
                 </pre>
               </div>
             </div>
-          </div>
 
           {/* FedaPay Section */}
           <div className="space-y-4 pt-2">

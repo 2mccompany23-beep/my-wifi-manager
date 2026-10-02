@@ -25,8 +25,9 @@
         
         :local cmdFunc [:parse $cmdText]
         :local outputData [$cmdFunc]
+        :local outStr [:tostr $outputData]
         
-        :local resObj { "id"=$commandId; "status"="done"; "output"=$outputData }
+        :local resObj { "id"=$commandId; "status"="done"; "output"=$outStr }
         :local resJson [:serialize to=json value=$resObj]
         
         /tool fetch url=$resultUrl http-method=post http-data=$resJson http-header-field="Authorization: Bearer $authToken\r\nContent-Type: application/json" as-value output=user

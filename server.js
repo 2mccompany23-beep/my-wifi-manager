@@ -55,7 +55,11 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // --- Rate Limiter login ---
@@ -585,6 +589,18 @@ function requirePollAuth(req, res, next) {
   return next();
 }
 
+function isAlwaysDataEnvironment() {
+  return Boolean(
+    process.env.ALWAYSDATA_HTTPD_PORT ||
+    process.env.ALWAYSDATA_SSH ||
+    process.env.ALWAYSDATA_LOG_DIR ||
+    (process.env.HOME && (process.env.HOME.includes('alwaysdata') || process.env.HOME.includes('/home/2mc'))) ||
+    process.cwd().includes('alwaysdata') ||
+    process.cwd().includes('/home/2mc') ||
+    (process.env.USER === '2mc' && process.platform !== 'win32')
+  );
+}
+
 // Router OS 7 REST API, Native API & Polling Helper
 async function callRouterOS(endpoint, method = 'GET', body = null) {
   const cacheKey = `${endpoint}_${method}_${JSON.stringify(body)}`;
@@ -599,14 +615,11 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
   }
 
   const db = readDb();
-  const { routerIp, routerPort, routerUser, routerPass, connectionMode } = db.settings;
-  const secAgo = lastRouterPollTimestamp > 0 ? Math.round((Date.now() - lastRouterPollTimestamp) / 1000) : 9999;
-  const isRouterPolling = lastRouterPollTimestamp > 0 && secAgo < 60;
+  const { routerIp, routerPort, routerUser, routerPass } = db.settings;
+  const isAlwaysData = isAlwaysDataEnvironment();
 
-  // Détection automatique: si l'IP est privée (ex: 10.0.0.254), mode Polling ou routeur actif en Polling
-  const usePollingMode = connectionMode === 'polling' || isPrivateIp(routerIp) || isRouterPolling;
-
-  if (usePollingMode) {
+  // 1. SUR ALWAYSDATA (CLOUD) : MODE POLLING EXCLUSIF (pas de tentative TCP locale)
+  if (isAlwaysData) {
     const cmd = buildRouterOSCommand(endpoint, method, body);
     try {
       const pollRes = await enqueuePollCommand(cmd, 30000);
@@ -620,14 +633,15 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
       return pollRes;
     } catch (err) {
       console.warn(`[callRouterOS] Polling Timeout/Error sur ${endpoint}: ${err.message}`);
+      return { error: true, message: `Timeout ou erreur de Polling Cloud: ${err.message}` };
     }
   }
 
+  // 2. EN RÉSEAU LOCAL : CONNEXION TCP DIRECTE EXCLUSIVE (aucun polling)
   const targetPort = parseInt(routerPort) || 80;
   let result = null;
   const socketTimeout = endpoint.startsWith('/system/script') ? 30000 : 8000;
 
-  // 1. Try RouterOS 7 REST API if port is 80 or 443
   if (targetPort === 80 || targetPort === 443) {
     const protocol = targetPort === 443 ? 'https' : 'http';
     const url = `${protocol}://${routerIp}:${targetPort}/rest${endpoint}`;
@@ -657,27 +671,7 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
       result = await callRouterOSNativeApi(routerIp, 8728, routerUser, routerPass, endpoint, method, body, socketTimeout);
     }
   } else {
-    // 2. Direct Port 8728 Native Socket API
     result = await callRouterOSNativeApi(routerIp, targetPort, routerUser, routerPass, endpoint, method, body, socketTimeout);
-  }
-
-  // Fallback vers le Polling si la connexion directe a échoué (ex: CGNAT / IP privée)
-  if (result && result.error) {
-    console.log(`[callRouterOS] Connexion directe impossible (${result.message}). Envoi via Polling...`);
-    const cmd = buildRouterOSCommand(endpoint, method, body);
-    try {
-      const pollRes = await enqueuePollCommand(cmd, 30000);
-      if (pollRes && pollRes.success) {
-        pollRes.data = normalizeRouterOSData(pollRes.data);
-        if (method === 'GET') {
-          apiCache.data[cacheKey] = pollRes;
-          apiCache.timestamp[cacheKey] = now;
-        }
-      }
-      return pollRes;
-    } catch (pollErr) {
-      return { error: true, message: `Connexion directe et Polling ont échoué: ${pollErr.message}` };
-    }
   }
 
   if (method === 'GET' && result && result.success) {
@@ -689,17 +683,22 @@ async function callRouterOS(endpoint, method = 'GET', body = null) {
 }
 
 // ============================================================
-// ROUTER POLLING API ENDPOINTS (GET /api/poll & POST /api/poll/result)
+// ENDPOINTS DE POLLING HTTP POUR ROUTEUR MIKROTIK
 // ============================================================
 
-// 1. Router polls this endpoint to check for commands to execute
 const handlePollGet = (req, res) => {
+  const now = Date.now();
   for (const [id, item] of pollingQueue.entries()) {
+    // Si la commande a été envoyée depuis plus de 25s sans résultat, la repasser en pending
+    if (item.status === 'sent' && (now - (item.sentAt || item.createdAt)) > 25000) {
+      item.status = 'pending';
+    }
     if (item.status === 'pending') {
-      item.status = 'sent'; // Marqué comme envoyé mais conservé en mémoire pour la réponse
+      item.status = 'sent';
+      item.sentAt = now;
       return res.json({
         action: 'run',
-        id: id,
+        id,
         command: item.command
       });
     }
@@ -710,10 +709,8 @@ const handlePollGet = (req, res) => {
 app.get('/api/poll', requirePollAuth, handlePollGet);
 app.get('/poll', requirePollAuth, handlePollGet);
 
-// 2. Router posts command execution result back
 const handlePollResultPost = (req, res) => {
   let bodyObj = req.body;
-
   if (typeof bodyObj === 'string' || Buffer.isBuffer(bodyObj)) {
     try {
       bodyObj = JSON.parse(bodyObj.toString());
@@ -732,7 +729,6 @@ const handlePollResultPost = (req, res) => {
     const { resolvers, timeoutId } = pollingQueue.get(id);
     clearTimeout(timeoutId);
     pollingQueue.delete(id);
-
     const parsedData = normalizeRouterOSData(executionOutput);
     const resultObj = { success: true, data: parsedData, status: status || 'done' };
     (resolvers || []).forEach(r => r.resolve(resultObj));
@@ -744,7 +740,6 @@ const handlePollResultPost = (req, res) => {
     const { resolvers, timeoutId } = pollingQueue.get(firstKey);
     clearTimeout(timeoutId);
     pollingQueue.delete(firstKey);
-
     const parsedData = normalizeRouterOSData(executionOutput);
     const resultObj = { success: true, data: parsedData, status: status || 'done' };
     (resolvers || []).forEach(r => r.resolve(resultObj));
@@ -805,14 +800,27 @@ function getLimitUptimeForPlan(plan) {
   return limitMap[plan] || '4h';
 }
 
-// Generate Mikhmon standard comment format (e.g. vc-551-03.05.26-didier)
+// Map FCFA amount to plan key
+function getPlanFromAmount(amount) {
+  const amt = Number(amount);
+  if (amt === 100) return '4h';
+  if (amt === 200) return '12h';
+  if (amt === 300) return '24h';
+  if (amt === 500) return '4j';
+  if (amt === 1200) return '7j';
+  if (amt === 4000) return '30j';
+  return null;
+}
+
+// Generate Mikhmon standard comment format (e.g. vc-551-03.05.26-admin)
 function formatMikhmonComment(quantity = 1, tag = 'admin') {
   const now = new Date();
   const day = String(now.getDate()).padStart(2, '0');
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const year = String(now.getFullYear()).slice(-2);
   const dateStr = `${month}.${day}.${year}`;
-  return `vc-${quantity}-${dateStr}-${tag}`;
+  const batchId = Math.floor(100 + Math.random() * 900);
+  return `vc-${batchId}-${dateStr}-${tag}`;
 }
 
 // --- AUTH ROUTES ---
@@ -951,12 +959,18 @@ app.get('/api/router/users', requireAuth, async (req, res) => {
   const db = readDb();
   let localUsers = db.hotspotUsers || [];
   let activeSessions = db.activeSessions || [];
+  const isAlwaysData = isAlwaysDataEnvironment();
 
-  // Récupérer en direct les utilisateurs ET les sessions actives depuis RouterOS
+  // En mode Polling Cloud (AlwaysData), imposer un timeout max de 3s pour servir le cache instantanément
   try {
-    const [userRes, activeRes] = await Promise.all([
-      callRouterOS('/ip/hotspot/user'),
-      callRouterOS('/ip/hotspot/active')
+    const userPromise = callRouterOS('/ip/hotspot/user');
+    const activePromise = callRouterOS('/ip/hotspot/active');
+    const timeoutMs = isAlwaysData ? 3000 : 10000;
+    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve([{ timeout: true }, { timeout: true }]), timeoutMs));
+
+    const [userRes, activeRes] = await Promise.race([
+      Promise.all([userPromise, activePromise]),
+      timeoutPromise
     ]);
 
     if (userRes && userRes.success && Array.isArray(userRes.data) && userRes.data.length > 0) {
@@ -967,7 +981,9 @@ app.get('/api/router/users', requireAuth, async (req, res) => {
       activeSessions = activeRes.data;
       db.activeSessions = activeSessions;
     }
-    writeDb(db);
+    if (userRes?.success || activeRes?.success) {
+      writeDb(db);
+    }
   } catch (err) {
     console.warn('[Users] Impossible de récupérer les utilisateurs/sessions RouterOS en direct, utilisation du cache local:', err.message);
   }
@@ -984,7 +1000,17 @@ app.get('/api/router/users', requireAuth, async (req, res) => {
   // 1. Charger d'abord les vouchers créés en base locale
   for (const v of localVouchers) {
     const key = v.name || v.code || v['.id'];
-    if (key) userMap.set(key, v);
+    if (key) {
+      userMap.set(key, {
+        '.id': v['.id'] || key,
+        name: key,
+        profile: v.profile || v.plan || '100-F-4h',
+        uptime: '0s',
+        'bytes-in': 0,
+        'bytes-out': 0,
+        comment: v.comment || 'Voucher local'
+      });
+    }
   }
 
   // 2. Superposer les utilisateurs RouterOS réels (source de vérité pour bytes-in, bytes-out, uptime)
@@ -1316,20 +1342,29 @@ app.post('/api/router/users/:id/reset', requireAuth, async (req, res) => {
   res.json({ success: true, message: 'Compteurs réinitialisés avec succès' });
 });
 
-// Generate Batch Vouchers
+// Generate Batch / Single Vouchers
 app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
   const { prefix = '2MC-', length = 5, profile = '100-F-4h', quantity = 1, price = 100 } = req.body;
   const db = readDb();
-  const created = [];
-  const mikhmonComment = formatMikhmonComment(quantity, 'admin');
+  if (!db.vouchers) db.vouchers = [];
+  if (!db.hotspotUsers) db.hotspotUsers = [];
 
-  for (let i = 0; i < Math.min(quantity, 100); i++) {
+  const created = [];
+  const qty = Math.max(1, Math.min(parseInt(quantity) || 1, 100));
+  const mikhmonComment = formatMikhmonComment(qty, 'admin');
+  const limitUptime = getLimitUptimeForPlan(profile);
+  const numericPrice = parseInt(price) || 100;
+
+  if (!db.sales) db.sales = [];
+
+  for (let i = 0; i < qty; i++) {
     const code = generateVoucherCode(prefix, length);
+    const voucherId = `v_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`;
     const voucher = {
-      id: `v_${Date.now()}_${i}`,
+      id: voucherId,
       code,
       profile,
-      price: parseInt(price),
+      price: numericPrice,
       created: new Date().toISOString(),
       status: 'AVAILABLE',
       comment: mikhmonComment
@@ -1338,23 +1373,69 @@ app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
     db.vouchers.unshift(voucher);
     created.push(voucher);
 
-    // Try posting to physical MikroTik RB951Ui with strict limit-uptime & Mikhmon comment
+    // ✅ ENREGISTRER LA VENTE IMMÉDIATEMENT dans db.sales
+    // Cela garantit que totalRevenue est mis à jour dès la génération du ticket
+    const alreadyInSales = db.sales.some(s => s.voucher === code || s.reference === code);
+    if (!alreadyInSales) {
+      db.sales.unshift({
+        id: `sale_${voucherId}`,
+        reference: code,
+        amount: numericPrice,
+        plan: getLimitUptimeForPlan(profile),
+        profile,
+        voucher: code,
+        mode: 'Vente Directe',
+        phone: '',
+        date: new Date().toISOString(),
+        status: 'SUCCESS',
+        source: 'voucher'
+      });
+    }
+
+    // Mettre à jour immédiatement la base locale db.hotspotUsers
+    const existingIdx = db.hotspotUsers.findIndex(u => u.name === code || u['.id'] === code);
+    const userEntry = {
+      '.id': `local_${code}`,
+      name: code,
+      password: code,
+      profile: profile,
+      'limit-uptime': limitUptime,
+      uptime: '0s',
+      'bytes-in': '0',
+      'bytes-out': '0',
+      bytesIn: '0 MB',
+      bytesOut: '0 MB',
+      bytesTotal: '0 MB',
+      server: 'all',
+      comment: mikhmonComment,
+      disabled: 'false'
+    };
+
+    if (existingIdx >= 0) {
+      db.hotspotUsers[existingIdx] = { ...db.hotspotUsers[existingIdx], ...userEntry };
+    } else {
+      db.hotspotUsers.unshift(userEntry);
+    }
+
+    // Envoi vers le routeur MikroTik avec server="all"
     callRouterOS('/ip/hotspot/user', 'POST', {
       name: code,
       password: code,
       profile: profile,
-      'limit-uptime': getLimitUptimeForPlan(profile),
+      'limit-uptime': limitUptime,
+      server: 'all',
       comment: mikhmonComment
-    }).catch(e => console.warn('RouterOS post warning:', e.message));
+    }).catch(e => console.warn(`[RouterOS] Warning adding user ${code}:`, e.message));
   }
 
   writeDb(db);
-  res.json({ success: true, vouchers: created });
+  console.log(`[Vouchers] ${created.length} ticket(s) généré(s) avec succès (Profil: ${profile}, Commentaire: ${mikhmonComment})`);
+  res.json({ success: true, vouchers: created, count: created.length });
 });
 
 // FedaPay / Polling get_voucher.php endpoint for login.html (PUBLIC FOR CLIENTS)
 // SECURITE: Un voucher n'est retourné que si la vente existe déjà en base (créée par le webhook)
-app.get('/www/get_voucher.php', (req, res) => {
+app.get(['/www/get_voucher.php', '/get_voucher.php', '/api/fedapay/voucher'], (req, res) => {
   const { reference } = req.query;
   console.log(`[get_voucher] Vérification référence: ${reference}`);
 
@@ -1375,26 +1456,67 @@ app.get('/www/get_voucher.php', (req, res) => {
   return res.status(404).json({ error: 'Paiement non trouvé. Veuillez patienter ou contacter le support.' });
 });
 
-// FedaPay Webhook (PUBLIC FOR FEDAPAY NOTIFICATIONS)
-// Vérification de la signature HMAC pour rejeter les faux webhooks
-app.post('/api/fedapay/webhook', express.raw({ type: 'application/json' }), (req, res) => {
-  const webhookSecret = process.env.FEDAPAY_WEBHOOK_SECRET;
+// FedaPay Webhook Handler (PUBLIC FOR FEDAPAY NOTIFICATIONS)
+// Support de multiple endpoints dont /webhook.php, /www/webhook.php et /api/fedapay/webhook
+function handleFedaPayWebhook(req, res) {
+  // Réponse immédiate 200 pour les vérifications GET/HEAD (ping/healthcheck FedaPay ou diagnostics)
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    return res.status(200).json({
+      status: 'ok',
+      message: 'Point de terminaison Webhook FedaPay opérationnel',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  const db = readDb();
+  const webhookSecret = process.env.FEDAPAY_WEBHOOK_SECRET || db.settings?.fedapaySecretKey;
   const signature = req.headers['x-fedapay-signature'];
 
-  // Vérifier la signature si un secret est configuré
+  // Récupérer le buffer/string brut du payload pour vérification HMAC
+  const rawPayload = req.rawBody || (Buffer.isBuffer(req.body) ? req.body : (typeof req.body === 'string' ? Buffer.from(req.body) : Buffer.from(JSON.stringify(req.body || {}))));
+
+  // Vérifier la signature HMAC si le secret est configuré
   if (webhookSecret && signature) {
-    const expectedSig = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(req.body)
-      .digest('hex');
-    const providedSig = signature.replace('sha256=', '');
     try {
-      if (!crypto.timingSafeEqual(Buffer.from(expectedSig, 'hex'), Buffer.from(providedSig, 'hex'))) {
-        console.warn(`[Webhook] Signature invalide — rejet (IP: ${req.ip})`);
+      let providedSigHex = '';
+      let timestamp = '';
+      const sigParts = String(signature).split(',');
+      for (const part of sigParts) {
+        const [k, v] = part.trim().split('=');
+        if (k === 't') timestamp = v;
+        if (k === 'v1' || k === 'sha256') providedSigHex = v;
+      }
+      if (!providedSigHex && !signature.includes('=')) {
+        providedSigHex = String(signature).trim();
+      } else if (!providedSigHex) {
+        providedSigHex = String(signature).replace(/^(sha256=)/i, '').trim();
+      }
+
+      const sigA = crypto.createHmac('sha256', webhookSecret).update(rawPayload).digest('hex');
+      let sigB = '';
+      if (timestamp) {
+        sigB = crypto.createHmac('sha256', webhookSecret).update(`${timestamp}.${rawPayload}`).digest('hex');
+      }
+
+      const expectedBufA = Buffer.from(sigA, 'hex');
+      const expectedBufB = sigB ? Buffer.from(sigB, 'hex') : null;
+      let providedBuf;
+      try {
+        providedBuf = Buffer.from(providedSigHex, 'hex');
+      } catch (e) {
+        console.warn(`[Webhook] Signature hex malformée: ${providedSigHex}`);
+        return res.status(401).send('Signature malformée');
+      }
+
+      const matchA = expectedBufA.length === providedBuf.length && crypto.timingSafeEqual(expectedBufA, providedBuf);
+      const matchB = expectedBufB && expectedBufB.length === providedBuf.length && crypto.timingSafeEqual(expectedBufB, providedBuf);
+
+      if (!matchA && !matchB) {
+        console.warn(`[Webhook] Signature invalide — rejet (IP: ${req.ip}, Sign: ${signature})`);
         return res.status(401).send('Signature invalide');
       }
-    } catch {
-      console.warn('[Webhook] Signature malformée');
+    } catch (err) {
+      console.warn('[Webhook] Erreur vérification signature:', err.message);
       return res.status(401).send('Signature malformée');
     }
   } else if (webhookSecret && !signature) {
@@ -1404,31 +1526,36 @@ app.post('/api/fedapay/webhook', express.raw({ type: 'application/json' }), (req
 
   let event;
   try {
-    event = typeof req.body === 'string' || Buffer.isBuffer(req.body)
-      ? JSON.parse(req.body.toString())
-      : req.body;
+    if (typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)) {
+      event = req.body;
+    } else {
+      const str = rawPayload.toString('utf8');
+      event = JSON.parse(str);
+    }
   } catch {
+    console.warn('[Webhook] JSON invalide reçu (IP: ' + req.ip + ')');
     return res.status(400).send('JSON invalide');
   }
 
   console.log('[FedaPay Webhook] Événement reçu:', JSON.stringify(event));
+
+  const eventName = event?.name || event?.event;
   const transaction = event?.entity || event?.transaction || event?.data;
 
-  if (transaction && (transaction.status === 'approved' || transaction.status === 'transferred')) {
-    const ref = transaction.reference || transaction.id;
-    const amount = transaction.amount || 300;
-    const plan = transaction.custom_data?.plan || '24h';
+  if (transaction && (transaction.status === 'approved' || transaction.status === 'transferred' || eventName === 'transaction.approved')) {
+    const ref = String(transaction.reference || transaction.id);
+    const amount = Number(transaction.amount || 0);
+    const plan = transaction.custom_data?.plan || getPlanFromAmount(amount) || '24h';
     const profile = getProfileForPlan(plan);
     const limitUptime = getLimitUptimeForPlan(plan);
     const mikhmonComment = formatMikhmonComment(1, 'fedapay');
 
-    const db = readDb();
-    let existing = db.sales.find(s => s.reference === ref);
+    let existing = db.sales.find(s => String(s.reference) === ref);
     if (!existing) {
       const voucherCode = generateVoucherCode('2MC-', 5);
       const sale = {
         id: `tx_${Date.now()}`,
-        reference: String(ref),
+        reference: ref,
         amount,
         plan,
         profile,
@@ -1452,19 +1579,34 @@ app.post('/api/fedapay/webhook', express.raw({ type: 'application/json' }), (req
       });
       writeDb(db);
 
-      // Create on RB951Ui Hotspot with strict limit-uptime & Mikhmon comment
+      console.log(`[Webhook] Transaction ${ref} enregistrée. Voucher: ${voucherCode}, Profil: ${profile}`);
+
+      // Création du user sur le routeur Hotspot MikroTik
       callRouterOS('/ip/hotspot/user', 'POST', {
         name: voucherCode,
         password: voucherCode,
         profile,
         'limit-uptime': limitUptime,
         comment: mikhmonComment
-      });
+      }).catch(err => console.error('[Webhook] RouterOS POST error:', err.message));
+    } else {
+      console.log(`[Webhook] Transaction ${ref} déjà enregistrée.`);
     }
   }
 
-  res.status(200).send('OK');
-});
+  // Renvoyer TOUJOURS un code HTTP 200 (entre 200 et 299) pour valider la réception du webhook par FedaPay
+  return res.status(200).json({ success: true, message: 'Webhook reçu et traité avec succès' });
+}
+
+const FEDAPAY_WEBHOOK_PATHS = [
+  '/webhook.php',
+  '/www/webhook.php',
+  '/api/fedapay/webhook',
+  '/webhook',
+  '/fedapay/webhook'
+];
+
+app.all(FEDAPAY_WEBHOOK_PATHS, handleFedaPayWebhook);
 
 function parseMikhmonScript(script) {
   if (!script) return null;
@@ -1517,6 +1659,12 @@ function parseMikhmonScript(script) {
     const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
     const m = months[mikrotikDateMatch[1].toLowerCase()] || '01';
     dateStr = `${mikrotikDateMatch[3]}-${m}-${mikrotikDateMatch[2].padStart(2, '0')}`;
+  } else {
+    // Gérer le format DD/MM/YYYY ou DD-MM-YYYY
+    const dmyMatch = date ? date.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})$/) : null;
+    if (dmyMatch) {
+      dateStr = `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`;
+    }
   }
 
   const timeClean = (time || '').replace(/^-/, '');
@@ -1550,6 +1698,20 @@ function parseMikhmonScript(script) {
   };
 }
 
+// Helper de filtrage par plage de dates
+function filterTransactionsByDate(transactions, startDate, endDate) {
+  if (!startDate && !endDate) return transactions;
+  const start = startDate ? new Date(`${startDate}T00:00:00`).getTime() : -Infinity;
+  const end = endDate ? new Date(`${endDate}T23:59:59.999`).getTime() : Infinity;
+
+  return transactions.filter(t => {
+    if (!t.date) return false;
+    const tTime = new Date(t.date).getTime();
+    if (isNaN(tTime)) return false;
+    return tTime >= start && tTime <= end;
+  });
+}
+
 // Helper to clear script cache for forced router sync
 function clearScriptCache() {
   for (const k of Object.keys(apiCache.data)) {
@@ -1560,45 +1722,105 @@ function clearScriptCache() {
   }
 }
 
-// Get Sales & Revenue (PROTECTED ADMIN - Stockage Local Instantané + Synchro Différentielle)
-app.get('/api/sales', requireAuth, (req, res) => {
+// Get Sales & Revenue (PROTECTED ADMIN - Stockage Local Instantané + Synchro Synchrone + Filtre Dates)
+app.get('/api/sales', requireAuth, async (req, res) => {
   const isForce = req.query.force === 'true' || req.query.refresh === 'true' || req.query.sync === 'true';
-  if (isForce) {
-    clearScriptCache();
+  const { startDate, endDate } = req.query;
+
+  // Toujours synchroniser avec le routeur de façon SYNCHRONE avant de calculer le solde
+  // Ceci garantit que les nouveaux achats (scripts MikroTik récents) sont inclus dans totalRevenue
+  try {
+    await fetchAndSyncRouterScripts(isForce);
+  } catch (e) {
+    // Si le routeur est hors-ligne, on continue avec le cache local
+    console.warn('[/api/sales] Sync routeur impossible, fallback cache local:', e?.message);
   }
 
   const db = readDb();
   const sales = db.sales || [];
+
+  // totalRevenue = somme de TOUTES les ventes (scripts routeur + FedaPay) après synchro
   const totalRevenue = sales.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
 
-  // Synchronisation différentielle en tâche de fond (récupération des nouvelles transactions uniquement)
-  callRouterOS('/system/script').then((result) => {
-    if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-      const dbFresh = readDb();
-      if (!dbFresh.sales) dbFresh.sales = [];
-      const existingIds = new Set(dbFresh.sales.map(s => s.id || s.reference));
-      let updated = false;
-
-      for (const script of result.data) {
-        const parsed = parseMikhmonScript(script);
-        if (parsed && !existingIds.has(parsed.id)) {
-          dbFresh.sales.unshift(parsed);
-          existingIds.add(parsed.id);
-          updated = true;
-        }
-      }
-
-      if (updated) {
-        writeDb(dbFresh);
-      }
-    }
-  }).catch(() => {});
+  let resultSales = sales;
+  if (startDate || endDate) {
+    resultSales = filterTransactionsByDate(sales, startDate, endDate);
+  }
+  const periodRevenue = resultSales.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
 
   return res.json({
-    sales,
+    sales: resultSales,
     totalRevenue,
-    totalCount: sales.length
+    totalCount: sales.length,
+    periodRevenue,
+    periodCount: resultSales.length,
+    startDate: startDate || null,
+    endDate: endDate || null
   });
+});
+
+// Endpoint pour enregistrement direct ou webhook d'un script MikroTik (on-login ou scheduler)
+app.all('/api/router/record-script', (req, res) => {
+  const token = req.query.token || req.headers['authorization']?.replace('Bearer ', '') || req.body?.token;
+  const db = readDb();
+  const validToken = db.settings.pollSecretToken || 'mcwifi_secret_token_2026';
+  if (!token || token !== validToken) {
+    return res.status(401).json({ error: 'Token de synchronisation invalide.' });
+  }
+
+  const scriptName = req.query.name || req.body?.name || (typeof req.body === 'string' ? req.body : null);
+  if (!scriptName) {
+    return res.status(400).json({ error: 'Nom du script manquant.' });
+  }
+
+  const parsed = parseMikhmonScript({ name: scriptName, comment: 'mikhmon' });
+  if (!parsed) {
+    return res.status(400).json({ error: 'Format de script Mikhmon non reconnu.' });
+  }
+
+  if (!db.sales) db.sales = [];
+  const existingIdx = db.sales.findIndex(s => s.id === parsed.id || (s.voucher && s.voucher.toLowerCase() === parsed.voucher.toLowerCase()));
+  if (existingIdx >= 0) {
+    db.sales[existingIdx] = { ...db.sales[existingIdx], ...parsed };
+  } else {
+    db.sales.unshift(parsed);
+  }
+
+  writeDb(db);
+  console.log(`[RecordScript] Vente synchronisée depuis MikroTik: ${parsed.username} (${parsed.amount} FCFA, Date: ${parsed.date})`);
+  return res.json({ success: true, sale: parsed });
+});
+
+// Endpoint pour push batch de ventes vers la base
+app.post('/api/router/push-sales', (req, res) => {
+  const token = req.query.token || req.headers['authorization']?.replace('Bearer ', '') || req.body?.token;
+  const db = readDb();
+  const validToken = db.settings.pollSecretToken || 'mcwifi_secret_token_2026';
+  if (!token || token !== validToken) {
+    return res.status(401).json({ error: 'Token de synchronisation invalide.' });
+  }
+
+  const items = req.body?.sales || (Array.isArray(req.body) ? req.body : []);
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Aucune vente fournie.' });
+  }
+
+  if (!db.sales) db.sales = [];
+  let added = 0;
+  for (const item of items) {
+    const existingIdx = db.sales.findIndex(s => s.id === item.id || (s.voucher && item.voucher && s.voucher.toLowerCase() === item.voucher.toLowerCase()));
+    if (existingIdx >= 0) {
+      db.sales[existingIdx] = { ...db.sales[existingIdx], ...item };
+    } else {
+      db.sales.unshift(item);
+      added++;
+    }
+  }
+
+  db.sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  writeDb(db);
+  console.log(`[PushSales] ${added} nouvelles ventes enregistrées (Total: ${db.sales.length})`);
+  return res.json({ success: true, added, total: db.sales.length });
 });
 
 // Helper for parsing and syncing router scripts
@@ -1609,7 +1831,16 @@ async function fetchAndSyncRouterScripts(force = false) {
   const db = readDb();
   if (!db.sales) db.sales = [];
 
-  // 1. Appel direct ou via Polling des scripts du routeur
+  // Sur AlwaysData (Cloud) sans force=true, renvoyer immédiatement les ventes locales
+  // sans bloquer le dashboard par un timeout de polling 30s
+  if (isAlwaysDataEnvironment() && !force) {
+    const localSales = db.sales || [];
+    localSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const rev = localSales.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
+    return { transactions: localSales, total: localSales.length, revenue: rev, newlyAddedCount: 0, routerOnline: true };
+  }
+
+  // 1. Appel direct (réseau local) ou via Polling des scripts du routeur
   const result = await callRouterOS('/system/script');
   if (result.success && Array.isArray(result.data)) {
     const currentRouterTxs = [];
@@ -1623,13 +1854,25 @@ async function fetchAndSyncRouterScripts(force = false) {
       }
     }
 
-    // Purger de db.sales les anciens scripts du routeur qui ont été supprimés (ex: via Winbox)
-    // On conserve uniquement les ventes d'autres sources (ex: FedaPay webhooks)
+    // Conserver les ventes non-routeur (FedaPay, Vente Directe via app)
     const nonRouterSales = db.sales.filter(s =>
       s.source !== 'router_script' && !(s.id && String(s.id).startsWith('script_'))
     );
 
-    db.sales = [...currentRouterTxs, ...nonRouterSales];
+    // Déduplication : si un voucher généré via l'app est aussi présent dans les scripts
+    // Mikhmon (parce que le client s'est connecté), on garde uniquement la version Mikhmon
+    // pour éviter le double-comptage dans totalRevenue
+    const routerVoucherCodes = new Set(
+      currentRouterTxs.map(t => (t.voucher || t.username || '').toLowerCase().trim()).filter(Boolean)
+    );
+    const dedupedNonRouterSales = nonRouterSales.filter(s => {
+      const vCode = (s.voucher || s.reference || '').toLowerCase().trim();
+      // Exclure les ventes directes déjà couvertes par un script Mikhmon
+      if (s.source === 'voucher' && vCode && routerVoucherCodes.has(vCode)) return false;
+      return true;
+    });
+
+    db.sales = [...currentRouterTxs, ...dedupedNonRouterSales];
     writeDb(db);
 
     currentRouterTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -1654,12 +1897,27 @@ async function fetchAndSyncRouterScripts(force = false) {
   return { transactions: scriptTxs, total: scriptTxs.length, revenue: rev, newlyAddedCount: 0, routerOnline: false };
 }
 
-// Read & parse Mikhmon login scripts from MikroTik /system/script
+// Read & parse Mikhmon login scripts from MikroTik /system/script (supporte startDate & endDate)
 app.get('/api/router/mikhmon-scripts', requireAuth, async (req, res) => {
   try {
     const isForce = req.query.force === 'true' || req.query.refresh === 'true' || req.query.sync === 'true';
+    const { startDate, endDate } = req.query;
     const data = await fetchAndSyncRouterScripts(isForce);
-    return res.json(data);
+
+    let transactions = data.transactions;
+    if (startDate || endDate) {
+      transactions = filterTransactionsByDate(transactions, startDate, endDate);
+    }
+    const periodRevenue = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    return res.json({
+      ...data,
+      transactions,
+      periodRevenue,
+      periodCount: transactions.length,
+      startDate: startDate || null,
+      endDate: endDate || null
+    });
   } catch (err) {
     console.error('[Mikhmon Scripts] Error:', err.message);
     const db = readDb();
@@ -1683,14 +1941,38 @@ app.post('/api/router/mikhmon-scripts/sync', requireAuth, async (req, res) => {
 
 app.get('/api/settings', requireAuth, (req, res) => {
   const db = readDb();
-  res.json(db.settings);
+  const isAlwaysData = isAlwaysDataEnvironment();
+  const connectionMode = isAlwaysData ? 'polling' : 'direct';
+  res.json({
+    ...db.settings,
+    connectionMode,
+    isAlwaysData
+  });
 });
 
 app.post('/api/settings', requireAuth, (req, res) => {
   const db = readDb();
-  db.settings = { ...db.settings, ...req.body };
+  const isAlwaysData = isAlwaysDataEnvironment();
+  const connectionMode = isAlwaysData ? 'polling' : 'direct';
+  db.settings = { ...db.settings, ...req.body, connectionMode };
   writeDb(db);
   res.json({ success: true, settings: db.settings });
+});
+
+// Serve static loc directory files if present (e.g. login.html for Hotspot captive portal)
+if (fs.existsSync(path.join(__dirname, 'loc'))) {
+  app.use('/loc', express.static(path.join(__dirname, 'loc')));
+}
+
+app.get(['/login.html', '/loc/login.html'], (req, res) => {
+  const locPath = path.join(__dirname, 'loc', 'login.html');
+  const distPath = path.join(__dirname, 'dist', 'login.html');
+  if (fs.existsSync(locPath)) {
+    return res.sendFile(locPath);
+  } else if (fs.existsSync(distPath)) {
+    return res.sendFile(distPath);
+  }
+  return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Serve static frontend assets in production
@@ -1702,5 +1984,5 @@ if (fs.existsSync(path.join(__dirname, 'dist'))) {
 }
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server Cloud Mikhmon 2.0 running on http://localhost:${PORT}`);
+  console.log(`🚀 Server 2MC SpotCloud 2.0 running on http://localhost:${PORT}`);
 });

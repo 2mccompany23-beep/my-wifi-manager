@@ -5,3 +5,25 @@ dist
 data/db.json
 .vscode/sftp.json
 .Old
+
+# Fichiers compilés & temporaires
+server.bundle.cjs
+*.timestamp-*.mjs
+sync-all-to-db.cjs
+
+# Applications desktop & mobile
+desktop/node_modules
+desktop/dist
+desktop/data
+desktop/package-lock.json
+
+mobile/node_modules
+mobile/dist
+mobile/android/.gradle
+mobile/android/app/build
+mobile/android/build
+mobile/android/variables.gradle
+mobile/package-lock.json
+mobile/android/app/src/main/assets/public
+mobile/android/app/src/main/assets/capacitor.config.json
+mobile/android/app/src/main/res/xml/network_security_config.xml.tmp

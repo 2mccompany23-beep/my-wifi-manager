@@ -119,7 +119,7 @@ export function App() {
   useEffect(() => {
     if (authToken) {
       fetchAllData();
-      const interval = setInterval(fetchAllData, 10000);
+      const interval = setInterval(fetchAllData, 30000);
       return () => clearInterval(interval);
     }
   }, [authToken]);
@@ -165,6 +165,7 @@ export function App() {
                 setActiveTab(tab);
                 fetchAllData(true, `Chargement de la section ${tab}...`);
               }}
+              onRefresh={handleManualRefresh}
             />
           )}
 
@@ -192,7 +193,7 @@ export function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950/80 py-4 px-6 text-center text-xs text-slate-500 pb-20 lg:pb-4">
-        <p>© 2026 2MC COMPANY ETS. Tous droits réservés. | Cloud Mikhmon 2.0 RouterOS v7.23.2 & FedaPay Gateway</p>
+        <p>© 2026 2MC COMPANY ETS. Tous droits réservés. | 2MC SpotCloud 2.0 RouterOS v7.23.2 & FedaPay Gateway</p>
       </footer>
     </div>
   );

@@ -72,7 +72,24 @@ async function deploy() {
       console.log('✅ Dossier dist/ envoyé avec succès !');
     }
 
-    // 3. Demande de redemarrage AlwaysData via tmp/restart.txt
+    // 3. Televersement du dossier loc/
+    const localLoc = path.join(process.cwd(), 'loc');
+    if (fs.existsSync(localLoc)) {
+      console.log('📂 Transfert du dossier loc/...');
+      await client.uploadDir(localLoc, `${remoteBase}loc`);
+      console.log('✅ Dossier loc/ envoyé avec succès !');
+    }
+
+    // 4. Synchronisation de la base de données (data/db.json)
+    const localDbFile = path.join(process.cwd(), 'data', 'db.json');
+    if (fs.existsSync(localDbFile)) {
+      console.log('📂 Transfert de la base de données (data/db.json)...');
+      await client.mkdir(`${remoteBase}data`, true);
+      await client.fastPut(localDbFile, `${remoteBase}data/db.json`);
+      console.log('✅ Base de données (data/db.json) envoyée avec succès !');
+    }
+
+    // 4. Demande de redemarrage AlwaysData via tmp/restart.txt
     try {
       const restartDir = `${remoteBase}tmp`;
       const restartFile = `${remoteBase}tmp/restart.txt`;

@@ -23,7 +23,8 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
   ];
 
   return (
-    <header className="sticky top-0 z-40 glass-panel border-b border-slate-800 px-3 sm:px-6 py-3">
+    <>
+      <header className="sticky top-0 z-40 glass-panel border-b border-slate-800 px-3 sm:px-6 py-3">
       <div className="flex items-center justify-between gap-3">
         
         {/* Brand & Identity */}
@@ -33,12 +34,12 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-base sm:text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                Cloud Mikhmon <span className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-semibold">v2.0</span>
+              <h1 className="text-base sm:text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-indigo-200 to-purple-300 bg-clip-text text-transparent">
+                2MC SpotCloud <span className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-semibold">v2.0</span>
               </h1>
             </div>
             <p className="text-[11px] sm:text-xs text-slate-400 flex items-center gap-1">
-              <span>2MC WIFI</span>
+              <span>Gestion Hotspot MikroTik</span>
               <span className="text-slate-600">•</span>
               <span className="text-emerald-400 font-medium">mcwifi.net</span>
             </p>
@@ -207,31 +208,41 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
           })}
         </nav>
       </div>
-
-      {/* Mobile Fixed Bottom Navigation Bar (Barre fixe en bas sur mobile) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/90 px-1 py-1.5 flex items-center justify-around shadow-2xl">
-        {navItems.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                setMobileMenuOpen(false);
-              }}
-              className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all min-w-[48px] ${
-                isActive
-                  ? 'text-indigo-400 font-bold bg-indigo-500/15 border border-indigo-500/30 scale-105 shadow-sm shadow-indigo-500/20'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
-              <span className="text-[10px] mt-0.5 font-medium tracking-tight truncate max-w-[54px]">{tab.shortLabel}</span>
-            </button>
-          );
-        })}
-      </nav>
     </header>
-  );
+
+    {/* Mobile Fixed Bottom Navigation Bar (Barre fixe en bas de l'écran sur mobile - Toujours visible quel que soit le scroll) */}
+    <nav
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 99999
+      }}
+      className="lg:hidden bg-slate-950/95 backdrop-blur-2xl border-t border-slate-800/90 px-2 py-2 flex items-center justify-around shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.8)] pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
+    >
+      {navItems.map((tab) => {
+        const Icon = tab.icon;
+        const isActive = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => {
+              setActiveTab(tab.id);
+              setMobileMenuOpen(false);
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all min-w-[48px] ${
+              isActive
+                ? 'text-indigo-400 font-bold bg-indigo-500/15 border border-indigo-500/30 scale-105 shadow-sm shadow-indigo-500/20'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+            <span className="text-[10px] mt-0.5 font-medium tracking-tight truncate max-w-[54px]">{tab.shortLabel}</span>
+          </button>
+        );
+      })}
+    </nav>
+  </>
+);
 };

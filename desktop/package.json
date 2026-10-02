@@ -1,0 +1,64 @@
+{
+  "name": "cloud-mikhmon-desktop",
+  "version": "2.0.0",
+  "description": "Cloud Mikhmon 2.0 - Application Bureau pour la gestion du hotspot MikroTik",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --config.win.signAndEditExecutable=false",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "author": "2MC COMPANY ETS",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "helmet": "^8.3.0",
+    "express-rate-limit": "^8.6.1",
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2",
+    "qrcode": "^1.5.3"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.2mc.cloudmikhmon",
+    "productName": "Cloud Mikhmon 2.0",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "server.bundle.cjs",
+      "data/**/*",
+      "loc/**/*",
+      "dist/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "mac": {
+      "target": ["dmg"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
