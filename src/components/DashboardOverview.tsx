@@ -47,8 +47,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          prefix: '2MC-',
-          length: 5,
+          prefix: '',
+          length: 6,
           profile: plan.id,
           quantity: 1,
           price: plan.price

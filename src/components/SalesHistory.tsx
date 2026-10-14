@@ -8,6 +8,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
+import { JobProgressModal } from './JobProgressModal';
 import { SaleTransaction, HotspotUser } from '../types';
 
 interface RouterScriptTx {
@@ -169,22 +170,48 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
 
   // Default source: 'router' = 320+ scripts from MikroTik, 'fedapay' = db.json sales
   const [activeSource, setActiveSource] = useState<'router' | 'fedapay'>('router');
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
   const authHeaders = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token || sessionStorage.getItem('mikhmon_token')}`
   };
 
+  const startBackgroundSalesSync = async () => {
+    try {
+      setSyncing(true);
+      const res = await fetch('/api/jobs/sync-sales', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ force: true })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.jobId) {
+          setActiveJobId(data.jobId);
+        }
+      }
+    } catch (e) {
+      console.warn('Erreur lancement sync job:', e);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const loadRouterScripts = async (force = false) => {
-    if (force) setSyncing(true);
-    else setLoadingScripts(true);
+    if (force) {
+      startBackgroundSalesSync();
+      return;
+    }
+
+    setLoadingScripts(true);
 
     try {
-      const endpoint = force ? '/api/router/mikhmon-scripts?force=true' : '/api/router/mikhmon-scripts';
+      const endpoint = '/api/router/mikhmon-scripts';
       const [scriptsRes, salesRes, usersRes] = await Promise.all([
         fetch(endpoint, { headers: authHeaders }),
-        fetch('/api/sales' + (force ? '?force=true' : ''), { headers: authHeaders }),
-        fetch('/api/router/users' + (force ? '?force=true' : ''), { headers: authHeaders })
+        fetch('/api/sales', { headers: authHeaders }),
+        fetch('/api/router/users', { headers: authHeaders })
       ]);
 
       let scriptTxs: RouterScriptTx[] = [];
@@ -970,6 +997,20 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
           </table>
         </div>
       </div>
+
+      {/* Modal de progression en direct pour la synchronisation des ventes */}
+      <JobProgressModal
+        jobId={activeJobId}
+        onComplete={(job) => {
+          setSyncStatus({
+            message: `Synchronisation réussie ! Les ventes et le chiffre d'affaires sont à jour.`,
+            type: 'success'
+          });
+          loadRouterScripts(false);
+          if (onRefresh) onRefresh();
+        }}
+        onClose={() => setActiveJobId(null)}
+      />
 
     </div>
   );

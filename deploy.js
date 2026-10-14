@@ -80,23 +80,54 @@ async function deploy() {
       console.log('✅ Dossier loc/ envoyé avec succès !');
     }
 
-    // 4. Synchronisation de la base de données (data/db.json)
-    const localDbFile = path.join(process.cwd(), 'data', 'db.json');
-    if (fs.existsSync(localDbFile)) {
-      console.log('📂 Transfert de la base de données (data/db.json)...');
-      await client.mkdir(`${remoteBase}data`, true);
-      await client.fastPut(localDbFile, `${remoteBase}data/db.json`);
-      console.log('✅ Base de données (data/db.json) envoyée avec succès !');
+    // 3b. Transfert de login.html (page portail captif clients)
+    const localLoginHtml = path.join(process.cwd(), 'login.html');
+    if (fs.existsSync(localLoginHtml)) {
+      console.log('📄 Transfert de login.html...');
+      await client.fastPut(localLoginHtml, `${remoteBase}login.html`);
+      console.log('✅ login.html envoyé avec succès !');
     }
 
-    // 4. Demande de redemarrage AlwaysData via tmp/restart.txt
+    // 3c. Transfert de status.html (page statut connexion clients)
+    const localStatusHtml = path.join(process.cwd(), 'status.html');
+    if (fs.existsSync(localStatusHtml)) {
+      console.log('📄 Transfert de status.html...');
+      await client.fastPut(localStatusHtml, `${remoteBase}status.html`);
+      console.log('✅ status.html envoyé avec succès !');
+    }
+
+    // 4. Protection de la base de données de production (NE JAMAIS ÉCRASER db.json EN PRODUCTION)
+    const remoteDbFile = `${remoteBase}data/db.json`;
+    const remoteExists = await client.exists(remoteDbFile);
+    if (!remoteExists) {
+      const localDbFile = path.join(process.cwd(), 'data', 'db.json');
+      if (fs.existsSync(localDbFile)) {
+        console.log('📂 Initialisation initiale de data/db.json sur le serveur...');
+        await client.mkdir(`${remoteBase}data`, true);
+        await client.fastPut(localDbFile, remoteDbFile);
+        console.log('✅ Base de données initialisée avec succès !');
+      }
+    } else {
+      console.log('🛡️ Base de données distante préservée avec succès (AUCUN écrasement de vos ventes/vouchers).');
+    }
+
+    // 5. Demande de redémarrage AlwaysData via tmp/restart.txt et API
     try {
-      const restartDir = `${remoteBase}tmp`;
-      const restartFile = `${remoteBase}tmp/restart.txt`;
-      await client.mkdir(restartDir, true);
+      const restartDirs = [`${remoteBase}tmp`, 'tmp', 'admin/tmp'];
       const buffer = Buffer.from(new Date().toISOString());
-      await client.put(buffer, restartFile);
+      for (const d of restartDirs) {
+        try {
+          await client.mkdir(d, true);
+          await client.put(buffer, `${d}/restart.txt`);
+        } catch (e) {}
+      }
       console.log('🔁 Signal de redémarrage (tmp/restart.txt) envoyé !');
+
+      // Appel de l'endpoint API pour redémarrer le worker Node.js
+      try {
+        await fetch('https://2mc.alwaysdata.net/api/system/restart?token=mcwifi_secret_token_2026');
+        console.log('⚡ Signal de redémarrage instantané reçu par le serveur !');
+      } catch (e) {}
     } catch (err) {
       console.warn('⚠️ Note redémarrage:', err.message);
     }

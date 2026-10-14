@@ -18,7 +18,10 @@ try {
       const idx = trimmed.indexOf('=');
       if (idx > 0) {
         const key = trimmed.substring(0, idx).trim();
-        const val = trimmed.substring(idx + 1).trim();
+        let val = trimmed.substring(idx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
         if (!process.env[key]) process.env[key] = val;
       }
     }
@@ -753,8 +756,9 @@ app.post('/api/poll/result', requirePollAuth, handlePollResultPost);
 app.post('/poll/result', requirePollAuth, handlePollResultPost);
 
 // Utility to generate random voucher code
-function generateVoucherCode(prefix = '2MC-', length = 5) {
-  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+// Generates lowercase alphanumeric codes (digits + lowercase letters, no ambiguous chars)
+function generateVoucherCode(prefix = '', length = 8) {
+  const chars = '23456789abcdefghjkmnpqrstuvwxyz';
   let result = prefix;
   for (let i = 0; i < length; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -1234,7 +1238,206 @@ app.delete('/api/router/users/:id', requireAuth, async (req, res) => {
   res.json({ success: true, message: 'Utilisateur supprimé avec succès' });
 });
 
-// Batch Delete Hotspot Users
+// ============================================================
+// ASYNC JOB QUEUE & REAL-TIME PROGRESS TRACKING
+// ============================================================
+const backgroundJobs = new Map();
+
+function createJob(type, title, total = 100) {
+  const id = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const job = {
+    id,
+    type,
+    title,
+    status: 'running', // 'running' | 'completed' | 'failed'
+    progress: 0,
+    current: 0,
+    total: Math.max(1, total),
+    currentStep: 'Initialisation de la tâche...',
+    error: null,
+    result: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+  backgroundJobs.set(id, job);
+
+  // Auto-purger les vieux jobs après 1h
+  setTimeout(() => {
+    backgroundJobs.delete(id);
+  }, 60 * 60 * 1000);
+
+  return job;
+}
+
+function updateJob(id, updates) {
+  if (!backgroundJobs.has(id)) return null;
+  const job = backgroundJobs.get(id);
+  Object.assign(job, updates, { updatedAt: Date.now() });
+  if (job.total > 0 && updates.current !== undefined) {
+    job.progress = Math.min(100, Math.round((job.current / job.total) * 100));
+  }
+  return job;
+}
+
+async function runBatchDeleteJob(jobId, ids) {
+  const BATCH_SIZE = 25;
+  const total = ids.length;
+  let deletedCount = 0;
+  const totalBatches = Math.ceil(total / BATCH_SIZE);
+
+  try {
+    for (let i = 0; i < total; i += BATCH_SIZE) {
+      const batch = ids.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+
+      updateJob(jobId, {
+        current: deletedCount,
+        currentStep: `Suppression du lot ${batchNum}/${totalBatches} (${batch.length} utilisateurs)...`
+      });
+
+      // 1. Commande groupée RouterOS
+      const conditions = batch.map(item => {
+        const clean = String(item).replace(/["\\]/g, '').trim();
+        if (clean.startsWith('*')) return `.id="${clean}"`;
+        return `name="${clean}" || .id="${clean}"`;
+      }).join(' || ');
+
+      try {
+        if (isAlwaysDataEnvironment()) {
+          const cliCmd = `/ip hotspot user remove [find where ${conditions}]`;
+          await enqueuePollCommand(cliCmd, 45000);
+        } else {
+          await Promise.allSettled(
+            batch.map(id => callRouterOS(`/ip/hotspot/user/${encodeURIComponent(id)}`, 'DELETE', { '.id': id }))
+          );
+        }
+      } catch (err) {
+        console.warn(`[BatchDelete Job] Note sur le lot ${batchNum}:`, err.message);
+      }
+
+      // 2. Mise à jour immédiate de la base locale
+      const db = readDb();
+      const idSet = new Set(batch);
+      const targetNames = new Set(batch);
+
+      (db.hotspotUsers || []).forEach(u => {
+        if (idSet.has(u['.id']) || idSet.has(u.name) || idSet.has(u.id)) {
+          if (u.name) targetNames.add(u.name);
+          if (u['.id']) targetNames.add(u['.id']);
+          if (u.id) targetNames.add(u.id);
+        }
+      });
+
+      db.vouchers = (db.vouchers || []).filter(
+        v => !targetNames.has(v.id) && !targetNames.has(v.code) && !idSet.has(v.id) && !idSet.has(v.code)
+      );
+      db.hotspotUsers = (db.hotspotUsers || []).filter(
+        u => !targetNames.has(u['.id']) && !targetNames.has(u.name) && !targetNames.has(u.id) && !idSet.has(u['.id']) && !idSet.has(u.name) && !idSet.has(u.id)
+      );
+      writeDb(db);
+
+      deletedCount += batch.length;
+      updateJob(jobId, { current: deletedCount });
+    }
+
+    // Invalider les caches
+    apiCache.data = {};
+    apiCache.timestamp = {};
+
+    updateJob(jobId, {
+      status: 'completed',
+      progress: 100,
+      current: total,
+      currentStep: `${total} utilisateur(s) supprimé(s) avec succès !`,
+      result: { count: total }
+    });
+    console.log(`[BatchDelete Job] Job ${jobId} terminé: ${total} utilisateurs supprimés.`);
+  } catch (err) {
+    console.error(`[BatchDelete Job] Erreur job ${jobId}:`, err);
+    updateJob(jobId, {
+      status: 'failed',
+      error: `Erreur lors de la suppression: ${err.message}`
+    });
+  }
+}
+
+async function runSyncSalesJob(jobId, force = true) {
+  try {
+    updateJob(jobId, {
+      current: 25,
+      currentStep: 'Connexion au routeur MikroTik et lecture des scripts Mikhmon...'
+    });
+
+    const result = await fetchAndSyncRouterScripts(force);
+
+    updateJob(jobId, {
+      current: 85,
+      currentStep: 'Calcul et déduplication des revenus...'
+    });
+
+    updateJob(jobId, {
+      status: 'completed',
+      progress: 100,
+      current: 100,
+      currentStep: `Synchronisation réussie : ${result.total || 0} vente(s) enregistrées (${result.revenue || 0} FCFA).`,
+      result
+    });
+    console.log(`[SyncSales Job] Job ${jobId} terminé avec succès.`);
+  } catch (err) {
+    console.error(`[SyncSales Job] Erreur job ${jobId}:`, err);
+    updateJob(jobId, {
+      status: 'failed',
+      error: `Erreur de synchronisation: ${err.message}`
+    });
+  }
+}
+
+// Endpoints de gestion des Jobs Asynchrones
+app.get('/api/jobs/active', requireAuth, (req, res) => {
+  const now = Date.now();
+  for (const job of backgroundJobs.values()) {
+    if (job.status === 'running') return res.json({ active: true, job });
+    if (now - job.updatedAt < 12000) return res.json({ active: true, job });
+  }
+  return res.json({ active: false, job: null });
+});
+
+app.get('/api/jobs/:id', requireAuth, (req, res) => {
+  const job = backgroundJobs.get(req.params.id);
+  if (!job) return res.status(404).json({ error: 'Job non trouvé' });
+  return res.json({ job });
+});
+
+app.post('/api/jobs/batch-delete', requireAuth, (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Liste d\'identifiants requise' });
+  }
+
+  const job = createJob('batch_delete', `Suppression de ${ids.length} utilisateur(s)`, ids.length);
+  runBatchDeleteJob(job.id, ids);
+
+  return res.json({
+    success: true,
+    jobId: job.id,
+    total: ids.length,
+    message: 'Suppression en masse lancée en tâche de fond'
+  });
+});
+
+app.post('/api/jobs/sync-sales', requireAuth, (req, res) => {
+  const force = req.body?.force !== false;
+  const job = createJob('sync_sales', 'Synchronisation des ventes MikroTik', 100);
+  runSyncSalesJob(job.id, force);
+
+  return res.json({
+    success: true,
+    jobId: job.id,
+    message: 'Synchronisation des ventes démarrée en tâche de fond'
+  });
+});
+
+// Batch Delete Hotspot Users (Version synchrone rétro-compatible mais optimisée par lots)
 app.post('/api/router/users/batch-delete', requireAuth, async (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
@@ -1243,18 +1446,34 @@ app.post('/api/router/users/batch-delete', requireAuth, async (req, res) => {
 
   console.log(`[RouterOS] Batch deleting ${ids.length} user(s)...`);
 
-  // Parallel RouterOS calls
-  const results = await Promise.allSettled(
-    ids.map((id) => {
-      const decodedId = decodeURIComponent(id);
-      return callRouterOS(`/ip/hotspot/user/${decodedId}`, 'DELETE', { '.id': decodedId });
-    })
-  );
+  // Exécution par lots de 25 pour éviter de surcharger la file
+  const BATCH_SIZE = 25;
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const batch = ids.slice(i, i + BATCH_SIZE);
+    const conditions = batch.map(item => {
+      const clean = String(item).replace(/["\\]/g, '').trim();
+      if (clean.startsWith('*')) return `.id="${clean}"`;
+      return `name="${clean}" || .id="${clean}"`;
+    }).join(' || ');
+
+    try {
+      if (isAlwaysDataEnvironment()) {
+        const cliCmd = `/ip hotspot user remove [find where ${conditions}]`;
+        await enqueuePollCommand(cliCmd, 35000);
+      } else {
+        await Promise.allSettled(
+          batch.map((id) => callRouterOS(`/ip/hotspot/user/${encodeURIComponent(id)}`, 'DELETE', { '.id': id }))
+        );
+      }
+    } catch (e) {
+      console.warn('[BatchDelete] Note lot:', e.message);
+    }
+  }
 
   // Update local DB in one single operation
   const db = readDb();
   const idSet = new Set(ids);
-  const targetNames = new Set();
+  const targetNames = new Set(ids);
 
   (db.hotspotUsers || []).forEach((u) => {
     if (idSet.has(u['.id']) || idSet.has(u.name) || idSet.has(u.id)) {
@@ -1263,7 +1482,6 @@ app.post('/api/router/users/batch-delete', requireAuth, async (req, res) => {
       if (u.id) targetNames.add(u.id);
     }
   });
-  ids.forEach((id) => targetNames.add(id));
 
   db.vouchers = (db.vouchers || []).filter(
     (v) => !targetNames.has(v.id) && !targetNames.has(v.code) && !idSet.has(v.id) && !idSet.has(v.code)
@@ -1273,13 +1491,10 @@ app.post('/api/router/users/batch-delete', requireAuth, async (req, res) => {
   );
   writeDb(db);
 
-  // Invalidate API cache immediately
   apiCache.data = {};
   apiCache.timestamp = {};
 
-  const okCount = results.filter((r) => r.status === 'fulfilled' && !r.value?.error).length;
-  console.log(`[RouterOS] Batch delete completed: ${okCount}/${ids.length} succeeded.`);
-  res.json({ success: true, count: okCount, total: ids.length, message: `${okCount} utilisateur(s) supprimé(s) avec succès.` });
+  res.json({ success: true, count: ids.length, total: ids.length, message: `${ids.length} utilisateur(s) supprimé(s) avec succès.` });
 });
 
 // Update / Edit Existing Hotspot User
@@ -1344,7 +1559,7 @@ app.post('/api/router/users/:id/reset', requireAuth, async (req, res) => {
 
 // Generate Batch / Single Vouchers
 app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
-  const { prefix = '2MC-', length = 5, profile = '100-F-4h', quantity = 1, price = 100 } = req.body;
+  const { prefix = '', length = 8, profile = '100-F-4h', quantity = 1, price = 100 } = req.body;
   const db = readDb();
   if (!db.vouchers) db.vouchers = [];
   if (!db.hotspotUsers) db.hotspotUsers = [];
@@ -1433,9 +1648,117 @@ app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
   res.json({ success: true, vouchers: created, count: created.length });
 });
 
+// Helper pour vérifier une transaction directement auprès de l'API FedaPay
+async function verifyFedaPayTransaction(ref, secretKey) {
+  if (!ref || !secretKey) return null;
+  const cleanRef = String(ref).trim();
+
+  // 1. Recherche par ID direct si numérique
+  if (/^\d+$/.test(cleanRef)) {
+    try {
+      const res = await fetch(`https://api.fedapay.com/v1/transactions/${cleanRef}`, {
+        headers: { 'Authorization': `Bearer ${secretKey}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const tx = data['v1/transaction'] || data.transaction;
+        if (tx) return tx;
+      }
+    } catch (e) {
+      console.warn(`[verifyFedaPay] Erreur lookup ID ${cleanRef}:`, e.message);
+    }
+  }
+
+  // 2. Recherche par référence dans les transactions récentes
+  try {
+    const res = await fetch(`https://api.fedapay.com/v1/transactions/search?per_page=30`, {
+      headers: { 'Authorization': `Bearer ${secretKey}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = data['v1/transactions'] || data.transactions || [];
+      const found = list.find(t =>
+        String(t.reference || '').trim() === cleanRef ||
+        String(t.id || '').trim() === cleanRef ||
+        String(t.transaction_key || '').trim() === cleanRef ||
+        String(t.merchant_reference || '').trim() === cleanRef
+      );
+      if (found) return found;
+    }
+  } catch (e) {
+    console.warn(`[verifyFedaPay] Erreur search reference ${cleanRef}:`, e.message);
+  }
+
+  return null;
+}
+
+// Helper pour traiter l'approbation d'un paiement FedaPay (création voucher + user MikroTik + enregistrement vente)
+async function processFedaPayApproval(transaction, db) {
+  if (!transaction) return null;
+  if (!db.sales) db.sales = [];
+  if (!db.vouchers) db.vouchers = [];
+
+  const ref = String(transaction.reference || transaction.id);
+  const amount = Number(transaction.amount || 0);
+  const plan = transaction.custom_data?.plan || getPlanFromAmount(amount) || '24h';
+  const profile = getProfileForPlan(plan);
+  const limitUptime = getLimitUptimeForPlan(plan);
+  const mikhmonComment = formatMikhmonComment(1, 'fedapay');
+
+  let existing = db.sales.find(s => String(s.reference) === ref || String(s.id) === `tx_${ref}` || String(s.id) === String(transaction.id));
+  if (existing && existing.voucher) {
+    return { voucher: existing.voucher, plan: existing.plan || plan };
+  }
+
+  const voucherCode = generateVoucherCode('', 8);
+  const sale = {
+    id: `tx_${ref}`,
+    reference: ref,
+    amount,
+    plan,
+    profile,
+    voucher: voucherCode,
+    mode: transaction.mode || 'Mobile Money',
+    phone: transaction.customer?.phone_number || 'N/A',
+    date: transaction.approved_at || transaction.created_at || new Date().toISOString(),
+    status: 'SUCCESS',
+    source: 'fedapay'
+  };
+
+  db.sales.unshift(sale);
+  db.vouchers.unshift({
+    id: `v_${Date.now()}_${voucherCode}`,
+    code: voucherCode,
+    profile,
+    price: amount,
+    created: new Date().toISOString(),
+    status: 'USED',
+    comment: mikhmonComment
+  });
+  writeDb(db);
+
+  console.log(`[FedaPay] Transaction validée: ${ref} -> Code Voucher généré: ${voucherCode} (Profil: ${profile})`);
+
+  // Création du compte utilisateur sur le routeur Hotspot MikroTik
+  try {
+    await callRouterOS('/ip/hotspot/user', 'POST', {
+      name: voucherCode,
+      password: voucherCode,
+      profile,
+      'limit-uptime': limitUptime,
+      comment: mikhmonComment
+    });
+    console.log(`[FedaPay] Utilisateur ${voucherCode} créé sur le routeur MikroTik`);
+  } catch (err) {
+    console.error('[FedaPay] Erreur création user routeur:', err.message);
+  }
+
+  return { voucher: voucherCode, plan };
+}
+
 // FedaPay / Polling get_voucher.php endpoint for login.html (PUBLIC FOR CLIENTS)
-// SECURITE: Un voucher n'est retourné que si la vente existe déjà en base (créée par le webhook)
-app.get(['/www/get_voucher.php', '/get_voucher.php', '/api/fedapay/voucher'], (req, res) => {
+// DOUBLE VÉRIFICATION: Vérifie d'abord en local, puis directement auprès de l'API FedaPay si le webhook n'est pas encore arrivé
+app.get(['/www/get_voucher.php', '/get_voucher.php', '/api/fedapay/voucher'], async (req, res) => {
   const { reference } = req.query;
   console.log(`[get_voucher] Vérification référence: ${reference}`);
 
@@ -1444,22 +1767,43 @@ app.get(['/www/get_voucher.php', '/get_voucher.php', '/api/fedapay/voucher'], (r
   }
 
   const db = readDb();
-  // Cherche uniquement dans les ventes existantes (créées par le webhook FedaPay vérifié)
-  const sale = db.sales.find(s => s.reference === reference || s.id === reference);
+  // 1. Cherche dans les ventes locales existantes
+  const cleanRef = reference.trim();
+  const existingSale = (db.sales || []).find(s =>
+    String(s.reference || '').trim() === cleanRef ||
+    String(s.id || '').trim() === cleanRef ||
+    String(s.voucher || '').trim() === cleanRef
+  );
 
-  if (sale && sale.voucher) {
-    return res.json({ voucher: sale.voucher, plan: sale.plan || '24h' });
+  if (existingSale && existingSale.voucher) {
+    return res.json({ voucher: existingSale.voucher, plan: existingSale.plan || '24h' });
   }
 
-  // Ne PAS créer un voucher gratuit si la référence est inconnue
-  console.warn(`[get_voucher] Référence introuvable: ${reference} (IP: ${req.ip})`);
-  return res.status(404).json({ error: 'Paiement non trouvé. Veuillez patienter ou contacter le support.' });
+  // 2. Si pas trouvé en base locale, interrogation DIRECTE et temps réel de l'API FedaPay
+  const secretKey = db.settings?.fedapaySecretKey;
+  if (secretKey) {
+    try {
+      const fedapayTx = await verifyFedaPayTransaction(cleanRef, secretKey);
+      if (fedapayTx && (fedapayTx.status === 'approved' || fedapayTx.status === 'transferred')) {
+        console.log(`[get_voucher] ✅ Paiement vérifié avec succès auprès de l'API FedaPay pour ${cleanRef}`);
+        const result = await processFedaPayApproval(fedapayTx, db);
+        return res.json({ voucher: result.voucher, plan: result.plan });
+      } else if (fedapayTx) {
+        console.log(`[get_voucher] Transaction FedaPay ${cleanRef} statut actuel: ${fedapayTx.status}`);
+      }
+    } catch (e) {
+      console.warn(`[get_voucher] Erreur vérification API FedaPay:`, e.message);
+    }
+  }
+
+  console.warn(`[get_voucher] Référence en attente ou inconnue: ${reference} (IP: ${req.ip})`);
+  return res.status(404).json({ error: 'Paiement en attente de confirmation. Veuillez patienter...' });
 });
 
 // FedaPay Webhook Handler (PUBLIC FOR FEDAPAY NOTIFICATIONS)
-// Support de multiple endpoints dont /webhook.php, /www/webhook.php et /api/fedapay/webhook
-function handleFedaPayWebhook(req, res) {
-  // Réponse immédiate 200 pour les vérifications GET/HEAD (ping/healthcheck FedaPay ou diagnostics)
+// Support de multiples endpoints dont /webhook.php, /www/webhook.php et /api/fedapay/webhook
+async function handleFedaPayWebhook(req, res) {
+  // Réponse immédiate 200 pour les vérifications GET/HEAD (ping/healthcheck FedaPay)
   if (req.method === 'GET' || req.method === 'HEAD') {
     return res.status(200).json({
       status: 'ok',
@@ -1469,68 +1813,13 @@ function handleFedaPayWebhook(req, res) {
   }
 
   const db = readDb();
-  const webhookSecret = process.env.FEDAPAY_WEBHOOK_SECRET || db.settings?.fedapaySecretKey;
-  const signature = req.headers['x-fedapay-signature'];
-
-  // Récupérer le buffer/string brut du payload pour vérification HMAC
-  const rawPayload = req.rawBody || (Buffer.isBuffer(req.body) ? req.body : (typeof req.body === 'string' ? Buffer.from(req.body) : Buffer.from(JSON.stringify(req.body || {}))));
-
-  // Vérifier la signature HMAC si le secret est configuré
-  if (webhookSecret && signature) {
-    try {
-      let providedSigHex = '';
-      let timestamp = '';
-      const sigParts = String(signature).split(',');
-      for (const part of sigParts) {
-        const [k, v] = part.trim().split('=');
-        if (k === 't') timestamp = v;
-        if (k === 'v1' || k === 'sha256') providedSigHex = v;
-      }
-      if (!providedSigHex && !signature.includes('=')) {
-        providedSigHex = String(signature).trim();
-      } else if (!providedSigHex) {
-        providedSigHex = String(signature).replace(/^(sha256=)/i, '').trim();
-      }
-
-      const sigA = crypto.createHmac('sha256', webhookSecret).update(rawPayload).digest('hex');
-      let sigB = '';
-      if (timestamp) {
-        sigB = crypto.createHmac('sha256', webhookSecret).update(`${timestamp}.${rawPayload}`).digest('hex');
-      }
-
-      const expectedBufA = Buffer.from(sigA, 'hex');
-      const expectedBufB = sigB ? Buffer.from(sigB, 'hex') : null;
-      let providedBuf;
-      try {
-        providedBuf = Buffer.from(providedSigHex, 'hex');
-      } catch (e) {
-        console.warn(`[Webhook] Signature hex malformée: ${providedSigHex}`);
-        return res.status(401).send('Signature malformée');
-      }
-
-      const matchA = expectedBufA.length === providedBuf.length && crypto.timingSafeEqual(expectedBufA, providedBuf);
-      const matchB = expectedBufB && expectedBufB.length === providedBuf.length && crypto.timingSafeEqual(expectedBufB, providedBuf);
-
-      if (!matchA && !matchB) {
-        console.warn(`[Webhook] Signature invalide — rejet (IP: ${req.ip}, Sign: ${signature})`);
-        return res.status(401).send('Signature invalide');
-      }
-    } catch (err) {
-      console.warn('[Webhook] Erreur vérification signature:', err.message);
-      return res.status(401).send('Signature malformée');
-    }
-  } else if (webhookSecret && !signature) {
-    console.warn(`[Webhook] Pas de signature fournie — rejet (IP: ${req.ip})`);
-    return res.status(401).send('Signature manquante');
-  }
-
   let event;
   try {
     if (typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)) {
       event = req.body;
     } else {
-      const str = rawPayload.toString('utf8');
-      event = JSON.parse(str);
+      const rawPayload = req.rawBody || req.body || '';
+      event = JSON.parse(rawPayload.toString('utf8'));
     }
   } catch {
     console.warn('[Webhook] JSON invalide reçu (IP: ' + req.ip + ')');
@@ -1543,60 +1832,45 @@ function handleFedaPayWebhook(req, res) {
   const transaction = event?.entity || event?.transaction || event?.data;
 
   if (transaction && (transaction.status === 'approved' || transaction.status === 'transferred' || eventName === 'transaction.approved')) {
-    const ref = String(transaction.reference || transaction.id);
-    const amount = Number(transaction.amount || 0);
-    const plan = transaction.custom_data?.plan || getPlanFromAmount(amount) || '24h';
-    const profile = getProfileForPlan(plan);
-    const limitUptime = getLimitUptimeForPlan(plan);
-    const mikhmonComment = formatMikhmonComment(1, 'fedapay');
-
-    let existing = db.sales.find(s => String(s.reference) === ref);
-    if (!existing) {
-      const voucherCode = generateVoucherCode('2MC-', 5);
-      const sale = {
-        id: `tx_${Date.now()}`,
-        reference: ref,
-        amount,
-        plan,
-        profile,
-        voucher: voucherCode,
-        mode: transaction.mode || 'Mobile Money',
-        phone: transaction.customer?.phone_number || 'N/A',
-        date: new Date().toISOString(),
-        status: 'SUCCESS',
-        source: 'fedapay'
-      };
-
-      db.sales.unshift(sale);
-      db.vouchers.unshift({
-        id: `v_${Date.now()}`,
-        code: voucherCode,
-        profile,
-        price: amount,
-        created: new Date().toISOString(),
-        status: 'USED',
-        comment: mikhmonComment
-      });
-      writeDb(db);
-
-      console.log(`[Webhook] Transaction ${ref} enregistrée. Voucher: ${voucherCode}, Profil: ${profile}`);
-
-      // Création du user sur le routeur Hotspot MikroTik
-      callRouterOS('/ip/hotspot/user', 'POST', {
-        name: voucherCode,
-        password: voucherCode,
-        profile,
-        'limit-uptime': limitUptime,
-        comment: mikhmonComment
-      }).catch(err => console.error('[Webhook] RouterOS POST error:', err.message));
-    } else {
-      console.log(`[Webhook] Transaction ${ref} déjà enregistrée.`);
-    }
+    await processFedaPayApproval(transaction, db);
   }
 
-  // Renvoyer TOUJOURS un code HTTP 200 (entre 200 et 299) pour valider la réception du webhook par FedaPay
+  // Renvoyer TOUJOURS un code HTTP 200 pour que FedaPay maintienne le webhook actif
   return res.status(200).json({ success: true, message: 'Webhook reçu et traité avec succès' });
 }
+
+// Endpoint admin pour resynchroniser les paiements FedaPay approuvés manqués
+app.post('/api/fedapay/sync', requireAuth, async (req, res) => {
+  const db = readDb();
+  const secretKey = db.settings?.fedapaySecretKey;
+  if (!secretKey) {
+    return res.status(400).json({ error: 'Clé secrète FedaPay non configurée' });
+  }
+
+  try {
+    const fedaRes = await fetch('https://api.fedapay.com/v1/transactions/search?per_page=50', {
+      headers: { 'Authorization': `Bearer ${secretKey}` }
+    });
+    const data = await fedaRes.json();
+    const list = data['v1/transactions'] || data.transactions || [];
+    const approved = list.filter(t => t.status === 'approved' || t.status === 'transferred');
+
+    let recovered = 0;
+    for (const tx of approved) {
+      const ref = String(tx.reference || tx.id);
+      const exists = (db.sales || []).some(s => String(s.reference) === ref || String(s.id) === `tx_${ref}`);
+      if (!exists) {
+        await processFedaPayApproval(tx, db);
+        recovered++;
+      }
+    }
+
+    return res.json({ success: true, recovered, totalApprovedFound: approved.length });
+  } catch (err) {
+    console.error('[FedaPay Sync] Erreur:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 const FEDAPAY_WEBHOOK_PATHS = [
   '/webhook.php',
@@ -1959,20 +2233,55 @@ app.post('/api/settings', requireAuth, (req, res) => {
   res.json({ success: true, settings: db.settings });
 });
 
+// Endpoint sécurisé pour redémarrer le serveur Node.js AlwaysData
+app.all('/api/system/restart', (req, res) => {
+  const token = req.query.token || req.headers['authorization']?.replace('Bearer ', '') || req.headers['x-poll-token'];
+  const db = readDb();
+  const validToken = db.settings?.pollSecretToken || 'mcwifi_secret_token_2026';
+  if (!token || token !== validToken) {
+    return res.status(401).json({ error: 'Token non autorisé' });
+  }
+  res.json({ success: true, message: 'Redémarrage du serveur en cours...' });
+  setTimeout(() => {
+    console.log('[System] Redémarrage automatique demandé via API...');
+    process.exit(0);
+  }, 200);
+});
+
 // Serve static loc directory files if present (e.g. login.html for Hotspot captive portal)
 if (fs.existsSync(path.join(__dirname, 'loc'))) {
   app.use('/loc', express.static(path.join(__dirname, 'loc')));
 }
 
+app.get('/jsqr.min.js', (req, res) => {
+  const p = path.join(__dirname, 'loc', 'jsqr.min.js');
+  if (fs.existsSync(p)) return res.sendFile(p);
+  return res.status(404).send('Not found');
+});
+
 app.get(['/login.html', '/loc/login.html'], (req, res) => {
+  const rootPath = path.join(__dirname, 'login.html');
   const locPath = path.join(__dirname, 'loc', 'login.html');
   const distPath = path.join(__dirname, 'dist', 'login.html');
-  if (fs.existsSync(locPath)) {
+  if (fs.existsSync(rootPath)) {
+    return res.sendFile(rootPath);
+  } else if (fs.existsSync(locPath)) {
     return res.sendFile(locPath);
   } else if (fs.existsSync(distPath)) {
     return res.sendFile(distPath);
   }
   return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+app.get(['/status.html', '/loc/status.html'], (req, res) => {
+  const rootPath = path.join(__dirname, 'status.html');
+  const locPath = path.join(__dirname, 'loc', 'status.html');
+  if (fs.existsSync(rootPath)) {
+    return res.sendFile(rootPath);
+  } else if (fs.existsSync(locPath)) {
+    return res.sendFile(locPath);
+  }
+  return res.status(404).send('Not found');
 });
 
 // Serve static frontend assets in production

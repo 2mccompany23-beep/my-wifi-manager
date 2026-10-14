@@ -11,8 +11,8 @@ interface VoucherGeneratorProps {
 
 export const VoucherGenerator: React.FC<VoucherGeneratorProps> = ({ vouchers, onRefresh }) => {
   const { toasts, dismiss, success, error } = useToast();
-  const [prefix, setPrefix] = useState('2MC-');
-  const [length, setLength] = useState(5);
+  const [prefix, setPrefix] = useState('');
+  const [length, setLength] = useState(8);
   const [selectedProfile, setSelectedProfile] = useState('300-F-24h');
   const [price, setPrice] = useState(300);
   const [quantity, setQuantity] = useState(10);

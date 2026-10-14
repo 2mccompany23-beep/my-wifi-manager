@@ -6,10 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2MC WIFI ZONE | Paiement Mobile Money</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="bootstrap.min.css">
     <link rel="stylesheet" href="/bootstrap.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
     <style>
         :root {
             --primary: #4361ee;
@@ -514,6 +512,122 @@
         .pulse {
             animation: pulse 2s infinite;
         }
+
+        /* QR Scanner */
+        .qr-scan-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #7209b7, #560bad);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: 0 6px 15px rgba(114, 9, 183, 0.25);
+            margin-top: 12px;
+        }
+
+        .qr-scan-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(114, 9, 183, 0.4);
+        }
+
+        /* QR Modal */
+        #qr-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #qr-modal-overlay.active {
+            display: flex;
+        }
+
+        #qr-modal {
+            background: white;
+            border-radius: 20px;
+            padding: 28px;
+            width: 90%;
+            max-width: 420px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+            animation: fadeIn 0.3s ease;
+        }
+
+        #qr-modal h4 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: var(--dark);
+            text-align: center;
+        }
+
+        #qr-modal p.qr-subtitle {
+            color: var(--gray);
+            font-size: 13px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        #qr-reader {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 3px solid var(--secondary);
+        }
+
+        #qr-close-btn {
+            display: block;
+            width: 100%;
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--gray-lighter);
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--dark);
+            transition: var(--transition);
+        }
+
+        #qr-close-btn:hover {
+            background: var(--gray-light);
+        }
+
+        #qr-status {
+            margin-top: 10px;
+            text-align: center;
+            font-size: 13px;
+            min-height: 22px;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        @keyframes qrLaserAnim {
+            0% { top: 6%; opacity: 0.8; }
+            50% { top: 88%; opacity: 1; }
+            100% { top: 6%; opacity: 0.8; }
+        }
+
+        .qr-laser-line {
+            position: absolute;
+            left: 6px;
+            right: 6px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #10b981, #34d399, transparent);
+            box-shadow: 0 0 12px #10b981, 0 0 4px #34d399;
+            animation: qrLaserAnim 2s infinite ease-in-out;
+        }
     </style>
     <style>
 .pricing-card {
@@ -562,7 +676,17 @@
 }
 
     </style>
+    <script src="bootstrap.bundle.min.js"></script>
+    <script src="/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
+    <script src="jsqr.min.js"></script>
+    <script src="/loc/jsqr.min.js"></script>
+    <script src="/jsqr.min.js"></script>
+    <script>
+        if (typeof jsQR === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"><\/script>');
+        }
+    </script>
 </head>
 
 <body>
@@ -594,6 +718,9 @@
                             required>
                     </div>
                     <button type="submit" class="btn">Se connecter</button>
+                    <button type="button" class="qr-scan-btn" id="open-qr-scanner">
+                        <i class="fas fa-qrcode"></i> Scanner un QR Code
+                    </button>
                 </form>
 
                 <!-- Classic Authentication Form -->
@@ -621,32 +748,38 @@
 
                     <h2 class="section-title">Forfaits WiFi Disponibles</h2>
                     <div class="pricing-grid">
+
+
+                        <!-- Forfait 24h -->
                         <!-- Forfait 4h -->
                         <div class="pricing-card">
                             <h3>4 Heures</h3>
                             <div class="price">100 FCFA <span>/ 4h</span></div>
                             <ul class="features">
-                                <li><i class="fas fa-check"></i> Débit Haut Débit</li>
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
                                 <li><i class="fas fa-check"></i> Validité 2 jours</li>
                             </ul>
                             <div class="mobile-money-badge">
                                 <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
                             </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="4h" data-profile="100-F-4h" data-price="100">Choisir ce forfait</button>
+                            <button class="btn btn-mobile-money select-plan" data-plan="4h" data-price="100">Choisir ce
+                                forfait</button>
                         </div>
-
                         <!-- Forfait 12h -->
                         <div class="pricing-card">
                             <h3>12 Heures</h3>
                             <div class="price">200 FCFA <span>/ 12h</span></div>
                             <ul class="features">
-                                <li><i class="fas fa-check"></i> Débit Haut Débit</li>
-                                <li><i class="fas fa-check"></i> Validité 3 jours</li>
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
+                                <li><i class="fas fa-check"></i> Validité 2 jours</li>
                             </ul>
                             <div class="mobile-money-badge">
                                 <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
                             </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="12h" data-profile="200---12h" data-price="200">Choisir ce forfait</button>
+                            <button class="btn btn-mobile-money select-plan" data-price="100" data-plan="4h">Choisir ce
+                                forfait</button>
                         </div>
 
                         <!-- Forfait 24h -->
@@ -654,41 +787,49 @@
                             <h3>24 Heures</h3>
                             <div class="price">300 FCFA <span>/ 24h</span></div>
                             <ul class="features">
-                                <li><i class="fas fa-check"></i> Débit Haut Débit</li>
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
                                 <li><i class="fas fa-check"></i> Validité 2 jours</li>
                             </ul>
                             <div class="mobile-money-badge">
                                 <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
                             </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="24h" data-profile="300-F-24h" data-price="300">Choisir ce forfait</button>
+                            <button class="btn btn-mobile-money select-plan" data-plan="24h" data-price="300">Choisir ce
+                                forfait</button>
                         </div>
 
-                        <!-- Forfait 4 jours -->
+                        <!-- Forfait 24h / 4 jours -->
                         <div class="pricing-card">
-                            <h3>4 Jours</h3>
-                            <div class="price">500 FCFA <span>/ 4j</span></div>
+                            <h3>4 jours</h3>
+                            <div class="price">500 FCFA <span>/ 4 jours</span></div>
                             <ul class="features">
-                                <li><i class="fas fa-check"></i> Débit Haut Débit</li>
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
                                 <li><i class="fas fa-check"></i> Validité 4 jours</li>
                             </ul>
                             <div class="mobile-money-badge">
                                 <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
                             </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="4j" data-profile="500---4j" data-price="500">Choisir ce forfait</button>
+                            <button class="btn btn-mobile-money select-plan" data-plan="4j" data-price="500">Choisir ce
+                                forfait</button>
                         </div>
+
+
 
                         <!-- Forfait 7 jours -->
                         <div class="pricing-card">
                             <h3>7 Jours</h3>
                             <div class="price">1 200 FCFA <span>/ 7j</span></div>
                             <ul class="features">
-                                <li><i class="fas fa-check"></i> Débit Haut Débit</li>
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
                                 <li><i class="fas fa-check"></i> Validité 7 jours</li>
                             </ul>
                             <div class="mobile-money-badge">
                                 <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
                             </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="7j" data-profile="1200---7j" data-price="1200">Choisir ce forfait</button>
+                            <button class="btn btn-mobile-money select-plan" data-plan="7j" data-price="1200">Choisir ce
+                                forfait</button>
                         </div>
 
                         <!-- Forfait 30 jours -->
@@ -696,13 +837,15 @@
                             <h3>30 Jours</h3>
                             <div class="price">4 000 FCFA <span>/ 30j</span></div>
                             <ul class="features">
-                                <li><i class="fas fa-check"></i> Débit Haut Débit</li>
+
+                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
                                 <li><i class="fas fa-check"></i> Validité 30 jours</li>
                             </ul>
                             <div class="mobile-money-badge">
                                 <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
                             </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="30j" data-profile="4000--30j" data-price="4000">Choisir ce forfait</button>
+                            <button class="btn btn-mobile-money select-plan" data-plan="30j" data-price="4000">Choisir
+                                ce forfait</button>
                         </div>
                     </div>
                 </div>
@@ -777,6 +920,72 @@
         </div>
     </div>
 
+    <!-- QR Scanner Modal -->
+    <div id="qr-modal-overlay">
+        <div id="qr-modal">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h4 style="margin:0;"><i class="fas fa-qrcode" style="color: var(--secondary);"></i> Scanner votre ticket</h4>
+                <button type="button" id="qr-close-x-btn" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1; padding:0 4px;">✕</button>
+            </div>
+            <p class="qr-subtitle" id="qr-subtitle-text" style="margin-bottom:12px;">Pointez la caméra vers le code QR de votre ticket</p>
+
+            <!-- Cadre de visée de la caméra -->
+            <div id="qr-viewport-container" style="position:relative; width:100%; aspect-ratio:1/1; max-height:280px; background:#0f172a; border-radius:16px; overflow:hidden; margin-bottom:12px; box-shadow:inset 0 0 20px rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center;">
+                <!-- Flux vidéo direct -->
+                <video id="qr-video" playsinline autoplay muted style="width:100%; height:100%; object-fit:cover; display:none;"></video>
+                
+                <!-- Aperçu image (en cas de capture photo) -->
+                <img id="qr-preview-img" style="width:100%; height:100%; object-fit:contain; display:none;" />
+                
+                <!-- Canvas d'analyse invisible -->
+                <canvas id="qr-canvas" style="display:none;"></canvas>
+
+                <!-- Viseur / Réticule HUD -->
+                <div id="qr-hud" style="position:absolute; inset:16px; pointer-events:none; border:1px solid rgba(255,255,255,0.2); border-radius:12px; box-shadow:0 0 0 9999px rgba(15,23,42,0.45); display:block;">
+                    <!-- Coins HUD -->
+                    <div style="position:absolute; top:-2px; left:-2px; width:22px; height:22px; border-top:4px solid #10b981; border-left:4px solid #10b981; border-top-left-radius:10px;"></div>
+                    <div style="position:absolute; top:-2px; right:-2px; width:22px; height:22px; border-top:4px solid #10b981; border-right:4px solid #10b981; border-top-right-radius:10px;"></div>
+                    <div style="position:absolute; bottom:-2px; left:-2px; width:22px; height:22px; border-bottom:4px solid #10b981; border-left:4px solid #10b981; border-bottom-left-radius:10px;"></div>
+                    <div style="position:absolute; bottom:-2px; right:-2px; width:22px; height:22px; border-bottom:4px solid #10b981; border-right:4px solid #10b981; border-bottom-right-radius:10px;"></div>
+                    <!-- Ligne laser animée -->
+                    <div id="qr-laser" class="qr-laser-line"></div>
+                </div>
+
+                <!-- Fallback si la vidéo directe est bloquée par le navigateur/HTTP -->
+                <div id="qr-camera-prompt" style="display:none; text-align:center; padding:18px; z-index:2;">
+                    <i class="fas fa-camera" style="font-size:40px; color:#a855f7; margin-bottom:8px; display:block;"></i>
+                    <p style="color:#e2e8f0; font-size:12px; margin:0 0 10px;">Accès vidéo restreint en mode portail HTTP.</p>
+                    <button type="button" id="qr-take-photo-btn" style="background:linear-gradient(135deg,#7209b7,#4361ee); color:white; border:none; padding:10px 16px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer;">
+                        📷 Prendre une photo du ticket
+                    </button>
+                </div>
+            </div>
+
+            <!-- Inputs cachés pour la capture photo directe et fichier -->
+            <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display:none;" />
+            <input type="file" id="qr-gallery-input" accept="image/*" style="display:none;" />
+
+            <!-- Barre de boutons d'action rapide -->
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <button type="button" id="qr-trigger-photo-btn" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:9px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
+                    <i class="fas fa-camera"></i> Prendre photo
+                </button>
+                <button type="button" id="qr-trigger-gallery-btn" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:9px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
+                    <i class="fas fa-image"></i> Choisir image
+                </button>
+                <button type="button" id="qr-switch-camera-btn" style="display:none; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:9px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;" title="Changer de caméra">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+
+            <!-- Message de statut -->
+            <div id="qr-status" style="margin-top:2px; text-align:center; font-size:12px; min-height:20px;"></div>
+
+            <!-- Bouton fermer -->
+            <button type="button" id="qr-close-btn" style="margin-top:8px;">✕ Fermer</button>
+        </div>
+    </div>
+
     <!-- Spinner caché au départ -->
     <div id="loadingSpinner" class="d-none justify-content-center align-items-center"
         style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1050;">
@@ -806,82 +1015,355 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const toggleSimple = document.getElementById('toggle-simple');
-            const toggleClassic = document.getElementById('toggle-classic');
-            const simpleForm = document.getElementById('simple-form');
-            const classicForm = document.getElementById('classic-form');
+        // ============================================================
+        // SCANNER QR UNIFIÉ & HAUTE COMPATIBILITÉ (HTTP + HTTPS + OFFLINE)
+        // ============================================================
+        var qrStream = null;
+        var qrScanning = false;
+        var qrAnimId = null;
+        var qrCurrentFacingMode = 'environment';
+        var barcodeDetector = null;
 
-            // === Toggle entre les formulaires ===
-            toggleSimple.addEventListener('click', () => {
-                toggleSimple.classList.add('active');
-                toggleClassic.classList.remove('active');
-                simpleForm.classList.add('active');
-                classicForm.classList.remove('active');
-            });
+        if ('BarcodeDetector' in window) {
+            try {
+                barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+            } catch(e) {
+                barcodeDetector = null;
+            }
+        }
 
-            toggleClassic.addEventListener('click', () => {
-                toggleClassic.classList.add('active');
-                toggleSimple.classList.remove('active');
-                classicForm.classList.add('active');
-                simpleForm.classList.remove('active');
-            });
+        function setQrStatus(html) {
+            var el = document.getElementById('qr-status');
+            if (el) el.innerHTML = html;
+        }
 
-            // === Fonction de login GET pour Mikrotik ===
-            function submitMikrotikLogin(params) {
-                const hotspotUrl = CONFIG.MIKROTIK_LOGIN_URL;
-                const queryString = Object.keys(params)
-                    .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key]))
-                    .join('&');
-                console.log('Redirection:', hotspotUrl + '?' + queryString);
-                window.location.href = hotspotUrl + '?' + queryString;
+        function extractCodeFromQr(text) {
+            if (!text) return null;
+            text = String(text).trim();
+            try {
+                if (text.startsWith('http://') || text.startsWith('https://')) {
+                    var parsed = new URL(text);
+                    var u = parsed.searchParams.get('username') || parsed.searchParams.get('user') || parsed.searchParams.get('code');
+                    if (u) return u.trim().toLowerCase();
+                }
+            } catch(e) {}
+            var match = text.match(/[?&]username=([^&]+)/i);
+            if (match) return decodeURIComponent(match[1]).trim().toLowerCase();
+            return text.trim().toLowerCase();
+        }
+
+        function handleQrSuccess(rawResult) {
+            var code = extractCodeFromQr(rawResult);
+            if (!code) return;
+
+            stopQrCamera();
+            try {
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            } catch(e) {}
+
+            setQrStatus('<div style="background:#dcfce7; color:#15803d; padding:8px 12px; border-radius:8px; font-weight:700; font-size:13px; border:1px solid #86efac;">' +
+                '✅ Code détecté : <strong>' + code + '</strong><br><small style="font-weight:normal;">Connexion automatique...</small></div>');
+
+            var codeInput = document.getElementById('simple-code');
+            if (codeInput) codeInput.value = code;
+
+            setTimeout(function() {
+                closeQrScanner();
+                submitMikrotikLogin({ username: code, password: code });
+            }, 900);
+        }
+
+        function startQrCamera() {
+            var video = document.getElementById('qr-video');
+            var promptEl = document.getElementById('qr-camera-prompt');
+            var hud = document.getElementById('qr-hud');
+            var previewImg = document.getElementById('qr-preview-img');
+
+            if (previewImg) previewImg.style.display = 'none';
+            if (promptEl) promptEl.style.display = 'none';
+            if (hud) hud.style.display = 'block';
+
+            // Sur HTTP ou si mediaDevices est absent (navigateurs stricts sur portail captif)
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.warn('getUserMedia indisponible sur ce contexte (HTTP/navigateur)');
+                showCameraPrompt();
+                // Ouvre directement l'appareil photo natif sur mobile
+                setTimeout(function() {
+                    var fileInput = document.getElementById('qr-file-input');
+                    if (fileInput) fileInput.click();
+                }, 250);
+                return;
             }
 
-            // === Gestion Code Unique ===
-            simpleForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                let code = (document.getElementById('simple-code').value || '').trim();
-                if (!code) {
-                    alert('Veuillez entrer votre code d’accès');
+            setQrStatus('<span style="color:#64748b;">⏳ Démarrage caméra...</span>');
+
+            var constraints = {
+                video: {
+                    facingMode: { ideal: qrCurrentFacingMode },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: false
+            };
+
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(function(stream) {
+                    qrStream = stream;
+                    video.srcObject = stream;
+                    video.setAttribute('playsinline', 'true');
+                    video.style.display = 'block';
+                    video.play().then(function() {
+                        qrScanning = true;
+                        setQrStatus('<span style="color:#10b981;">🟢 Caméra active. Visez le QR code.</span>');
+                        var switchBtn = document.getElementById('qr-switch-camera-btn');
+                        if (switchBtn) switchBtn.style.display = 'block';
+                        scanQrFrame();
+                    }).catch(function(err) {
+                        console.warn('Erreur lecture vidéo:', err);
+                        showCameraPrompt();
+                    });
+                })
+                .catch(function(err) {
+                    console.warn('getUserMedia refusé ou indisponible:', err);
+                    showCameraPrompt();
+                    // Ouvre directement la caméra mobile en fallback
+                    setTimeout(function() {
+                        var fileInput = document.getElementById('qr-file-input');
+                        if (fileInput) fileInput.click();
+                    }, 250);
+                });
+        }
+
+        function showCameraPrompt() {
+            stopQrCamera();
+            var video = document.getElementById('qr-video');
+            var promptEl = document.getElementById('qr-camera-prompt');
+            var hud = document.getElementById('qr-hud');
+            if (video) video.style.display = 'none';
+            if (promptEl) promptEl.style.display = 'block';
+            if (hud) hud.style.display = 'none';
+            setQrStatus('<span style="color:#f59e0b;">Prenez une photo de votre ticket pour scanner.</span>');
+        }
+
+        function scanQrFrame() {
+            if (!qrScanning) return;
+            var video = document.getElementById('qr-video');
+            if (!video) return;
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                if (barcodeDetector) {
+                    barcodeDetector.detect(video).then(function(barcodes) {
+                        if (barcodes && barcodes.length > 0) {
+                            handleQrSuccess(barcodes[0].rawValue);
+                            return;
+                        }
+                        if (qrScanning) qrAnimId = requestAnimationFrame(scanQrFrame);
+                    }).catch(function() {
+                        fallbackCanvasScan(video);
+                    });
+                    return;
+                } else {
+                    fallbackCanvasScan(video);
                     return;
                 }
-                if (code.toLowerCase().startsWith('2mc')) {
-                    code = code.toUpperCase();
-                }
-                submitMikrotikLogin({
-                    username: code,
-                    password: code
+            }
+            if (qrScanning) qrAnimId = requestAnimationFrame(scanQrFrame);
+        }
+
+        function fallbackCanvasScan(video) {
+            var canvas = document.getElementById('qr-canvas');
+            if (!canvas) return;
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            if (typeof jsQR !== 'undefined') {
+                var code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: 'dontInvert'
                 });
+                if (code && code.data) {
+                    handleQrSuccess(code.data);
+                    return;
+                }
+            }
+            if (qrScanning) qrAnimId = requestAnimationFrame(scanQrFrame);
+        }
+
+        function stopQrCamera() {
+            qrScanning = false;
+            if (qrAnimId) {
+                cancelAnimationFrame(qrAnimId);
+                qrAnimId = null;
+            }
+            if (qrStream) {
+                qrStream.getTracks().forEach(function(t) { t.stop(); });
+                qrStream = null;
+            }
+            var video = document.getElementById('qr-video');
+            if (video) {
+                video.srcObject = null;
+                video.style.display = 'none';
+            }
+        }
+
+        function decodeQrFromFile(file) {
+            if (!file) return;
+            stopQrCamera();
+            setQrStatus('<span style="color:#6366f1;">⏳ Analyse de la photo en cours...</span>');
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = new Image();
+                img.onload = function() {
+                    var previewImg = document.getElementById('qr-preview-img');
+                    var promptEl = document.getElementById('qr-camera-prompt');
+                    var hud = document.getElementById('qr-hud');
+                    if (previewImg) {
+                        previewImg.src = e.target.result;
+                        previewImg.style.display = 'block';
+                    }
+                    if (promptEl) promptEl.style.display = 'none';
+                    if (hud) hud.style.display = 'block';
+
+                    if (barcodeDetector) {
+                        barcodeDetector.detect(img).then(function(barcodes) {
+                            if (barcodes && barcodes.length > 0) {
+                                handleQrSuccess(barcodes[0].rawValue);
+                                return;
+                            }
+                            decodeWithJsQr(img);
+                        }).catch(function() {
+                            decodeWithJsQr(img);
+                        });
+                    } else {
+                        decodeWithJsQr(img);
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function decodeWithJsQr(img) {
+            var canvas = document.getElementById('qr-canvas');
+            if (!canvas) return;
+            var maxDim = 1200;
+            var w = img.width;
+            var h = img.height;
+            if (w > maxDim || h > maxDim) {
+                if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                else { w = Math.round(w * maxDim / h); h = maxDim; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            var imageData = ctx.getImageData(0, 0, w, h);
+
+            if (typeof jsQR !== 'undefined') {
+                var result = jsQR(imageData.data, imageData.width, imageData.height);
+                if (result && result.data) {
+                    handleQrSuccess(result.data);
+                    return;
+                }
+            }
+            setQrStatus('<div style="background:#fee2e2; color:#b91c1c; padding:8px; border-radius:8px; font-size:12px; border:1px solid #fca5a5;">' +
+                '❌ QR code non reconnu.<br>Prenez une photo nette, sans reflets et bien cadrée du ticket.</div>');
+        }
+
+        function openQrScanner() {
+            var overlay = document.getElementById('qr-modal-overlay');
+            if (overlay) overlay.classList.add('active');
+            setQrStatus('');
+            startQrCamera();
+        }
+
+        function closeQrScanner() {
+            stopQrCamera();
+            var overlay = document.getElementById('qr-modal-overlay');
+            if (overlay) overlay.classList.remove('active');
+            var f1 = document.getElementById('qr-file-input');
+            if (f1) f1.value = '';
+            var f2 = document.getElementById('qr-gallery-input');
+            if (f2) f2.value = '';
+            setQrStatus('');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var openBtn = document.getElementById('open-qr-scanner');
+            if (openBtn) openBtn.addEventListener('click', openQrScanner);
+
+            var closeBtn = document.getElementById('qr-close-btn');
+            if (closeBtn) closeBtn.addEventListener('click', closeQrScanner);
+
+            var closeXBtn = document.getElementById('qr-close-x-btn');
+            if (closeXBtn) closeXBtn.addEventListener('click', closeQrScanner);
+
+            var overlay = document.getElementById('qr-modal-overlay');
+            if (overlay) overlay.addEventListener('click', function(e) {
+                if (e.target === this) closeQrScanner();
             });
 
-            // === Gestion Mode Classique ===
-            classicForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const username = document.getElementById('username').value.trim();
-                const password = document.getElementById('password').value.trim();
-                if (!username || !password) {
-                    alert('Veuillez remplir tous les champs');
-                    return;
-                }
-                submitMikrotikLogin({
-                    username,
-                    password
-                });
+            // Boutons pour capturer ou choisir une photo
+            var triggerPhotoBtn = document.getElementById('qr-trigger-photo-btn');
+            if (triggerPhotoBtn) triggerPhotoBtn.addEventListener('click', function() {
+                document.getElementById('qr-file-input').click();
+            });
+
+            var promptTakeBtn = document.getElementById('qr-take-photo-btn');
+            if (promptTakeBtn) promptTakeBtn.addEventListener('click', function() {
+                document.getElementById('qr-file-input').click();
+            });
+
+            var triggerGalleryBtn = document.getElementById('qr-trigger-gallery-btn');
+            if (triggerGalleryBtn) triggerGalleryBtn.addEventListener('click', function() {
+                document.getElementById('qr-gallery-input').click();
+            });
+
+            var switchCamBtn = document.getElementById('qr-switch-camera-btn');
+            if (switchCamBtn) switchCamBtn.addEventListener('click', function() {
+                qrCurrentFacingMode = qrCurrentFacingMode === 'environment' ? 'user' : 'environment';
+                stopQrCamera();
+                startQrCamera();
+            });
+
+            // Écoute des inputs fichiers
+            var fileInput = document.getElementById('qr-file-input');
+            if (fileInput) fileInput.addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0]) decodeQrFromFile(e.target.files[0]);
+            });
+
+            var galleryInput = document.getElementById('qr-gallery-input');
+            if (galleryInput) galleryInput.addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0]) decodeQrFromFile(e.target.files[0]);
             });
         });
     </script>
-    <!-- Script de paiement: -->
     <script>
-        // Configuration du backend
+        // Configuration globale
         const CONFIG = {
             FEDAPAY_PUBLIC_KEY: 'pk_live_jYf2mjUa0Y_wHn4DWBDNseMm',
-            GET_VOUCHER_URL: '/www/get_voucher.php',
+            GET_VOUCHER_URL: (window.location.hostname === '2mc.alwaysdata.net' || window.location.hostname === 'localhost')
+                ? '/www/get_voucher.php'
+                : 'https://2mc.alwaysdata.net/www/get_voucher.php',
             MIKROTIK_LOGIN_URL: 'http://mcwifi.net/login',
-            VOUCHER_POLL_INTERVAL: 1000, // ms
-            VOUCHER_POLL_TIMEOUT: 60000 // 60 secondes max
+            VOUCHER_POLL_INTERVAL: 1000,
+            VOUCHER_POLL_TIMEOUT: 60000
         };
 
-        let momoactive = true; // variable globale
+        // Fonction de login globale (accessible depuis le QR scanner aussi)
+        function submitMikrotikLogin(params) {
+            var hotspotUrl = CONFIG.MIKROTIK_LOGIN_URL;
+            var queryString = Object.keys(params)
+                .map(function(key) { return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]); })
+                .join('&');
+            console.log('Redirection Mikrotik:', hotspotUrl + '?' + queryString);
+            window.location.href = hotspotUrl + '?' + queryString;
+        }
+
+        var momoactive = true; // variable globale
         function setupCards() {
             document.querySelectorAll('.pricing-card').forEach(card => {
                 if (!card.querySelector('.card-inner')) {
@@ -919,29 +1401,57 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            let currentReference = null;
-            let voucherInterval = null;
+            var currentReference = null;
+            var voucherInterval = null;
             setupCards();
 
             // Ajoute le clic pour flip / paiement
-            document.querySelectorAll('.pricing-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    const btn = card.querySelector('.select-plan');
+            document.querySelectorAll('.pricing-card').forEach(function(card) {
+                card.addEventListener('click', function() {
+                    var btn = card.querySelector('.select-plan');
                     if (!btn) return;
-
-                    const price = btn.dataset.price;
-                    const plan = btn.dataset.plan;
+                    var price = btn.dataset.price;
+                    var plan = btn.dataset.plan;
                     if (!price || !plan) return;
-
                     if (!momoactive) {
-                        // Flip / dé-flip
                         card.classList.toggle('flipped');
                     } else {
-                        // MOMO actif : déclenche le paiement
                         initiatePayment(parseInt(price) * 1, plan);
                     }
                 });
             });
+
+            // Toggle formulaires
+            document.getElementById('toggle-simple').addEventListener('click', function() {
+                this.classList.add('active');
+                document.getElementById('toggle-classic').classList.remove('active');
+                document.getElementById('simple-form').classList.add('active');
+                document.getElementById('classic-form').classList.remove('active');
+            });
+            document.getElementById('toggle-classic').addEventListener('click', function() {
+                this.classList.add('active');
+                document.getElementById('toggle-simple').classList.remove('active');
+                document.getElementById('classic-form').classList.add('active');
+                document.getElementById('simple-form').classList.remove('active');
+            });
+
+            // Formulaire code unique
+            document.getElementById('simple-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                var code = document.getElementById('simple-code').value.trim();
+                if (!code) { alert('Veuillez entrer votre code d\'accès'); return; }
+                submitMikrotikLogin({ username: code, password: code });
+            });
+
+            // Formulaire classique
+            document.getElementById('classic-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                var username = document.getElementById('username').value.trim();
+                var password = document.getElementById('password').value.trim();
+                if (!username || !password) { alert('Veuillez remplir tous les champs'); return; }
+                submitMikrotikLogin({ username: username, password: password });
+            });
+
 
         function initiatePayment(amount, plan) {
             // Valider le montant

@@ -10,6 +10,7 @@ data/db.json
 server.bundle.cjs
 *.timestamp-*.mjs
 sync-all-to-db.cjs
+scratch-*.cjs
 
 # Applications desktop & mobile
 desktop/node_modules

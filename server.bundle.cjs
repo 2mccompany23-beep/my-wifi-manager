@@ -28494,7 +28494,10 @@ try {
       const idx = trimmed.indexOf("=");
       if (idx > 0) {
         const key = trimmed.substring(0, idx).trim();
-        const val = trimmed.substring(idx + 1).trim();
+        let val = trimmed.substring(idx + 1).trim();
+        if (val.startsWith('"') && val.endsWith('"') || val.startsWith("'") && val.endsWith("'")) {
+          val = val.slice(1, -1);
+        }
         if (!process.env[key]) process.env[key] = val;
       }
     }
@@ -28528,7 +28531,11 @@ app.use((0, import_cors.default)({
   },
   credentials: true
 }));
-app.use(import_express.default.json());
+app.use(import_express.default.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(import_express.default.urlencoded({ extended: true }));
 var loginLimiter = rate_limit_default({
   windowMs: 15 * 60 * 1e3,
@@ -28936,11 +28943,6 @@ function buildRouterOSCommand(endpoint, method = "GET", body = null) {
   }
   return cliPath;
 }
-function isPrivateIp(ip) {
-  if (!ip) return true;
-  if (ip === "localhost" || ip === "127.0.0.1") return true;
-  return /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip);
-}
 function requirePollAuth(req, res, next) {
   const db = readDb();
   const validToken = db.settings.pollSecretToken;
@@ -28953,6 +28955,11 @@ function requirePollAuth(req, res, next) {
   lastRouterPollTimestamp = Date.now();
   return next();
 }
+function isAlwaysDataEnvironment() {
+  return Boolean(
+    process.env.ALWAYSDATA_HTTPD_PORT || process.env.ALWAYSDATA_SSH || process.env.ALWAYSDATA_LOG_DIR || process.env.HOME && (process.env.HOME.includes("alwaysdata") || process.env.HOME.includes("/home/2mc")) || process.cwd().includes("alwaysdata") || process.cwd().includes("/home/2mc") || process.env.USER === "2mc" && process.platform !== "win32"
+  );
+}
 async function callRouterOS(endpoint, method = "GET", body = null) {
   const cacheKey = `${endpoint}_${method}_${JSON.stringify(body)}`;
   const now = Date.now();
@@ -28963,11 +28970,9 @@ async function callRouterOS(endpoint, method = "GET", body = null) {
     }
   }
   const db = readDb();
-  const { routerIp, routerPort, routerUser, routerPass, connectionMode } = db.settings;
-  const secAgo = lastRouterPollTimestamp > 0 ? Math.round((Date.now() - lastRouterPollTimestamp) / 1e3) : 9999;
-  const isRouterPolling = lastRouterPollTimestamp > 0 && secAgo < 60;
-  const usePollingMode = connectionMode === "polling" || isPrivateIp(routerIp) || isRouterPolling;
-  if (usePollingMode) {
+  const { routerIp, routerPort, routerUser, routerPass } = db.settings;
+  const isAlwaysData = isAlwaysDataEnvironment();
+  if (isAlwaysData) {
     const cmd = buildRouterOSCommand(endpoint, method, body);
     try {
       const pollRes = await enqueuePollCommand(cmd, 3e4);
@@ -28981,6 +28986,7 @@ async function callRouterOS(endpoint, method = "GET", body = null) {
       return pollRes;
     } catch (err) {
       console.warn(`[callRouterOS] Polling Timeout/Error sur ${endpoint}: ${err.message}`);
+      return { error: true, message: `Timeout ou erreur de Polling Cloud: ${err.message}` };
     }
   }
   const targetPort = parseInt(routerPort) || 80;
@@ -29015,23 +29021,6 @@ async function callRouterOS(endpoint, method = "GET", body = null) {
   } else {
     result = await callRouterOSNativeApi(routerIp, targetPort, routerUser, routerPass, endpoint, method, body, socketTimeout);
   }
-  if (result && result.error) {
-    console.log(`[callRouterOS] Connexion directe impossible (${result.message}). Envoi via Polling...`);
-    const cmd = buildRouterOSCommand(endpoint, method, body);
-    try {
-      const pollRes = await enqueuePollCommand(cmd, 3e4);
-      if (pollRes && pollRes.success) {
-        pollRes.data = normalizeRouterOSData(pollRes.data);
-        if (method === "GET") {
-          apiCache.data[cacheKey] = pollRes;
-          apiCache.timestamp[cacheKey] = now;
-        }
-      }
-      return pollRes;
-    } catch (pollErr) {
-      return { error: true, message: `Connexion directe et Polling ont \xE9chou\xE9: ${pollErr.message}` };
-    }
-  }
   if (method === "GET" && result && result.success) {
     apiCache.data[cacheKey] = result;
     apiCache.timestamp[cacheKey] = now;
@@ -29039,9 +29028,14 @@ async function callRouterOS(endpoint, method = "GET", body = null) {
   return result || { error: true, message: "Aucune donn\xE9e retourn\xE9e par le routeur" };
 }
 var handlePollGet = (req, res) => {
+  const now = Date.now();
   for (const [id, item] of pollingQueue.entries()) {
+    if (item.status === "sent" && now - (item.sentAt || item.createdAt) > 25e3) {
+      item.status = "pending";
+    }
     if (item.status === "pending") {
       item.status = "sent";
+      item.sentAt = now;
       return res.json({
         action: "run",
         id,
@@ -29088,8 +29082,8 @@ var handlePollResultPost = (req, res) => {
 };
 app.post("/api/poll/result", requirePollAuth, handlePollResultPost);
 app.post("/poll/result", requirePollAuth, handlePollResultPost);
-function generateVoucherCode(prefix = "2MC-", length = 5) {
-  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+function generateVoucherCode(prefix = "", length = 8) {
+  const chars = "23456789abcdefghjkmnpqrstuvwxyz";
   let result = prefix;
   for (let i = 0; i < length; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -29130,13 +29124,24 @@ function getLimitUptimeForPlan(plan) {
   };
   return limitMap[plan] || "4h";
 }
+function getPlanFromAmount(amount) {
+  const amt = Number(amount);
+  if (amt === 100) return "4h";
+  if (amt === 200) return "12h";
+  if (amt === 300) return "24h";
+  if (amt === 500) return "4j";
+  if (amt === 1200) return "7j";
+  if (amt === 4e3) return "30j";
+  return null;
+}
 function formatMikhmonComment(quantity = 1, tag = "admin") {
   const now = /* @__PURE__ */ new Date();
   const day = String(now.getDate()).padStart(2, "0");
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const year = String(now.getFullYear()).slice(-2);
   const dateStr = `${month}.${day}.${year}`;
-  return `vc-${quantity}-${dateStr}-${tag}`;
+  const batchId = Math.floor(100 + Math.random() * 900);
+  return `vc-${batchId}-${dateStr}-${tag}`;
 }
 app.post("/api/auth/login", loginLimiter, (req, res) => {
   const { username, password } = req.body;
@@ -29243,10 +29248,15 @@ app.get("/api/router/users", requireAuth, async (req, res) => {
   const db = readDb();
   let localUsers = db.hotspotUsers || [];
   let activeSessions = db.activeSessions || [];
+  const isAlwaysData = isAlwaysDataEnvironment();
   try {
-    const [userRes, activeRes] = await Promise.all([
-      callRouterOS("/ip/hotspot/user"),
-      callRouterOS("/ip/hotspot/active")
+    const userPromise = callRouterOS("/ip/hotspot/user");
+    const activePromise = callRouterOS("/ip/hotspot/active");
+    const timeoutMs = isAlwaysData ? 3e3 : 1e4;
+    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve([{ timeout: true }, { timeout: true }]), timeoutMs));
+    const [userRes, activeRes] = await Promise.race([
+      Promise.all([userPromise, activePromise]),
+      timeoutPromise
     ]);
     if (userRes && userRes.success && Array.isArray(userRes.data) && userRes.data.length > 0) {
       localUsers = userRes.data;
@@ -29256,7 +29266,9 @@ app.get("/api/router/users", requireAuth, async (req, res) => {
       activeSessions = activeRes.data;
       db.activeSessions = activeSessions;
     }
-    writeDb(db);
+    if (userRes?.success || activeRes?.success) {
+      writeDb(db);
+    }
   } catch (err) {
     console.warn("[Users] Impossible de r\xE9cup\xE9rer les utilisateurs/sessions RouterOS en direct, utilisation du cache local:", err.message);
   }
@@ -29269,7 +29281,17 @@ app.get("/api/router/users", requireAuth, async (req, res) => {
   const userMap = /* @__PURE__ */ new Map();
   for (const v of localVouchers) {
     const key = v.name || v.code || v[".id"];
-    if (key) userMap.set(key, v);
+    if (key) {
+      userMap.set(key, {
+        ".id": v[".id"] || key,
+        name: key,
+        profile: v.profile || v.plan || "100-F-4h",
+        uptime: "0s",
+        "bytes-in": 0,
+        "bytes-out": 0,
+        comment: v.comment || "Voucher local"
+      });
+    }
   }
   for (const u of localUsers) {
     const key = u.name || u[".id"];
@@ -29427,21 +29449,201 @@ app.delete("/api/router/users/:id", requireAuth, async (req, res) => {
   apiCache.timestamp = {};
   res.json({ success: true, message: "Utilisateur supprim\xE9 avec succ\xE8s" });
 });
+var backgroundJobs = /* @__PURE__ */ new Map();
+function createJob(type, title, total = 100) {
+  const id = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const job = {
+    id,
+    type,
+    title,
+    status: "running",
+    // 'running' | 'completed' | 'failed'
+    progress: 0,
+    current: 0,
+    total: Math.max(1, total),
+    currentStep: "Initialisation de la t\xE2che...",
+    error: null,
+    result: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+  backgroundJobs.set(id, job);
+  setTimeout(() => {
+    backgroundJobs.delete(id);
+  }, 60 * 60 * 1e3);
+  return job;
+}
+function updateJob(id, updates) {
+  if (!backgroundJobs.has(id)) return null;
+  const job = backgroundJobs.get(id);
+  Object.assign(job, updates, { updatedAt: Date.now() });
+  if (job.total > 0 && updates.current !== void 0) {
+    job.progress = Math.min(100, Math.round(job.current / job.total * 100));
+  }
+  return job;
+}
+async function runBatchDeleteJob(jobId, ids) {
+  const BATCH_SIZE = 25;
+  const total = ids.length;
+  let deletedCount = 0;
+  const totalBatches = Math.ceil(total / BATCH_SIZE);
+  try {
+    for (let i = 0; i < total; i += BATCH_SIZE) {
+      const batch = ids.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      updateJob(jobId, {
+        current: deletedCount,
+        currentStep: `Suppression du lot ${batchNum}/${totalBatches} (${batch.length} utilisateurs)...`
+      });
+      const conditions = batch.map((item) => {
+        const clean = String(item).replace(/["\\]/g, "").trim();
+        if (clean.startsWith("*")) return `.id="${clean}"`;
+        return `name="${clean}" || .id="${clean}"`;
+      }).join(" || ");
+      try {
+        if (isAlwaysDataEnvironment()) {
+          const cliCmd = `/ip hotspot user remove [find where ${conditions}]`;
+          await enqueuePollCommand(cliCmd, 45e3);
+        } else {
+          await Promise.allSettled(
+            batch.map((id) => callRouterOS(`/ip/hotspot/user/${encodeURIComponent(id)}`, "DELETE", { ".id": id }))
+          );
+        }
+      } catch (err) {
+        console.warn(`[BatchDelete Job] Note sur le lot ${batchNum}:`, err.message);
+      }
+      const db = readDb();
+      const idSet = new Set(batch);
+      const targetNames = new Set(batch);
+      (db.hotspotUsers || []).forEach((u) => {
+        if (idSet.has(u[".id"]) || idSet.has(u.name) || idSet.has(u.id)) {
+          if (u.name) targetNames.add(u.name);
+          if (u[".id"]) targetNames.add(u[".id"]);
+          if (u.id) targetNames.add(u.id);
+        }
+      });
+      db.vouchers = (db.vouchers || []).filter(
+        (v) => !targetNames.has(v.id) && !targetNames.has(v.code) && !idSet.has(v.id) && !idSet.has(v.code)
+      );
+      db.hotspotUsers = (db.hotspotUsers || []).filter(
+        (u) => !targetNames.has(u[".id"]) && !targetNames.has(u.name) && !targetNames.has(u.id) && !idSet.has(u[".id"]) && !idSet.has(u.name) && !idSet.has(u.id)
+      );
+      writeDb(db);
+      deletedCount += batch.length;
+      updateJob(jobId, { current: deletedCount });
+    }
+    apiCache.data = {};
+    apiCache.timestamp = {};
+    updateJob(jobId, {
+      status: "completed",
+      progress: 100,
+      current: total,
+      currentStep: `${total} utilisateur(s) supprim\xE9(s) avec succ\xE8s !`,
+      result: { count: total }
+    });
+    console.log(`[BatchDelete Job] Job ${jobId} termin\xE9: ${total} utilisateurs supprim\xE9s.`);
+  } catch (err) {
+    console.error(`[BatchDelete Job] Erreur job ${jobId}:`, err);
+    updateJob(jobId, {
+      status: "failed",
+      error: `Erreur lors de la suppression: ${err.message}`
+    });
+  }
+}
+async function runSyncSalesJob(jobId, force = true) {
+  try {
+    updateJob(jobId, {
+      current: 25,
+      currentStep: "Connexion au routeur MikroTik et lecture des scripts Mikhmon..."
+    });
+    const result = await fetchAndSyncRouterScripts(force);
+    updateJob(jobId, {
+      current: 85,
+      currentStep: "Calcul et d\xE9duplication des revenus..."
+    });
+    updateJob(jobId, {
+      status: "completed",
+      progress: 100,
+      current: 100,
+      currentStep: `Synchronisation r\xE9ussie : ${result.total || 0} vente(s) enregistr\xE9es (${result.revenue || 0} FCFA).`,
+      result
+    });
+    console.log(`[SyncSales Job] Job ${jobId} termin\xE9 avec succ\xE8s.`);
+  } catch (err) {
+    console.error(`[SyncSales Job] Erreur job ${jobId}:`, err);
+    updateJob(jobId, {
+      status: "failed",
+      error: `Erreur de synchronisation: ${err.message}`
+    });
+  }
+}
+app.get("/api/jobs/active", requireAuth, (req, res) => {
+  const now = Date.now();
+  for (const job of backgroundJobs.values()) {
+    if (job.status === "running") return res.json({ active: true, job });
+    if (now - job.updatedAt < 12e3) return res.json({ active: true, job });
+  }
+  return res.json({ active: false, job: null });
+});
+app.get("/api/jobs/:id", requireAuth, (req, res) => {
+  const job = backgroundJobs.get(req.params.id);
+  if (!job) return res.status(404).json({ error: "Job non trouv\xE9" });
+  return res.json({ job });
+});
+app.post("/api/jobs/batch-delete", requireAuth, (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "Liste d'identifiants requise" });
+  }
+  const job = createJob("batch_delete", `Suppression de ${ids.length} utilisateur(s)`, ids.length);
+  runBatchDeleteJob(job.id, ids);
+  return res.json({
+    success: true,
+    jobId: job.id,
+    total: ids.length,
+    message: "Suppression en masse lanc\xE9e en t\xE2che de fond"
+  });
+});
+app.post("/api/jobs/sync-sales", requireAuth, (req, res) => {
+  const force = req.body?.force !== false;
+  const job = createJob("sync_sales", "Synchronisation des ventes MikroTik", 100);
+  runSyncSalesJob(job.id, force);
+  return res.json({
+    success: true,
+    jobId: job.id,
+    message: "Synchronisation des ventes d\xE9marr\xE9e en t\xE2che de fond"
+  });
+});
 app.post("/api/router/users/batch-delete", requireAuth, async (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: true, message: "Liste d'identifiants requise pour la suppression." });
   }
   console.log(`[RouterOS] Batch deleting ${ids.length} user(s)...`);
-  const results = await Promise.allSettled(
-    ids.map((id) => {
-      const decodedId = decodeURIComponent(id);
-      return callRouterOS(`/ip/hotspot/user/${decodedId}`, "DELETE", { ".id": decodedId });
-    })
-  );
+  const BATCH_SIZE = 25;
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const batch = ids.slice(i, i + BATCH_SIZE);
+    const conditions = batch.map((item) => {
+      const clean = String(item).replace(/["\\]/g, "").trim();
+      if (clean.startsWith("*")) return `.id="${clean}"`;
+      return `name="${clean}" || .id="${clean}"`;
+    }).join(" || ");
+    try {
+      if (isAlwaysDataEnvironment()) {
+        const cliCmd = `/ip hotspot user remove [find where ${conditions}]`;
+        await enqueuePollCommand(cliCmd, 35e3);
+      } else {
+        await Promise.allSettled(
+          batch.map((id) => callRouterOS(`/ip/hotspot/user/${encodeURIComponent(id)}`, "DELETE", { ".id": id }))
+        );
+      }
+    } catch (e) {
+      console.warn("[BatchDelete] Note lot:", e.message);
+    }
+  }
   const db = readDb();
   const idSet = new Set(ids);
-  const targetNames = /* @__PURE__ */ new Set();
+  const targetNames = new Set(ids);
   (db.hotspotUsers || []).forEach((u) => {
     if (idSet.has(u[".id"]) || idSet.has(u.name) || idSet.has(u.id)) {
       if (u.name) targetNames.add(u.name);
@@ -29449,7 +29651,6 @@ app.post("/api/router/users/batch-delete", requireAuth, async (req, res) => {
       if (u.id) targetNames.add(u.id);
     }
   });
-  ids.forEach((id) => targetNames.add(id));
   db.vouchers = (db.vouchers || []).filter(
     (v) => !targetNames.has(v.id) && !targetNames.has(v.code) && !idSet.has(v.id) && !idSet.has(v.code)
   );
@@ -29459,9 +29660,7 @@ app.post("/api/router/users/batch-delete", requireAuth, async (req, res) => {
   writeDb(db);
   apiCache.data = {};
   apiCache.timestamp = {};
-  const okCount = results.filter((r) => r.status === "fulfilled" && !r.value?.error).length;
-  console.log(`[RouterOS] Batch delete completed: ${okCount}/${ids.length} succeeded.`);
-  res.json({ success: true, count: okCount, total: ids.length, message: `${okCount} utilisateur(s) supprim\xE9(s) avec succ\xE8s.` });
+  res.json({ success: true, count: ids.length, total: ids.length, message: `${ids.length} utilisateur(s) supprim\xE9(s) avec succ\xE8s.` });
 });
 app.patch("/api/router/users/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
@@ -29510,121 +29709,266 @@ app.post("/api/router/users/:id/reset", requireAuth, async (req, res) => {
   res.json({ success: true, message: "Compteurs r\xE9initialis\xE9s avec succ\xE8s" });
 });
 app.post("/api/vouchers/generate", requireAuth, async (req, res) => {
-  const { prefix = "2MC-", length = 5, profile = "100-F-4h", quantity = 1, price = 100 } = req.body;
+  const { prefix = "", length = 8, profile = "100-F-4h", quantity = 1, price = 100 } = req.body;
   const db = readDb();
+  if (!db.vouchers) db.vouchers = [];
+  if (!db.hotspotUsers) db.hotspotUsers = [];
   const created = [];
-  const mikhmonComment = formatMikhmonComment(quantity, "admin");
-  for (let i = 0; i < Math.min(quantity, 100); i++) {
+  const qty = Math.max(1, Math.min(parseInt(quantity) || 1, 100));
+  const mikhmonComment = formatMikhmonComment(qty, "admin");
+  const limitUptime = getLimitUptimeForPlan(profile);
+  const numericPrice = parseInt(price) || 100;
+  if (!db.sales) db.sales = [];
+  for (let i = 0; i < qty; i++) {
     const code = generateVoucherCode(prefix, length);
+    const voucherId = `v_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`;
     const voucher = {
-      id: `v_${Date.now()}_${i}`,
+      id: voucherId,
       code,
       profile,
-      price: parseInt(price),
+      price: numericPrice,
       created: (/* @__PURE__ */ new Date()).toISOString(),
       status: "AVAILABLE",
       comment: mikhmonComment
     };
     db.vouchers.unshift(voucher);
     created.push(voucher);
+    const alreadyInSales = db.sales.some((s) => s.voucher === code || s.reference === code);
+    if (!alreadyInSales) {
+      db.sales.unshift({
+        id: `sale_${voucherId}`,
+        reference: code,
+        amount: numericPrice,
+        plan: getLimitUptimeForPlan(profile),
+        profile,
+        voucher: code,
+        mode: "Vente Directe",
+        phone: "",
+        date: (/* @__PURE__ */ new Date()).toISOString(),
+        status: "SUCCESS",
+        source: "voucher"
+      });
+    }
+    const existingIdx = db.hotspotUsers.findIndex((u) => u.name === code || u[".id"] === code);
+    const userEntry = {
+      ".id": `local_${code}`,
+      name: code,
+      password: code,
+      profile,
+      "limit-uptime": limitUptime,
+      uptime: "0s",
+      "bytes-in": "0",
+      "bytes-out": "0",
+      bytesIn: "0 MB",
+      bytesOut: "0 MB",
+      bytesTotal: "0 MB",
+      server: "all",
+      comment: mikhmonComment,
+      disabled: "false"
+    };
+    if (existingIdx >= 0) {
+      db.hotspotUsers[existingIdx] = { ...db.hotspotUsers[existingIdx], ...userEntry };
+    } else {
+      db.hotspotUsers.unshift(userEntry);
+    }
     callRouterOS("/ip/hotspot/user", "POST", {
       name: code,
       password: code,
       profile,
-      "limit-uptime": getLimitUptimeForPlan(profile),
+      "limit-uptime": limitUptime,
+      server: "all",
       comment: mikhmonComment
-    }).catch((e) => console.warn("RouterOS post warning:", e.message));
+    }).catch((e) => console.warn(`[RouterOS] Warning adding user ${code}:`, e.message));
   }
   writeDb(db);
-  res.json({ success: true, vouchers: created });
+  console.log(`[Vouchers] ${created.length} ticket(s) g\xE9n\xE9r\xE9(s) avec succ\xE8s (Profil: ${profile}, Commentaire: ${mikhmonComment})`);
+  res.json({ success: true, vouchers: created, count: created.length });
 });
-app.get("/www/get_voucher.php", (req, res) => {
+async function verifyFedaPayTransaction(ref, secretKey) {
+  if (!ref || !secretKey) return null;
+  const cleanRef = String(ref).trim();
+  if (/^\d+$/.test(cleanRef)) {
+    try {
+      const res = await fetch(`https://api.fedapay.com/v1/transactions/${cleanRef}`, {
+        headers: { "Authorization": `Bearer ${secretKey}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const tx = data["v1/transaction"] || data.transaction;
+        if (tx) return tx;
+      }
+    } catch (e) {
+      console.warn(`[verifyFedaPay] Erreur lookup ID ${cleanRef}:`, e.message);
+    }
+  }
+  try {
+    const res = await fetch(`https://api.fedapay.com/v1/transactions/search?per_page=30`, {
+      headers: { "Authorization": `Bearer ${secretKey}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = data["v1/transactions"] || data.transactions || [];
+      const found = list.find(
+        (t) => String(t.reference || "").trim() === cleanRef || String(t.id || "").trim() === cleanRef || String(t.transaction_key || "").trim() === cleanRef || String(t.merchant_reference || "").trim() === cleanRef
+      );
+      if (found) return found;
+    }
+  } catch (e) {
+    console.warn(`[verifyFedaPay] Erreur search reference ${cleanRef}:`, e.message);
+  }
+  return null;
+}
+async function processFedaPayApproval(transaction, db) {
+  if (!transaction) return null;
+  if (!db.sales) db.sales = [];
+  if (!db.vouchers) db.vouchers = [];
+  const ref = String(transaction.reference || transaction.id);
+  const amount = Number(transaction.amount || 0);
+  const plan = transaction.custom_data?.plan || getPlanFromAmount(amount) || "24h";
+  const profile = getProfileForPlan(plan);
+  const limitUptime = getLimitUptimeForPlan(plan);
+  const mikhmonComment = formatMikhmonComment(1, "fedapay");
+  let existing = db.sales.find((s) => String(s.reference) === ref || String(s.id) === `tx_${ref}` || String(s.id) === String(transaction.id));
+  if (existing && existing.voucher) {
+    return { voucher: existing.voucher, plan: existing.plan || plan };
+  }
+  const voucherCode = generateVoucherCode("", 8);
+  const sale = {
+    id: `tx_${ref}`,
+    reference: ref,
+    amount,
+    plan,
+    profile,
+    voucher: voucherCode,
+    mode: transaction.mode || "Mobile Money",
+    phone: transaction.customer?.phone_number || "N/A",
+    date: transaction.approved_at || transaction.created_at || (/* @__PURE__ */ new Date()).toISOString(),
+    status: "SUCCESS",
+    source: "fedapay"
+  };
+  db.sales.unshift(sale);
+  db.vouchers.unshift({
+    id: `v_${Date.now()}_${voucherCode}`,
+    code: voucherCode,
+    profile,
+    price: amount,
+    created: (/* @__PURE__ */ new Date()).toISOString(),
+    status: "USED",
+    comment: mikhmonComment
+  });
+  writeDb(db);
+  console.log(`[FedaPay] Transaction valid\xE9e: ${ref} -> Code Voucher g\xE9n\xE9r\xE9: ${voucherCode} (Profil: ${profile})`);
+  try {
+    await callRouterOS("/ip/hotspot/user", "POST", {
+      name: voucherCode,
+      password: voucherCode,
+      profile,
+      "limit-uptime": limitUptime,
+      comment: mikhmonComment
+    });
+    console.log(`[FedaPay] Utilisateur ${voucherCode} cr\xE9\xE9 sur le routeur MikroTik`);
+  } catch (err) {
+    console.error("[FedaPay] Erreur cr\xE9ation user routeur:", err.message);
+  }
+  return { voucher: voucherCode, plan };
+}
+app.get(["/www/get_voucher.php", "/get_voucher.php", "/api/fedapay/voucher"], async (req, res) => {
   const { reference } = req.query;
   console.log(`[get_voucher] V\xE9rification r\xE9f\xE9rence: ${reference}`);
   if (!reference || typeof reference !== "string" || reference.length > 100) {
     return res.status(400).json({ error: "R\xE9f\xE9rence manquante ou invalide" });
   }
   const db = readDb();
-  const sale = db.sales.find((s) => s.reference === reference || s.id === reference);
-  if (sale && sale.voucher) {
-    return res.json({ voucher: sale.voucher, plan: sale.plan || "24h" });
+  const cleanRef = reference.trim();
+  const existingSale = (db.sales || []).find(
+    (s) => String(s.reference || "").trim() === cleanRef || String(s.id || "").trim() === cleanRef || String(s.voucher || "").trim() === cleanRef
+  );
+  if (existingSale && existingSale.voucher) {
+    return res.json({ voucher: existingSale.voucher, plan: existingSale.plan || "24h" });
   }
-  console.warn(`[get_voucher] R\xE9f\xE9rence introuvable: ${reference} (IP: ${req.ip})`);
-  return res.status(404).json({ error: "Paiement non trouv\xE9. Veuillez patienter ou contacter le support." });
-});
-app.post("/api/fedapay/webhook", import_express.default.raw({ type: "application/json" }), (req, res) => {
-  const webhookSecret = process.env.FEDAPAY_WEBHOOK_SECRET;
-  const signature = req.headers["x-fedapay-signature"];
-  if (webhookSecret && signature) {
-    const expectedSig = import_crypto.default.createHmac("sha256", webhookSecret).update(req.body).digest("hex");
-    const providedSig = signature.replace("sha256=", "");
+  const secretKey = db.settings?.fedapaySecretKey;
+  if (secretKey) {
     try {
-      if (!import_crypto.default.timingSafeEqual(Buffer.from(expectedSig, "hex"), Buffer.from(providedSig, "hex"))) {
-        console.warn(`[Webhook] Signature invalide \u2014 rejet (IP: ${req.ip})`);
-        return res.status(401).send("Signature invalide");
+      const fedapayTx = await verifyFedaPayTransaction(cleanRef, secretKey);
+      if (fedapayTx && (fedapayTx.status === "approved" || fedapayTx.status === "transferred")) {
+        console.log(`[get_voucher] \u2705 Paiement v\xE9rifi\xE9 avec succ\xE8s aupr\xE8s de l'API FedaPay pour ${cleanRef}`);
+        const result = await processFedaPayApproval(fedapayTx, db);
+        return res.json({ voucher: result.voucher, plan: result.plan });
+      } else if (fedapayTx) {
+        console.log(`[get_voucher] Transaction FedaPay ${cleanRef} statut actuel: ${fedapayTx.status}`);
       }
-    } catch {
-      console.warn("[Webhook] Signature malform\xE9e");
-      return res.status(401).send("Signature malform\xE9e");
+    } catch (e) {
+      console.warn(`[get_voucher] Erreur v\xE9rification API FedaPay:`, e.message);
     }
-  } else if (webhookSecret && !signature) {
-    console.warn(`[Webhook] Pas de signature fournie \u2014 rejet (IP: ${req.ip})`);
-    return res.status(401).send("Signature manquante");
   }
+  console.warn(`[get_voucher] R\xE9f\xE9rence en attente ou inconnue: ${reference} (IP: ${req.ip})`);
+  return res.status(404).json({ error: "Paiement en attente de confirmation. Veuillez patienter..." });
+});
+async function handleFedaPayWebhook(req, res) {
+  if (req.method === "GET" || req.method === "HEAD") {
+    return res.status(200).json({
+      status: "ok",
+      message: "Point de terminaison Webhook FedaPay op\xE9rationnel",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  }
+  const db = readDb();
   let event;
   try {
-    event = typeof req.body === "string" || Buffer.isBuffer(req.body) ? JSON.parse(req.body.toString()) : req.body;
+    if (typeof req.body === "object" && req.body !== null && !Buffer.isBuffer(req.body)) {
+      event = req.body;
+    } else {
+      const rawPayload = req.rawBody || req.body || "";
+      event = JSON.parse(rawPayload.toString("utf8"));
+    }
   } catch {
+    console.warn("[Webhook] JSON invalide re\xE7u (IP: " + req.ip + ")");
     return res.status(400).send("JSON invalide");
   }
   console.log("[FedaPay Webhook] \xC9v\xE9nement re\xE7u:", JSON.stringify(event));
+  const eventName = event?.name || event?.event;
   const transaction = event?.entity || event?.transaction || event?.data;
-  if (transaction && (transaction.status === "approved" || transaction.status === "transferred")) {
-    const ref = transaction.reference || transaction.id;
-    const amount = transaction.amount || 300;
-    const plan = transaction.custom_data?.plan || "24h";
-    const profile = getProfileForPlan(plan);
-    const limitUptime = getLimitUptimeForPlan(plan);
-    const mikhmonComment = formatMikhmonComment(1, "fedapay");
-    const db = readDb();
-    let existing = db.sales.find((s) => s.reference === ref);
-    if (!existing) {
-      const voucherCode = generateVoucherCode("2MC-", 5);
-      const sale = {
-        id: `tx_${Date.now()}`,
-        reference: String(ref),
-        amount,
-        plan,
-        profile,
-        voucher: voucherCode,
-        mode: transaction.mode || "Mobile Money",
-        phone: transaction.customer?.phone_number || "N/A",
-        date: (/* @__PURE__ */ new Date()).toISOString(),
-        status: "SUCCESS",
-        source: "fedapay"
-      };
-      db.sales.unshift(sale);
-      db.vouchers.unshift({
-        id: `v_${Date.now()}`,
-        code: voucherCode,
-        profile,
-        price: amount,
-        created: (/* @__PURE__ */ new Date()).toISOString(),
-        status: "USED",
-        comment: mikhmonComment
-      });
-      writeDb(db);
-      callRouterOS("/ip/hotspot/user", "POST", {
-        name: voucherCode,
-        password: voucherCode,
-        profile,
-        "limit-uptime": limitUptime,
-        comment: mikhmonComment
-      });
-    }
+  if (transaction && (transaction.status === "approved" || transaction.status === "transferred" || eventName === "transaction.approved")) {
+    await processFedaPayApproval(transaction, db);
   }
-  res.status(200).send("OK");
+  return res.status(200).json({ success: true, message: "Webhook re\xE7u et trait\xE9 avec succ\xE8s" });
+}
+app.post("/api/fedapay/sync", requireAuth, async (req, res) => {
+  const db = readDb();
+  const secretKey = db.settings?.fedapaySecretKey;
+  if (!secretKey) {
+    return res.status(400).json({ error: "Cl\xE9 secr\xE8te FedaPay non configur\xE9e" });
+  }
+  try {
+    const fedaRes = await fetch("https://api.fedapay.com/v1/transactions/search?per_page=50", {
+      headers: { "Authorization": `Bearer ${secretKey}` }
+    });
+    const data = await fedaRes.json();
+    const list = data["v1/transactions"] || data.transactions || [];
+    const approved = list.filter((t) => t.status === "approved" || t.status === "transferred");
+    let recovered = 0;
+    for (const tx of approved) {
+      const ref = String(tx.reference || tx.id);
+      const exists = (db.sales || []).some((s) => String(s.reference) === ref || String(s.id) === `tx_${ref}`);
+      if (!exists) {
+        await processFedaPayApproval(tx, db);
+        recovered++;
+      }
+    }
+    return res.json({ success: true, recovered, totalApprovedFound: approved.length });
+  } catch (err) {
+    console.error("[FedaPay Sync] Erreur:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
 });
+var FEDAPAY_WEBHOOK_PATHS = [
+  "/webhook.php",
+  "/www/webhook.php",
+  "/api/fedapay/webhook",
+  "/webhook",
+  "/fedapay/webhook"
+];
+app.all(FEDAPAY_WEBHOOK_PATHS, handleFedaPayWebhook);
 function parseMikhmonScript(script) {
   if (!script) return null;
   const name = String(script.name || "").trim();
@@ -29664,6 +30008,11 @@ function parseMikhmonScript(script) {
     const months = { jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06", jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12" };
     const m = months[mikrotikDateMatch[1].toLowerCase()] || "01";
     dateStr = `${mikrotikDateMatch[3]}-${m}-${mikrotikDateMatch[2].padStart(2, "0")}`;
+  } else {
+    const dmyMatch = date ? date.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})$/) : null;
+    if (dmyMatch) {
+      dateStr = `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`;
+    }
   }
   const timeClean = (time || "").replace(/^-/, "");
   let isoDate = (/* @__PURE__ */ new Date()).toISOString();
@@ -29693,6 +30042,17 @@ function parseMikhmonScript(script) {
     comment: batchComment || comment || name
   };
 }
+function filterTransactionsByDate(transactions, startDate, endDate) {
+  if (!startDate && !endDate) return transactions;
+  const start = startDate ? (/* @__PURE__ */ new Date(`${startDate}T00:00:00`)).getTime() : -Infinity;
+  const end = endDate ? (/* @__PURE__ */ new Date(`${endDate}T23:59:59.999`)).getTime() : Infinity;
+  return transactions.filter((t) => {
+    if (!t.date) return false;
+    const tTime = new Date(t.date).getTime();
+    if (isNaN(tTime)) return false;
+    return tTime >= start && tTime <= end;
+  });
+}
 function clearScriptCache() {
   for (const k of Object.keys(apiCache.data)) {
     if (k.startsWith("/system/script")) {
@@ -29701,39 +30061,84 @@ function clearScriptCache() {
     }
   }
 }
-app.get("/api/sales", requireAuth, (req, res) => {
+app.get("/api/sales", requireAuth, async (req, res) => {
   const isForce = req.query.force === "true" || req.query.refresh === "true" || req.query.sync === "true";
-  if (isForce) {
-    clearScriptCache();
+  const { startDate, endDate } = req.query;
+  try {
+    await fetchAndSyncRouterScripts(isForce);
+  } catch (e) {
+    console.warn("[/api/sales] Sync routeur impossible, fallback cache local:", e?.message);
   }
   const db = readDb();
   const sales = db.sales || [];
   const totalRevenue = sales.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
-  callRouterOS("/system/script").then((result) => {
-    if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-      const dbFresh = readDb();
-      if (!dbFresh.sales) dbFresh.sales = [];
-      const existingIds = new Set(dbFresh.sales.map((s) => s.id || s.reference));
-      let updated = false;
-      for (const script of result.data) {
-        const parsed = parseMikhmonScript(script);
-        if (parsed && !existingIds.has(parsed.id)) {
-          dbFresh.sales.unshift(parsed);
-          existingIds.add(parsed.id);
-          updated = true;
-        }
-      }
-      if (updated) {
-        writeDb(dbFresh);
-      }
-    }
-  }).catch(() => {
-  });
+  let resultSales = sales;
+  if (startDate || endDate) {
+    resultSales = filterTransactionsByDate(sales, startDate, endDate);
+  }
+  const periodRevenue = resultSales.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
   return res.json({
-    sales,
+    sales: resultSales,
     totalRevenue,
-    totalCount: sales.length
+    totalCount: sales.length,
+    periodRevenue,
+    periodCount: resultSales.length,
+    startDate: startDate || null,
+    endDate: endDate || null
   });
+});
+app.all("/api/router/record-script", (req, res) => {
+  const token = req.query.token || req.headers["authorization"]?.replace("Bearer ", "") || req.body?.token;
+  const db = readDb();
+  const validToken = db.settings.pollSecretToken || "mcwifi_secret_token_2026";
+  if (!token || token !== validToken) {
+    return res.status(401).json({ error: "Token de synchronisation invalide." });
+  }
+  const scriptName = req.query.name || req.body?.name || (typeof req.body === "string" ? req.body : null);
+  if (!scriptName) {
+    return res.status(400).json({ error: "Nom du script manquant." });
+  }
+  const parsed = parseMikhmonScript({ name: scriptName, comment: "mikhmon" });
+  if (!parsed) {
+    return res.status(400).json({ error: "Format de script Mikhmon non reconnu." });
+  }
+  if (!db.sales) db.sales = [];
+  const existingIdx = db.sales.findIndex((s) => s.id === parsed.id || s.voucher && s.voucher.toLowerCase() === parsed.voucher.toLowerCase());
+  if (existingIdx >= 0) {
+    db.sales[existingIdx] = { ...db.sales[existingIdx], ...parsed };
+  } else {
+    db.sales.unshift(parsed);
+  }
+  writeDb(db);
+  console.log(`[RecordScript] Vente synchronis\xE9e depuis MikroTik: ${parsed.username} (${parsed.amount} FCFA, Date: ${parsed.date})`);
+  return res.json({ success: true, sale: parsed });
+});
+app.post("/api/router/push-sales", (req, res) => {
+  const token = req.query.token || req.headers["authorization"]?.replace("Bearer ", "") || req.body?.token;
+  const db = readDb();
+  const validToken = db.settings.pollSecretToken || "mcwifi_secret_token_2026";
+  if (!token || token !== validToken) {
+    return res.status(401).json({ error: "Token de synchronisation invalide." });
+  }
+  const items = req.body?.sales || (Array.isArray(req.body) ? req.body : []);
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "Aucune vente fournie." });
+  }
+  if (!db.sales) db.sales = [];
+  let added = 0;
+  for (const item of items) {
+    const existingIdx = db.sales.findIndex((s) => s.id === item.id || s.voucher && item.voucher && s.voucher.toLowerCase() === item.voucher.toLowerCase());
+    if (existingIdx >= 0) {
+      db.sales[existingIdx] = { ...db.sales[existingIdx], ...item };
+    } else {
+      db.sales.unshift(item);
+      added++;
+    }
+  }
+  db.sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  writeDb(db);
+  console.log(`[PushSales] ${added} nouvelles ventes enregistr\xE9es (Total: ${db.sales.length})`);
+  return res.json({ success: true, added, total: db.sales.length });
 });
 async function fetchAndSyncRouterScripts(force = false) {
   if (force) {
@@ -29741,6 +30146,12 @@ async function fetchAndSyncRouterScripts(force = false) {
   }
   const db = readDb();
   if (!db.sales) db.sales = [];
+  if (isAlwaysDataEnvironment() && !force) {
+    const localSales2 = db.sales || [];
+    localSales2.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const rev2 = localSales2.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
+    return { transactions: localSales2, total: localSales2.length, revenue: rev2, newlyAddedCount: 0, routerOnline: true };
+  }
   const result = await callRouterOS("/system/script");
   if (result.success && Array.isArray(result.data)) {
     const currentRouterTxs = [];
@@ -29755,7 +30166,15 @@ async function fetchAndSyncRouterScripts(force = false) {
     const nonRouterSales = db.sales.filter(
       (s) => s.source !== "router_script" && !(s.id && String(s.id).startsWith("script_"))
     );
-    db.sales = [...currentRouterTxs, ...nonRouterSales];
+    const routerVoucherCodes = new Set(
+      currentRouterTxs.map((t) => (t.voucher || t.username || "").toLowerCase().trim()).filter(Boolean)
+    );
+    const dedupedNonRouterSales = nonRouterSales.filter((s) => {
+      const vCode = (s.voucher || s.reference || "").toLowerCase().trim();
+      if (s.source === "voucher" && vCode && routerVoucherCodes.has(vCode)) return false;
+      return true;
+    });
+    db.sales = [...currentRouterTxs, ...dedupedNonRouterSales];
     writeDb(db);
     currentRouterTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const totalRevenue = currentRouterTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
@@ -29775,8 +30194,21 @@ async function fetchAndSyncRouterScripts(force = false) {
 app.get("/api/router/mikhmon-scripts", requireAuth, async (req, res) => {
   try {
     const isForce = req.query.force === "true" || req.query.refresh === "true" || req.query.sync === "true";
+    const { startDate, endDate } = req.query;
     const data = await fetchAndSyncRouterScripts(isForce);
-    return res.json(data);
+    let transactions = data.transactions;
+    if (startDate || endDate) {
+      transactions = filterTransactionsByDate(transactions, startDate, endDate);
+    }
+    const periodRevenue = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+    return res.json({
+      ...data,
+      transactions,
+      periodRevenue,
+      periodCount: transactions.length,
+      startDate: startDate || null,
+      endDate: endDate || null
+    });
   } catch (err) {
     console.error("[Mikhmon Scripts] Error:", err.message);
     const db = readDb();
@@ -29796,13 +30228,65 @@ app.post("/api/router/mikhmon-scripts/sync", requireAuth, async (req, res) => {
 });
 app.get("/api/settings", requireAuth, (req, res) => {
   const db = readDb();
-  res.json(db.settings);
+  const isAlwaysData = isAlwaysDataEnvironment();
+  const connectionMode = isAlwaysData ? "polling" : "direct";
+  res.json({
+    ...db.settings,
+    connectionMode,
+    isAlwaysData
+  });
 });
 app.post("/api/settings", requireAuth, (req, res) => {
   const db = readDb();
-  db.settings = { ...db.settings, ...req.body };
+  const isAlwaysData = isAlwaysDataEnvironment();
+  const connectionMode = isAlwaysData ? "polling" : "direct";
+  db.settings = { ...db.settings, ...req.body, connectionMode };
   writeDb(db);
   res.json({ success: true, settings: db.settings });
+});
+app.all("/api/system/restart", (req, res) => {
+  const token = req.query.token || req.headers["authorization"]?.replace("Bearer ", "") || req.headers["x-poll-token"];
+  const db = readDb();
+  const validToken = db.settings?.pollSecretToken || "mcwifi_secret_token_2026";
+  if (!token || token !== validToken) {
+    return res.status(401).json({ error: "Token non autoris\xE9" });
+  }
+  res.json({ success: true, message: "Red\xE9marrage du serveur en cours..." });
+  setTimeout(() => {
+    console.log("[System] Red\xE9marrage automatique demand\xE9 via API...");
+    process.exit(0);
+  }, 200);
+});
+if (import_fs.default.existsSync(import_path.default.join(__dirname, "loc"))) {
+  app.use("/loc", import_express.default.static(import_path.default.join(__dirname, "loc")));
+}
+app.get("/jsqr.min.js", (req, res) => {
+  const p = import_path.default.join(__dirname, "loc", "jsqr.min.js");
+  if (import_fs.default.existsSync(p)) return res.sendFile(p);
+  return res.status(404).send("Not found");
+});
+app.get(["/login.html", "/loc/login.html"], (req, res) => {
+  const rootPath = import_path.default.join(__dirname, "login.html");
+  const locPath = import_path.default.join(__dirname, "loc", "login.html");
+  const distPath = import_path.default.join(__dirname, "dist", "login.html");
+  if (import_fs.default.existsSync(rootPath)) {
+    return res.sendFile(rootPath);
+  } else if (import_fs.default.existsSync(locPath)) {
+    return res.sendFile(locPath);
+  } else if (import_fs.default.existsSync(distPath)) {
+    return res.sendFile(distPath);
+  }
+  return res.sendFile(import_path.default.join(__dirname, "dist", "index.html"));
+});
+app.get(["/status.html", "/loc/status.html"], (req, res) => {
+  const rootPath = import_path.default.join(__dirname, "status.html");
+  const locPath = import_path.default.join(__dirname, "loc", "status.html");
+  if (import_fs.default.existsSync(rootPath)) {
+    return res.sendFile(rootPath);
+  } else if (import_fs.default.existsSync(locPath)) {
+    return res.sendFile(locPath);
+  }
+  return res.status(404).send("Not found");
 });
 if (import_fs.default.existsSync(import_path.default.join(__dirname, "dist"))) {
   app.use(import_express.default.static(import_path.default.join(__dirname, "dist")));
@@ -29811,7 +30295,7 @@ if (import_fs.default.existsSync(import_path.default.join(__dirname, "dist"))) {
   });
 }
 app.listen(PORT, () => {
-  console.log(`\u{1F680} Server Cloud Mikhmon 2.0 running on http://localhost:${PORT}`);
+  console.log(`\u{1F680} Server 2MC SpotCloud 2.0 running on http://localhost:${PORT}`);
 });
 /*! Bundled license information:
 

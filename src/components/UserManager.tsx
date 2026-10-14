@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { ConfirmModal } from './ConfirmModal';
 import { ToastContainer, useToast } from './Toast';
+import { JobProgressModal } from './JobProgressModal';
 import { HotspotUser } from '../types';
 
 interface UserManagerProps {
@@ -20,6 +21,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRED'>('ALL');
   const [quickTab, setQuickTab] = useState<'ALL' | 'ACTIVE' | 'USED' | 'UNUSED' | 'EXPIRED'>('ALL');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
   const [deletingUserIds, setDeletingUserIds] = useState<string[]>([]);
   const [isDeletingModal, setIsDeletingModal] = useState(false);
@@ -386,41 +388,28 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
   const handleBatchDelete = () => {
     if (selectedUserIds.length === 0) return;
     const count = selectedUserIds.length;
-    setDeleteLoadingLabel(`Suppression de ${count} utilisateur(s)...`);
     openConfirm(
-      'Suppression en lot',
-      `Supprimer définitivement ${count} utilisateur(s) sélectionné(s) du routeur MikroTik ?`,
+      'Suppression en masse',
+      `Supprimer définitivement ${count} utilisateur(s) sélectionné(s) du routeur MikroTik ? Cette tâche est exécutée en arrière-plan avec suivi en temps réel.`,
       'danger',
       async () => {
-        setIsDeletingModal(true);
-        setDeletingUserIds(selectedUserIds);
+        closeConfirm();
         try {
-          const res = await fetch('/api/router/users/batch-delete', {
+          const res = await fetch('/api/jobs/batch-delete', {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({ ids: selectedUserIds })
           });
           if (res.ok) {
             const data = await res.json();
-            success(`${data.count || count} utilisateur(s) supprimé(s) avec succès.`);
+            if (data.jobId) {
+              setActiveJobId(data.jobId);
+            }
           } else {
-            let ok = 0;
-            await Promise.all(selectedUserIds.map(async (id) => {
-              try {
-                const r = await fetch(`/api/router/users/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getAuthHeaders() });
-                if (r.ok) ok++;
-              } catch (e) { console.error('Batch delete error:', e); }
-            }));
-            success(`${ok} utilisateur(s) supprimé(s) avec succès.`);
+            error('Erreur lors du lancement de la tâche de suppression.');
           }
-          setSelectedUserIds([]);
-          closeConfirm();
-          onRefresh();
         } catch {
-          error('Erreur lors de la suppression en lot. Vérifiez la connexion au routeur.');
-        } finally {
-          setIsDeletingModal(false);
-          setDeletingUserIds([]);
+          error('Impossible de communiquer avec le serveur pour la suppression.');
         }
       }
     );
@@ -768,7 +757,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
               <form onSubmit={handleAddUser} className="space-y-4 text-xs">
                 <div>
                   <label className="block text-slate-400 mb-1 font-medium">Code Utilisateur</label>
-                  <input type="text" required placeholder="Ex: 2MC-901" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500" />
+                  <input type="text" required placeholder="Ex: a7k9x" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500" />
                 </div>
                 <div>
                   <label className="block text-slate-400 mb-1 font-medium">Profil Hotspot</label>
@@ -790,6 +779,17 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
           </div>
         )}
       </div>
+
+      {/* Modal de suivi de progression en direct pour les suppressions en masse */}
+      <JobProgressModal
+        jobId={activeJobId}
+        onComplete={(job) => {
+          setSelectedUserIds([]);
+          success(`${job.total} utilisateur(s) supprimé(s) avec succès !`);
+          onRefresh();
+        }}
+        onClose={() => setActiveJobId(null)}
+      />
     </>
   );
 };
