@@ -16,6 +16,7 @@ interface RouterScriptTx {
   source: string;
   date: string;
   username: string;
+  voucher?: string;
   amount: number;
   ip: string;
   mac: string;
@@ -228,12 +229,14 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
         const localSales: any[] = (salesData.sales || []).filter((s: any) =>
           s.source === 'fedapay' || (s.mode && String(s.mode).toLowerCase().includes('fedapay'))
         );
-        const scriptUsernames = new Set(scriptTxs.map(t => t.username.toLowerCase()));
+        const scriptUsernames = new Set(
+          scriptTxs.map(t => (t.username || t.voucher || (t as any).reference || '').toLowerCase()).filter(Boolean)
+        );
 
         for (const s of localSales) {
           const voucherKey = (s.voucher || '').toLowerCase();
           const refKey = (s.reference || '').toLowerCase();
-          if (voucherKey && !scriptUsernames.has(voucherKey) && !scriptUsernames.has(refKey)) {
+          if ((voucherKey && !scriptUsernames.has(voucherKey)) || (refKey && !scriptUsernames.has(refKey))) {
             scriptTxs.push({
               id: s.id || `local_${s.reference}`,
               source: 'local_db',
@@ -266,12 +269,14 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
         }
       }
 
-      scriptTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      const totalRev = scriptTxs.reduce((sum, t) => sum + t.amount, 0);
+      if (scriptTxs.length > 0) {
+        scriptTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const totalRev = scriptTxs.reduce((sum, t) => sum + t.amount, 0);
 
-      setRouterTxs(scriptTxs);
-      setRouterRevenue(totalRev);
-      setRouterTotal(scriptTxs.length);
+        setRouterTxs(scriptTxs);
+        setRouterRevenue(totalRev);
+        setRouterTotal(scriptTxs.length);
+      }
 
       if (force) {
         setSyncStatus({
@@ -324,6 +329,27 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
 
   useEffect(() => { loadRouterScripts(); }, []);
 
+  // Source garantie pour les ventes du routeur : utilise le state ou se replie sur les props
+  const effectiveRouterTxs = useMemo(() => {
+    if (routerTxs.length > 0) return routerTxs;
+    if (!Array.isArray(sales) || sales.length === 0) return [];
+    return sales
+      .filter(s => s.source !== 'fedapay' && !String(s.mode || '').toLowerCase().includes('fedapay') && !String(s.id || '').startsWith('tx_'))
+      .map(s => ({
+        id: s.id || `sale_${s.reference}`,
+        source: s.source || 'router_script',
+        date: s.date || new Date().toISOString(),
+        username: (s as any).username || s.voucher || s.reference || '',
+        amount: Number(s.amount || (s as any).price || 0),
+        ip: (s as any).ip || s.mode || '',
+        mac: (s as any).mac || s.phone || '',
+        duration: (s as any).duration || s.plan || '',
+        profile: s.profile || s.plan || '',
+        comment: (s as any).comment || s.reference || '',
+        plan: s.plan || s.profile || ''
+      }));
+  }, [routerTxs, sales]);
+
   const currentPeriodRange = useMemo(() => {
     return getPeriodRange(periodFilter, customStartDate, customEndDate);
   }, [periodFilter, customStartDate, customEndDate]);
@@ -359,7 +385,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
 
   const allTxs = useMemo(() => {
     if (activeSource === 'router') {
-      return applyPeriod(routerTxs).map(t => ({
+      return applyPeriod(effectiveRouterTxs).map(t => ({
         id: t.id,
         date: t.date,
         reference: t.username,
@@ -379,7 +405,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
       comment: s.comment || 'Paiement FedaPay',
       source: 'fedapay'
     }));
-  }, [activeSource, routerTxs, fedapaySales, currentPeriodRange]);
+  }, [activeSource, effectiveRouterTxs, fedapaySales, currentPeriodRange]);
 
   const filteredTxs = useMemo(() => {
     return allTxs.filter(s => {
@@ -401,7 +427,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
   const avgTicket = filteredTxs.length > 0 ? filteredRevenue / filteredTxs.length : 0;
 
   const monthlyData = useMemo(() => {
-    const src = activeSource === 'router' ? routerTxs : fedapaySales;
+    const src = activeSource === 'router' ? effectiveRouterTxs : fedapaySales;
     const map: Record<string, { label: string; revenue: number; count: number; plans: Record<string, number> }> = {};
     src.forEach(s => {
       const d = new Date(s.date);
@@ -414,7 +440,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
       map[key].plans[pk] = (map[key].plans[pk] || 0) + 1;
     });
     return Object.entries(map).sort(([a], [b]) => b.localeCompare(a)).map(([key, val]) => ({ key, ...val }));
-  }, [activeSource, routerTxs, fedapaySales]);
+  }, [activeSource, effectiveRouterTxs, fedapaySales]);
 
   const chartData = useMemo(() => {
     return monthlyData.slice(0, 6).reverse().map(m => ({
@@ -435,7 +461,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
 
   const uniquePlans = Array.from(new Set(allTxs.map(s => s.plan || s.profile).filter(Boolean)));
   const availableMonths = Array.from(new Set(
-    (activeSource === 'router' ? routerTxs : fedapaySales).map(s => {
+    (activeSource === 'router' ? effectiveRouterTxs : fedapaySales).map(s => {
       const d = new Date(s.date);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     })
@@ -480,7 +506,11 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
     else { setSortBy(col); setSortDir('desc'); }
   };
 
-  const displayRevenue = activeSource === 'router' ? routerRevenue : fedapayRevenue;
+  const effectiveRouterRevenue = routerRevenue > 0
+    ? routerRevenue
+    : effectiveRouterTxs.reduce((sum, t) => sum + t.amount, 0);
+
+  const displayRevenue = activeSource === 'router' ? effectiveRouterRevenue : fedapayRevenue;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -510,7 +540,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
               }`}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncing || loadingScripts ? 'animate-spin' : ''}`} />
-              <span className="truncate">{syncing ? 'Synchronisation...' : `Ventes MikroTik (${routerTotal})`}</span>
+              <span className="truncate">{syncing ? 'Synchronisation...' : `Ventes MikroTik (${effectiveRouterTxs.length})`}</span>
             </button>
 
             <button

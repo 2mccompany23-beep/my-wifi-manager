@@ -11,6 +11,8 @@ server.bundle.cjs
 *.timestamp-*.mjs
 sync-all-to-db.cjs
 scratch-*.cjs
+nul
+**/nul
 
 # Applications desktop & mobile
 desktop/node_modules
