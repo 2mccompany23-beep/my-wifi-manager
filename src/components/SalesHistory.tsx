@@ -294,6 +294,34 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
     }
   };
 
+  // Synchroniser immédiatement routerTxs à partir de la prop `sales` reçue de App.tsx
+  useEffect(() => {
+    if (Array.isArray(sales) && sales.length > 0) {
+      const parsedRouterTxs: RouterScriptTx[] = sales
+        .filter(s => s.source !== 'fedapay')
+        .map(s => ({
+          id: s.id || `sale_${s.reference}`,
+          source: s.source || 'router_script',
+          date: s.date || new Date().toISOString(),
+          username: (s as any).username || s.voucher || s.reference || '',
+          amount: Number(s.amount || (s as any).price || 0),
+          ip: (s as any).ip || s.mode || '',
+          mac: (s as any).mac || s.phone || '',
+          duration: (s as any).duration || s.plan || '',
+          profile: s.profile || s.plan || '',
+          comment: (s as any).comment || s.reference || '',
+          plan: s.plan || s.profile || ''
+        }));
+
+      parsedRouterTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const rev = parsedRouterTxs.reduce((sum, t) => sum + t.amount, 0);
+
+      setRouterTxs(parsedRouterTxs);
+      setRouterRevenue(rev);
+      setRouterTotal(parsedRouterTxs.length);
+    }
+  }, [sales]);
+
   useEffect(() => { loadRouterScripts(); }, []);
 
   const currentPeriodRange = useMemo(() => {
