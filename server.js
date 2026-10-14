@@ -6,6 +6,7 @@ import net from 'net';
 import crypto from 'crypto';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import webpush from 'web-push';
 
 // Charger .env (compatible CJS bundle)
 try {
@@ -1739,6 +1740,14 @@ async function processFedaPayApproval(transaction, db) {
 
   console.log(`[FedaPay] Transaction validée: ${ref} -> Code Voucher généré: ${voucherCode} (Profil: ${profile})`);
 
+  // Déclencher une notification Push PWA instantanée sur le téléphone de l'admin
+  sendSalePushNotification({
+    title: `💰 Vente FedaPay : ${amount} FCFA`,
+    body: `Forfait ${plan} validé ! Ticket : ${voucherCode} (${transaction.mode || 'Mobile Money'})`,
+    tag: `fedapay_${ref}`,
+    data: { url: '/#finances' }
+  }).catch(err => console.warn('[WebPush] Erreur notification FedaPay:', err.message));
+
   // Création du compte utilisateur sur le routeur Hotspot MikroTik
   try {
     await callRouterOS('/ip/hotspot/user', 'POST', {
@@ -2062,6 +2071,16 @@ app.all('/api/router/record-script', (req, res) => {
 
   writeDb(db);
   console.log(`[RecordScript] Vente synchronisée depuis MikroTik: ${parsed.username} (${parsed.amount} FCFA, Date: ${parsed.date})`);
+
+  if (existingIdx < 0) {
+    sendSalePushNotification({
+      title: `🎟️ Ticket MikroTik Activé : ${parsed.amount} FCFA`,
+      body: `Client connecté ! Ticket : ${parsed.username} (Forfait : ${parsed.plan || parsed.profile})`,
+      tag: `script_${parsed.id}`,
+      data: { url: '/#finances' }
+    }).catch(err => console.warn('[WebPush] Erreur notification script:', err.message));
+  }
+
   return res.json({ success: true, sale: parsed });
 });
 
@@ -2212,6 +2231,144 @@ app.post('/api/router/mikhmon-scripts/sync', requireAuth, async (req, res) => {
   }
 });
 
+// ==========================================
+// --- WEB PUSH NOTIFICATIONS (PWA ADMIN) ---
+// ==========================================
+function initVapidKeys() {
+  const db = readDb();
+  if (!db.settings) db.settings = {};
+  if (!db.settings.vapidKeys || !db.settings.vapidKeys.publicKey || !db.settings.vapidKeys.privateKey) {
+    const keys = webpush.generateVAPIDKeys();
+    db.settings.vapidKeys = keys;
+    writeDb(db);
+    console.log('[WebPush] Nouvelles clés VAPID générées et enregistrées.');
+  }
+
+  try {
+    webpush.setVapidDetails(
+      'mailto:2mccompany23@gmail.com',
+      db.settings.vapidKeys.publicKey,
+      db.settings.vapidKeys.privateKey
+    );
+  } catch (err) {
+    console.warn('[WebPush] Erreur configuration VAPID:', err.message);
+  }
+  return db.settings.vapidKeys;
+}
+
+const vapidKeys = initVapidKeys();
+
+async function sendSalePushNotification({ title, body, icon, badge, data, tag }) {
+  const db = readDb();
+  const subs = db.pushSubscriptions || [];
+  if (subs.length === 0) return { sent: 0, total: 0 };
+
+  const payload = JSON.stringify({
+    title: title || '🔔 2MC SpotCloud',
+    body: body || 'Nouvelle vente enregistrée sur le réseau.',
+    icon: icon || '/icon-192.png',
+    badge: badge || '/icon-192.png',
+    tag: tag || `sale_${Date.now()}`,
+    data: data || { url: '/#finances' }
+  });
+
+  let sent = 0;
+  const validSubs = [];
+
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification(sub, payload);
+      sent++;
+      validSubs.push(sub);
+    } catch (err) {
+      console.warn('[WebPush] Note envoi:', err.statusCode || err.message);
+      if (err.statusCode !== 404 && err.statusCode !== 410) {
+        validSubs.push(sub);
+      }
+    }
+  }
+
+  if (validSubs.length !== subs.length) {
+    db.pushSubscriptions = validSubs;
+    writeDb(db);
+  }
+
+  if (sent > 0) {
+    console.log(`[WebPush] 🔔 Notification de vente envoyée à ${sent} appareil(s) admin.`);
+  }
+  return { sent, total: subs.length };
+}
+
+// Récupérer la clé publique VAPID
+app.get('/api/push/vapid-public-key', (req, res) => {
+  const db = readDb();
+  const pubKey = db.settings?.vapidKeys?.publicKey || vapidKeys.publicKey;
+  return res.json({ publicKey: pubKey });
+});
+
+// Enregistrer l'abonnement Push d'un appareil admin
+app.post('/api/push/subscribe', requireAuth, (req, res) => {
+  const { subscription } = req.body;
+  if (!subscription || !subscription.endpoint || !subscription.keys) {
+    return res.status(400).json({ error: 'Données de souscription Push invalides.' });
+  }
+
+  const db = readDb();
+  if (!db.pushSubscriptions) db.pushSubscriptions = [];
+
+  const existingIdx = db.pushSubscriptions.findIndex(s => s.endpoint === subscription.endpoint);
+  const entry = {
+    ...subscription,
+    userAgent: req.headers['user-agent'] || 'PWA Mobile',
+    updatedAt: new Date().toISOString()
+  };
+
+  if (existingIdx >= 0) {
+    db.pushSubscriptions[existingIdx] = entry;
+  } else {
+    db.pushSubscriptions.push(entry);
+  }
+
+  writeDb(db);
+  console.log(`[WebPush] Nouvel appareil admin enregistré (Total abonnés: ${db.pushSubscriptions.length})`);
+  return res.json({ success: true, count: db.pushSubscriptions.length });
+});
+
+// Se désabonner des notifications
+app.post('/api/push/unsubscribe', requireAuth, (req, res) => {
+  const { endpoint } = req.body;
+  const db = readDb();
+  if (db.pushSubscriptions && endpoint) {
+    db.pushSubscriptions = db.pushSubscriptions.filter(s => s.endpoint !== endpoint);
+    writeDb(db);
+  }
+  return res.json({ success: true, count: db.pushSubscriptions?.length || 0 });
+});
+
+// Envoyer une notification de test
+app.post('/api/push/test', requireAuth, async (req, res) => {
+  try {
+    const result = await sendSalePushNotification({
+      title: '🔔 Test Réussi — 2MC SpotCloud',
+      body: 'Votre téléphone recevra désormais une alerte instantanée à chaque nouvelle vente !',
+      tag: `test_${Date.now()}`,
+      data: { url: '/#finances' }
+    });
+    return res.json({ success: true, sent: result.sent, total: result.total });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Statut des abonnements push pour l'admin
+app.get('/api/push/status', requireAuth, (req, res) => {
+  const db = readDb();
+  const count = db.pushSubscriptions?.length || 0;
+  return res.json({
+    activeCount: count,
+    publicKey: db.settings?.vapidKeys?.publicKey || vapidKeys.publicKey
+  });
+});
 
 app.get('/api/settings', requireAuth, (req, res) => {
   const db = readDb();
@@ -2282,6 +2439,32 @@ app.get(['/status.html', '/loc/status.html'], (req, res) => {
     return res.sendFile(locPath);
   }
   return res.status(404).send('Not found');
+});
+
+// Servir le Service Worker avec headers no-cache et Service-Worker-Allowed
+app.get(['/sw.js', '/service-worker.js'], (req, res) => {
+  const p = path.join(__dirname, 'public', 'sw.js');
+  const distP = path.join(__dirname, 'dist', 'sw.js');
+  const target = fs.existsSync(p) ? p : (fs.existsSync(distP) ? distP : null);
+  if (target) {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return res.sendFile(target);
+  }
+  return res.status(404).send('Service worker not found');
+});
+
+// Servir le Manifest PWA
+app.get(['/manifest.webmanifest', '/manifest.json'], (req, res) => {
+  const p = path.join(__dirname, 'public', 'manifest.webmanifest');
+  const distP = path.join(__dirname, 'dist', 'manifest.webmanifest');
+  const target = fs.existsSync(p) ? p : (fs.existsSync(distP) ? distP : null);
+  if (target) {
+    res.setHeader('Content-Type', 'application/manifest+json');
+    return res.sendFile(target);
+  }
+  return res.status(404).send('Manifest not found');
 });
 
 // Serve static frontend assets in production

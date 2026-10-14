@@ -96,6 +96,17 @@ async function deploy() {
       console.log('✅ status.html envoyé avec succès !');
     }
 
+    // 3d. Transfert des fichiers PWA (sw.js, manifest.webmanifest, icônes)
+    const pwaFiles = ['sw.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
+    for (const f of pwaFiles) {
+      const localFile = path.join(process.cwd(), 'public', f);
+      if (fs.existsSync(localFile)) {
+        console.log(`📱 Transfert du fichier PWA ${f}...`);
+        await client.fastPut(localFile, `${remoteBase}${f}`);
+      }
+    }
+    console.log('✅ Fichiers PWA & Service Worker envoyés avec succès !');
+
     // 4. Protection de la base de données de production (NE JAMAIS ÉCRASER db.json EN PRODUCTION)
     const remoteDbFile = `${remoteBase}data/db.json`;
     const remoteExists = await client.exists(remoteDbFile);

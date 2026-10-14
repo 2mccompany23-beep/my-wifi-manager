@@ -9,8 +9,8 @@ import { RouterSettings } from './components/RouterSettings';
 import { AdminLogin } from './components/AdminLogin';
 import { BlockingSpinner } from './components/BlockingSpinner';
 import { RouterStatus, HotspotUser, ActiveSession, SaleTransaction, VoucherItem } from './types';
-
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { registerServiceWorker } from './utils/pushManager';
 
 export function App() {
   const [authToken, setAuthToken] = useState<string | null>(() => sessionStorage.getItem('mikhmon_token'));
@@ -115,6 +115,10 @@ export function App() {
     setAuthToken(null);
     setAdminUser(null);
   };
+
+  useEffect(() => {
+    registerServiceWorker();
+  }, []);
 
   useEffect(() => {
     if (authToken) {

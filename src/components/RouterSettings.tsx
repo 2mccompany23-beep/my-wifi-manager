@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, CheckCircle, RefreshCw, Lock, Server, Key, Activity, Copy } from 'lucide-react';
 import { AppSettings } from '../types';
+import { PushNotificationSettings } from './PushNotificationSettings';
 
 interface RouterSettingsProps {
   onRefresh: () => void;
@@ -147,6 +148,8 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
             </div>
           </div>
         </div>
+
+        <PushNotificationSettings token={sessionStorage.getItem('mikhmon_token') || ''} />
 
         <form onSubmit={handleSave} className="space-y-6 text-xs">
           
