@@ -1,0 +1,34 @@
+{
+  "name": "cloud-mikhmon-mobile",
+  "version": "2.0.0",
+  "description": "Cloud Mikhmon 2.0 - Application Mobile Android pour la gestion du hotspot MikroTik",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "sync": "npm run build && cap sync android",
+    "android:open": "cap open android",
+    "android:build": "npm run build && cap sync android && cd android && ./gradlew assembleDebug",
+    "android:build:win": "npm run build && cap sync android && cd android && gradlew.bat assembleDebug"
+  },
+  "author": "2MC COMPANY ETS",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^6.1.0",
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/status-bar": "^6.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.4.5",
+    "vite": "^5.3.1"
+  }
+}
