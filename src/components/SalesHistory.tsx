@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import {
   DollarSign, Search, Download, Smartphone, TrendingUp,
   Calendar, Filter, BarChart2, ChevronDown, ChevronUp,
@@ -172,6 +172,8 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
   // Default source: 'router' = 320+ scripts from MikroTik, 'fedapay' = db.json sales
   const [activeSource, setActiveSource] = useState<'router' | 'fedapay'>('router');
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [pendingFedaPay, setPendingFedaPay] = useState<any[]>([]);
+  const [pendingFedaPayRevenue, setPendingFedaPayRevenue] = useState(0);
 
   const authHeaders = {
     'Content-Type': 'application/json',
@@ -254,6 +256,16 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
         }
       }
 
+      // Charger les paiements FedaPay en attente de connexion MikroTik
+      try {
+        const pendingRes = await fetch('/api/pending-fedapay', { headers: authHeaders });
+        if (pendingRes.ok) {
+          const pd = await pendingRes.json();
+          setPendingFedaPay(pd.pending || []);
+          setPendingFedaPayRevenue(pd.pendingRevenue || 0);
+        }
+      } catch (e) { /* silencieux */ }
+
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         if (Array.isArray(usersData)) {
@@ -302,8 +314,10 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
   // Synchroniser immédiatement routerTxs à partir de la prop `sales` reçue de App.tsx
   useEffect(() => {
     if (Array.isArray(sales) && sales.length > 0) {
+      // db.sales now ONLY contains confirmed MikroTik scripts (source of truth)
+      // Filter out any legacy 'voucher' source entries (shouldn't exist anymore after cleanup)
       const parsedRouterTxs: RouterScriptTx[] = sales
-        .filter(s => s.source !== 'fedapay')
+        .filter(s => s.source !== 'voucher' && !(s.id && String(s.id).startsWith('sale_v_')))
         .map(s => ({
           id: s.id || `sale_${s.reference}`,
           source: s.source || 'router_script',
@@ -370,14 +384,17 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
   };
 
   const fedapaySales = useMemo(() => {
-    return sales.filter(s => {
-      if (s.source === 'fedapay') return true;
-      const idStr = String(s.id || '');
-      const modeStr = String(s.mode || '').toLowerCase();
-      const commentStr = String((s as any).comment || '').toLowerCase();
-      return idStr.startsWith('tx_') || modeStr.includes('fedapay') || modeStr.includes('mobile money') || commentStr.includes('fedapay');
-    });
-  }, [sales]);
+    // Ventes FedaPay confirmées dans les scripts MikroTik
+    const confirmed = (sales || []).filter(s => s.source === 'fedapay');
+    // Paiements FedaPay validés en attente de 1ère connexion du client
+    const pending = (pendingFedaPay || []).map(p => ({
+      ...p,
+      source: 'fedapay_pending',
+      comment: p.comment || 'En attente 1ère connexion MikroTik',
+      status: 'PENDING'
+    }));
+    return [...confirmed, ...pending];
+  }, [sales, pendingFedaPay]);
 
   const fedapayRevenue = useMemo(() => {
     return fedapaySales.reduce((sum, s) => sum + (s.amount || 0), 0);
@@ -552,7 +569,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
               }`}
             >
               <Smartphone className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">FedaPay ({fedapaySales.length})</span>
+              <span className="truncate">FedaPay en attente ({fedapaySales.length})</span>
             </button>
           </div>
         </div>

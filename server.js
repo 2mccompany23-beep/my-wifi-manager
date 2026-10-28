@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
@@ -103,7 +103,8 @@ const defaultDb = {
     pollSecretToken: 'mcwifi_secret_token_2026'
   },
   sales: [],
-  vouchers: []
+  vouchers: [],
+  pendingFedaPay: []
 };
 
 // In-memory active auth tokens avec expiration (8h)
@@ -1589,24 +1590,8 @@ app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
     db.vouchers.unshift(voucher);
     created.push(voucher);
 
-    // ✅ ENREGISTRER LA VENTE IMMÉDIATEMENT dans db.sales
-    // Cela garantit que totalRevenue est mis à jour dès la génération du ticket
-    const alreadyInSales = db.sales.some(s => s.voucher === code || s.reference === code);
-    if (!alreadyInSales) {
-      db.sales.unshift({
-        id: `sale_${voucherId}`,
-        reference: code,
-        amount: numericPrice,
-        plan: getLimitUptimeForPlan(profile),
-        profile,
-        voucher: code,
-        mode: 'Vente Directe',
-        phone: '',
-        date: new Date().toISOString(),
-        status: 'SUCCESS',
-        source: 'voucher'
-      });
-    }
+    // Les tickets générés NE sont PAS enregistrés dans db.sales.
+    // Source de vérité unique = scripts /system/script du MikroTik (connexion réelle du client).
 
     // Mettre à jour immédiatement la base locale db.hotspotUsers
     const existingIdx = db.hotspotUsers.findIndex(u => u.name === code || u['.id'] === code);
@@ -1696,7 +1681,7 @@ async function verifyFedaPayTransaction(ref, secretKey) {
 // Helper pour traiter l'approbation d'un paiement FedaPay (création voucher + user MikroTik + enregistrement vente)
 async function processFedaPayApproval(transaction, db) {
   if (!transaction) return null;
-  if (!db.sales) db.sales = [];
+  if (!db.pendingFedaPay) db.pendingFedaPay = [];
   if (!db.vouchers) db.vouchers = [];
 
   const ref = String(transaction.reference || transaction.id);
@@ -1706,14 +1691,27 @@ async function processFedaPayApproval(transaction, db) {
   const limitUptime = getLimitUptimeForPlan(plan);
   const mikhmonComment = formatMikhmonComment(1, 'fedapay');
 
-  let existing = db.sales.find(s => String(s.reference) === ref || String(s.id) === `tx_${ref}` || String(s.id) === String(transaction.id));
+  // Vérifier si déjà dans pendingFedaPay (idempotence)
+  let existing = db.pendingFedaPay.find(s => String(s.reference) === ref || String(s.id) === `tx_${ref}`);
   if (existing && existing.voucher) {
     return { voucher: existing.voucher, plan: existing.plan || plan };
   }
 
+  // Vérifier si déjà comptabilisé dans les ventes (script MikroTik déjà sync)
+  if (db.sales) {
+    const inSales = db.sales.find(s => s.source === 'fedapay' && (String(s.fedapayRef) === ref || String(s.reference) === ref));
+    if (inSales && inSales.voucher) {
+      return { voucher: inSales.voucher, plan: inSales.plan || plan };
+    }
+  }
+
   const voucherCode = generateVoucherCode('', 8);
-  const sale = {
+
+  // Stocker dans pendingFedaPay — PAS dans db.sales
+  // La vente sera comptabilisée seulement quand le script MikroTik correspondant sera détecté
+  const pendingEntry = {
     id: `tx_${ref}`,
+    fedapayRef: ref,
     reference: ref,
     amount,
     plan,
@@ -1722,28 +1720,31 @@ async function processFedaPayApproval(transaction, db) {
     mode: transaction.mode || 'Mobile Money',
     phone: transaction.customer?.phone_number || 'N/A',
     date: transaction.approved_at || transaction.created_at || new Date().toISOString(),
-    status: 'SUCCESS',
+    status: 'PENDING_CONNECTION',
     source: 'fedapay'
   };
 
-  db.sales.unshift(sale);
+  db.pendingFedaPay.unshift(pendingEntry);
+
+  // Conserver le voucher dans db.vouchers (pour remise au client)
   db.vouchers.unshift({
     id: `v_${Date.now()}_${voucherCode}`,
     code: voucherCode,
     profile,
     price: amount,
     created: new Date().toISOString(),
-    status: 'USED',
-    comment: mikhmonComment
+    status: 'AVAILABLE',
+    comment: mikhmonComment,
+    fedapayRef: ref
   });
   writeDb(db);
 
-  console.log(`[FedaPay] Transaction validée: ${ref} -> Code Voucher généré: ${voucherCode} (Profil: ${profile})`);
+  console.log(`[FedaPay] Transaction ${ref} -> Voucher ${voucherCode} en attente de connexion MikroTik (pendingFedaPay).`);
 
-  // Déclencher une notification Push PWA instantanée sur le téléphone de l'admin
+  // Notification push : paiement reçu, en attente de connexion
   sendSalePushNotification({
-    title: `💰 Vente FedaPay : ${amount} FCFA`,
-    body: `Forfait ${plan} validé ! Ticket : ${voucherCode} (${transaction.mode || 'Mobile Money'})`,
+    title: `💳 Paiement FedaPay reçu : ${amount} FCFA`,
+    body: `Ticket ${voucherCode} généré (${plan}). En attente de connexion du client.`,
     tag: `fedapay_${ref}`,
     data: { url: '/#finances' }
   }).catch(err => console.warn('[WebPush] Erreur notification FedaPay:', err.message));
@@ -1778,16 +1779,28 @@ app.get(['/www/get_voucher.php', '/get_voucher.php', '/api/fedapay/voucher'], as
   const db = readDb();
   // 1. Cherche dans les ventes locales existantes
   const cleanRef = reference.trim();
+  // Chercher d'abord dans les ventes confirmées (script MikroTik validé)
   const existingSale = (db.sales || []).find(s =>
     String(s.reference || '').trim() === cleanRef ||
     String(s.id || '').trim() === cleanRef ||
-    String(s.voucher || '').trim() === cleanRef
+    String(s.voucher || '').trim() === cleanRef ||
+    (s.fedapayRef && String(s.fedapayRef).trim() === cleanRef)
   );
 
   if (existingSale && existingSale.voucher) {
     return res.json({ voucher: existingSale.voucher, plan: existingSale.plan || '24h' });
   }
 
+  // Chercher dans pendingFedaPay (paiement reçu, client pas encore connecté)
+  const pendingEntry = (db.pendingFedaPay || []).find(s =>
+    String(s.reference || '').trim() === cleanRef ||
+    String(s.id || '').trim() === cleanRef ||
+    String(s.voucher || '').trim() === cleanRef
+  );
+
+  if (pendingEntry && pendingEntry.voucher) {
+    return res.json({ voucher: pendingEntry.voucher, plan: pendingEntry.plan || '24h' });
+  }
   // 2. Si pas trouvé en base locale, interrogation DIRECTE et temps réel de l'API FedaPay
   const secretKey = db.settings?.fedapaySecretKey;
   if (secretKey) {
@@ -1867,7 +1880,8 @@ app.post('/api/fedapay/sync', requireAuth, async (req, res) => {
     let recovered = 0;
     for (const tx of approved) {
       const ref = String(tx.reference || tx.id);
-      const exists = (db.sales || []).some(s => String(s.reference) === ref || String(s.id) === `tx_${ref}`);
+      const exists = (db.sales || []).some(s => String(s.reference) === ref || String(s.id) === `tx_${ref}`) ||
+      (db.pendingFedaPay || []).some(s => String(s.reference) === ref || String(s.fedapayRef) === ref);
       if (!exists) {
         await processFedaPayApproval(tx, db);
         recovered++;
@@ -2022,7 +2036,8 @@ app.get('/api/sales', requireAuth, async (req, res) => {
   const db = readDb();
   const sales = db.sales || [];
 
-  // totalRevenue = somme de TOUTES les ventes (scripts routeur + FedaPay) après synchro
+  // totalRevenue = somme des ventes CONFIRMEES (scripts MikroTik uniquement, source de vérité)
+  // Les tickets en stock et paiements FedaPay en attente NE sont PAS inclus
   const totalRevenue = sales.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
 
   let resultSales = sales;
@@ -2062,12 +2077,24 @@ app.all('/api/router/record-script', (req, res) => {
   }
 
   if (!db.sales) db.sales = [];
+  if (!db.pendingFedaPay) db.pendingFedaPay = [];
+
+  // Vérifier si ce voucher correspond à un paiement FedaPay en attente
+  const voucherLower = (parsed.voucher || '').toLowerCase();
+  const matchedPending = db.pendingFedaPay.find(p => (p.voucher || '').toLowerCase() === voucherLower);
+  if (matchedPending) {
+    parsed.source = 'fedapay'; parsed.fedapayRef = matchedPending.fedapayRef;
+    parsed.mode = matchedPending.mode || 'Mobile Money'; parsed.phone = matchedPending.phone || '';
+    if (matchedPending.amount && matchedPending.amount > 0) parsed.amount = matchedPending.amount;
+  }
+
   const existingIdx = db.sales.findIndex(s => s.id === parsed.id || (s.voucher && s.voucher.toLowerCase() === parsed.voucher.toLowerCase()));
   if (existingIdx >= 0) {
     db.sales[existingIdx] = { ...db.sales[existingIdx], ...parsed };
   } else {
     db.sales.unshift(parsed);
   }
+
 
   writeDb(db);
   console.log(`[RecordScript] Vente synchronisée depuis MikroTik: ${parsed.username} (${parsed.amount} FCFA, Date: ${parsed.date})`);
@@ -2084,6 +2111,14 @@ app.all('/api/router/record-script', (req, res) => {
   return res.json({ success: true, sale: parsed });
 });
 
+// Endpoint pour lister les paiements FedaPay en attente de connexion MikroTik
+app.get('/api/pending-fedapay', requireAuth, (req, res) => {
+  const db = readDb();
+  const pending = (db.pendingFedaPay || []);
+  pending.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const pendingRevenue = pending.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
+  return res.json({ pending, count: pending.length, pendingRevenue });
+});
 // Endpoint pour push batch de ventes vers la base
 app.post('/api/router/push-sales', (req, res) => {
   const token = req.query.token || req.headers['authorization']?.replace('Bearer ', '') || req.body?.token;
@@ -2117,12 +2152,61 @@ app.post('/api/router/push-sales', (req, res) => {
 });
 
 // Helper for parsing and syncing router scripts
+// SOURCE DE VERITE UNIQUE: seuls les scripts /system/script du MikroTik comptent.
+// Les tickets générés (vouchers) et les paiements FedaPay ne sont comptabilisés
+// QUE lorsqu'un script MikroTik correspondant est détecté (connexion réelle du client).
+//
+// PAGINATION: Les scripts sont lus par lots de 200 pour éviter les timeouts
+// sur les installations avec des centaines de scripts.
+async function fetchScriptsWithPagination() {
+  const ALL_SCRIPTS = [];
+  let offset = 0;
+  const PAGE_SIZE = 200;
+  const MAX_PAGES = 50; // Sécurité anti-boucle infinie (jusqu'à 10 000 scripts)
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    let result;
+    try {
+      // RouterOS supporte les paramètres .count-only, start et count dans la commande print
+      const cmd = `/system/script?start=${offset}&count=${PAGE_SIZE}`;
+      result = await callRouterOS(cmd);
+    } catch (e) {
+      // En cas d'échec du paramètre de pagination, on tente sans pagination (fallback)
+      if (offset === 0) {
+        result = await callRouterOS('/system/script');
+      } else {
+        break;
+      }
+    }
+
+    if (!result || !result.success || !Array.isArray(result.data)) {
+      // Si erreur sur une page autre que la première, on s'arrête
+      if (offset === 0) return { error: result?.message || 'Router unreachable', scripts: [] };
+      break;
+    }
+
+    const batch = result.data;
+    ALL_SCRIPTS.push(...batch);
+
+    // Si le lot est plus petit que la taille demandée, on a tout lu
+    if (batch.length < PAGE_SIZE) break;
+
+    offset += batch.length;
+
+    // Petit délai pour ne pas saturer la file de polling
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  return { scripts: ALL_SCRIPTS };
+}
+
 async function fetchAndSyncRouterScripts(force = false) {
   if (force) {
     clearScriptCache();
   }
   const db = readDb();
   if (!db.sales) db.sales = [];
+  if (!db.pendingFedaPay) db.pendingFedaPay = [];
 
   // Sur AlwaysData (Cloud) sans force=true, renvoyer immédiatement les ventes locales
   // sans bloquer le dashboard par un timeout de polling 30s
@@ -2133,63 +2217,64 @@ async function fetchAndSyncRouterScripts(force = false) {
     return { transactions: localSales, total: localSales.length, revenue: rev, newlyAddedCount: 0, routerOnline: true };
   }
 
-  // 1. Appel direct (réseau local) ou via Polling des scripts du routeur
-  const result = await callRouterOS('/system/script');
-  if (result.success && Array.isArray(result.data)) {
-    const currentRouterTxs = [];
-    const currentScriptIds = new Set();
+  // Lecture complète des scripts MikroTik avec pagination
+  const fetchResult = await fetchScriptsWithPagination();
 
-    for (const script of result.data) {
-      const parsed = parseMikhmonScript(script);
-      if (parsed) {
-        currentRouterTxs.push(parsed);
-        currentScriptIds.add(parsed.id);
-      }
-    }
-
-    // Conserver les ventes non-routeur (FedaPay, Vente Directe via app)
-    const nonRouterSales = db.sales.filter(s =>
-      s.source !== 'router_script' && !(s.id && String(s.id).startsWith('script_'))
-    );
-
-    // Déduplication : si un voucher généré via l'app est aussi présent dans les scripts
-    // Mikhmon (parce que le client s'est connecté), on garde uniquement la version Mikhmon
-    // pour éviter le double-comptage dans totalRevenue
-    const routerVoucherCodes = new Set(
-      currentRouterTxs.map(t => (t.voucher || t.username || '').toLowerCase().trim()).filter(Boolean)
-    );
-    const dedupedNonRouterSales = nonRouterSales.filter(s => {
-      const vCode = (s.voucher || s.reference || '').toLowerCase().trim();
-      // Exclure les ventes directes déjà couvertes par un script Mikhmon
-      if (s.source === 'voucher' && vCode && routerVoucherCodes.has(vCode)) return false;
-      return true;
-    });
-
-    db.sales = [...currentRouterTxs, ...dedupedNonRouterSales];
-    writeDb(db);
-
-    currentRouterTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const totalRevenue = currentRouterTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
-
-    return {
-      transactions: currentRouterTxs,
-      total: currentRouterTxs.length,
-      revenue: totalRevenue,
-      newlyAddedCount: currentRouterTxs.length,
-      routerOnline: true
-    };
+  if (fetchResult.error) {
+    // Routeur hors ligne: fallback sur le cache local des ventes confirmées
+    const localSales = db.sales || [];
+    const rev = localSales.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
+    return { transactions: localSales, total: localSales.length, revenue: rev, newlyAddedCount: 0, routerOnline: false };
   }
 
-  // Fallback si le routeur est hors-ligne: renvoyer ce qu'on a en base locale
-  const localSales = db.sales || [];
-  const scriptTxs = localSales
-    .filter(s => s.source === 'router_script' || (s.id && String(s.id).startsWith('script_')))
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const allScripts = fetchResult.scripts;
+  console.log(`[SyncScripts] ${allScripts.length} scripts lus depuis le MikroTik.`);
 
-  const rev = scriptTxs.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
-  return { transactions: scriptTxs, total: scriptTxs.length, revenue: rev, newlyAddedCount: 0, routerOnline: false };
+  // Construire la liste des ventes uniquement depuis les scripts MikroTik
+  const currentRouterTxs = [];
+  for (const script of allScripts) {
+    const parsed = parseMikhmonScript(script);
+    if (parsed) {
+      // Enrichir avec métadonnées FedaPay si le voucher correspond à un paiement en attente
+      const voucherLower = (parsed.voucher || parsed.username || '').toLowerCase();
+      const matchedPending = db.pendingFedaPay.find(p =>
+        (p.voucher || '').toLowerCase() === voucherLower
+      );
+      if (matchedPending) {
+        // Ce script correspond à un paiement FedaPay : enrichir les métadonnées
+        parsed.source = 'fedapay';
+        parsed.fedapayRef = matchedPending.fedapayRef;
+        parsed.mode = matchedPending.mode || 'Mobile Money';
+        parsed.phone = matchedPending.phone || '';
+        parsed.fedapayAmount = matchedPending.amount;
+        // Montant = montant FedaPay confirmé (fiable) plutôt que celui du script
+        if (matchedPending.amount && matchedPending.amount > 0) {
+          parsed.amount = matchedPending.amount;
+        }
+        console.log(`[SyncScripts] Script ${parsed.voucher} associé au paiement FedaPay ${matchedPending.fedapayRef}`);
+      }
+      currentRouterTxs.push(parsed);
+    }
+  }
+
+  // db.sales = UNIQUEMENT les scripts MikroTik (ventes réelles)
+  // Les pendingFedaPay non encore associés ne sont PAS dans db.sales
+  db.sales = currentRouterTxs;
+  writeDb(db);
+
+  currentRouterTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const totalRevenue = currentRouterTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  console.log(`[SyncScripts] ${currentRouterTxs.length} ventes confirmées. Revenu total: ${totalRevenue} FCFA`);
+
+  return {
+    transactions: currentRouterTxs,
+    total: currentRouterTxs.length,
+    revenue: totalRevenue,
+    newlyAddedCount: currentRouterTxs.length,
+    routerOnline: true
+  };
 }
-
 // Read & parse Mikhmon login scripts from MikroTik /system/script (supporte startDate & endDate)
 app.get('/api/router/mikhmon-scripts', requireAuth, async (req, res) => {
   try {

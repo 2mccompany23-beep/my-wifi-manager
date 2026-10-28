@@ -35123,7 +35123,8 @@ var defaultDb = {
     pollSecretToken: "mcwifi_secret_token_2026"
   },
   sales: [],
-  vouchers: []
+  vouchers: [],
+  pendingFedaPay: []
 };
 var SESSION_TTL_MS = 8 * 60 * 60 * 1e3;
 var activeSessionTokens = /* @__PURE__ */ new Map();
@@ -36286,22 +36287,6 @@ app.post("/api/vouchers/generate", requireAuth, async (req, res) => {
     };
     db.vouchers.unshift(voucher);
     created.push(voucher);
-    const alreadyInSales = db.sales.some((s) => s.voucher === code || s.reference === code);
-    if (!alreadyInSales) {
-      db.sales.unshift({
-        id: `sale_${voucherId}`,
-        reference: code,
-        amount: numericPrice,
-        plan: getLimitUptimeForPlan(profile),
-        profile,
-        voucher: code,
-        mode: "Vente Directe",
-        phone: "",
-        date: (/* @__PURE__ */ new Date()).toISOString(),
-        status: "SUCCESS",
-        source: "voucher"
-      });
-    }
     const existingIdx = db.hotspotUsers.findIndex((u) => u.name === code || u[".id"] === code);
     const userEntry = {
       ".id": `local_${code}`,
@@ -36373,7 +36358,7 @@ async function verifyFedaPayTransaction(ref, secretKey) {
 }
 async function processFedaPayApproval(transaction, db) {
   if (!transaction) return null;
-  if (!db.sales) db.sales = [];
+  if (!db.pendingFedaPay) db.pendingFedaPay = [];
   if (!db.vouchers) db.vouchers = [];
   const ref = String(transaction.reference || transaction.id);
   const amount = Number(transaction.amount || 0);
@@ -36381,13 +36366,20 @@ async function processFedaPayApproval(transaction, db) {
   const profile = getProfileForPlan(plan);
   const limitUptime = getLimitUptimeForPlan(plan);
   const mikhmonComment = formatMikhmonComment(1, "fedapay");
-  let existing = db.sales.find((s) => String(s.reference) === ref || String(s.id) === `tx_${ref}` || String(s.id) === String(transaction.id));
+  let existing = db.pendingFedaPay.find((s) => String(s.reference) === ref || String(s.id) === `tx_${ref}`);
   if (existing && existing.voucher) {
     return { voucher: existing.voucher, plan: existing.plan || plan };
   }
+  if (db.sales) {
+    const inSales = db.sales.find((s) => s.source === "fedapay" && (String(s.fedapayRef) === ref || String(s.reference) === ref));
+    if (inSales && inSales.voucher) {
+      return { voucher: inSales.voucher, plan: inSales.plan || plan };
+    }
+  }
   const voucherCode = generateVoucherCode("", 8);
-  const sale = {
+  const pendingEntry = {
     id: `tx_${ref}`,
+    fedapayRef: ref,
     reference: ref,
     amount,
     plan,
@@ -36396,24 +36388,25 @@ async function processFedaPayApproval(transaction, db) {
     mode: transaction.mode || "Mobile Money",
     phone: transaction.customer?.phone_number || "N/A",
     date: transaction.approved_at || transaction.created_at || (/* @__PURE__ */ new Date()).toISOString(),
-    status: "SUCCESS",
+    status: "PENDING_CONNECTION",
     source: "fedapay"
   };
-  db.sales.unshift(sale);
+  db.pendingFedaPay.unshift(pendingEntry);
   db.vouchers.unshift({
     id: `v_${Date.now()}_${voucherCode}`,
     code: voucherCode,
     profile,
     price: amount,
     created: (/* @__PURE__ */ new Date()).toISOString(),
-    status: "USED",
-    comment: mikhmonComment
+    status: "AVAILABLE",
+    comment: mikhmonComment,
+    fedapayRef: ref
   });
   writeDb(db);
-  console.log(`[FedaPay] Transaction valid\xE9e: ${ref} -> Code Voucher g\xE9n\xE9r\xE9: ${voucherCode} (Profil: ${profile})`);
+  console.log(`[FedaPay] Transaction ${ref} -> Voucher ${voucherCode} en attente de connexion MikroTik (pendingFedaPay).`);
   sendSalePushNotification({
-    title: `\u{1F4B0} Vente FedaPay : ${amount} FCFA`,
-    body: `Forfait ${plan} valid\xE9 ! Ticket : ${voucherCode} (${transaction.mode || "Mobile Money"})`,
+    title: `\u{1F4B3} Paiement FedaPay re\xE7u : ${amount} FCFA`,
+    body: `Ticket ${voucherCode} g\xE9n\xE9r\xE9 (${plan}). En attente de connexion du client.`,
     tag: `fedapay_${ref}`,
     data: { url: "/#finances" }
   }).catch((err) => console.warn("[WebPush] Erreur notification FedaPay:", err.message));
@@ -36440,10 +36433,16 @@ app.get(["/www/get_voucher.php", "/get_voucher.php", "/api/fedapay/voucher"], as
   const db = readDb();
   const cleanRef = reference.trim();
   const existingSale = (db.sales || []).find(
-    (s) => String(s.reference || "").trim() === cleanRef || String(s.id || "").trim() === cleanRef || String(s.voucher || "").trim() === cleanRef
+    (s) => String(s.reference || "").trim() === cleanRef || String(s.id || "").trim() === cleanRef || String(s.voucher || "").trim() === cleanRef || s.fedapayRef && String(s.fedapayRef).trim() === cleanRef
   );
   if (existingSale && existingSale.voucher) {
     return res.json({ voucher: existingSale.voucher, plan: existingSale.plan || "24h" });
+  }
+  const pendingEntry = (db.pendingFedaPay || []).find(
+    (s) => String(s.reference || "").trim() === cleanRef || String(s.id || "").trim() === cleanRef || String(s.voucher || "").trim() === cleanRef
+  );
+  if (pendingEntry && pendingEntry.voucher) {
+    return res.json({ voucher: pendingEntry.voucher, plan: pendingEntry.plan || "24h" });
   }
   const secretKey = db.settings?.fedapaySecretKey;
   if (secretKey) {
@@ -36508,7 +36507,7 @@ app.post("/api/fedapay/sync", requireAuth, async (req, res) => {
     let recovered = 0;
     for (const tx of approved) {
       const ref = String(tx.reference || tx.id);
-      const exists = (db.sales || []).some((s) => String(s.reference) === ref || String(s.id) === `tx_${ref}`);
+      const exists = (db.sales || []).some((s) => String(s.reference) === ref || String(s.id) === `tx_${ref}`) || (db.pendingFedaPay || []).some((s) => String(s.reference) === ref || String(s.fedapayRef) === ref);
       if (!exists) {
         await processFedaPayApproval(tx, db);
         recovered++;
@@ -36662,6 +36661,16 @@ app.all("/api/router/record-script", (req, res) => {
     return res.status(400).json({ error: "Format de script Mikhmon non reconnu." });
   }
   if (!db.sales) db.sales = [];
+  if (!db.pendingFedaPay) db.pendingFedaPay = [];
+  const voucherLower = (parsed.voucher || "").toLowerCase();
+  const matchedPending = db.pendingFedaPay.find((p) => (p.voucher || "").toLowerCase() === voucherLower);
+  if (matchedPending) {
+    parsed.source = "fedapay";
+    parsed.fedapayRef = matchedPending.fedapayRef;
+    parsed.mode = matchedPending.mode || "Mobile Money";
+    parsed.phone = matchedPending.phone || "";
+    if (matchedPending.amount && matchedPending.amount > 0) parsed.amount = matchedPending.amount;
+  }
   const existingIdx = db.sales.findIndex((s) => s.id === parsed.id || s.voucher && s.voucher.toLowerCase() === parsed.voucher.toLowerCase());
   if (existingIdx >= 0) {
     db.sales[existingIdx] = { ...db.sales[existingIdx], ...parsed };
@@ -36679,6 +36688,13 @@ app.all("/api/router/record-script", (req, res) => {
     }).catch((err) => console.warn("[WebPush] Erreur notification script:", err.message));
   }
   return res.json({ success: true, sale: parsed });
+});
+app.get("/api/pending-fedapay", requireAuth, (req, res) => {
+  const db = readDb();
+  const pending = db.pendingFedaPay || [];
+  pending.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const pendingRevenue = pending.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
+  return res.json({ pending, count: pending.length, pendingRevenue });
 });
 app.post("/api/router/push-sales", (req, res) => {
   const token = req.query.token || req.headers["authorization"]?.replace("Bearer ", "") || req.body?.token;
@@ -36707,56 +36723,90 @@ app.post("/api/router/push-sales", (req, res) => {
   console.log(`[PushSales] ${added} nouvelles ventes enregistr\xE9es (Total: ${db.sales.length})`);
   return res.json({ success: true, added, total: db.sales.length });
 });
+async function fetchScriptsWithPagination() {
+  const ALL_SCRIPTS = [];
+  let offset = 0;
+  const PAGE_SIZE = 200;
+  const MAX_PAGES = 50;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    let result;
+    try {
+      const cmd = `/system/script?start=${offset}&count=${PAGE_SIZE}`;
+      result = await callRouterOS(cmd);
+    } catch (e) {
+      if (offset === 0) {
+        result = await callRouterOS("/system/script");
+      } else {
+        break;
+      }
+    }
+    if (!result || !result.success || !Array.isArray(result.data)) {
+      if (offset === 0) return { error: result?.message || "Router unreachable", scripts: [] };
+      break;
+    }
+    const batch = result.data;
+    ALL_SCRIPTS.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+    offset += batch.length;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return { scripts: ALL_SCRIPTS };
+}
 async function fetchAndSyncRouterScripts(force = false) {
   if (force) {
     clearScriptCache();
   }
   const db = readDb();
   if (!db.sales) db.sales = [];
+  if (!db.pendingFedaPay) db.pendingFedaPay = [];
   if (isAlwaysDataEnvironment() && !force) {
-    const localSales2 = db.sales || [];
-    localSales2.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const rev2 = localSales2.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
-    return { transactions: localSales2, total: localSales2.length, revenue: rev2, newlyAddedCount: 0, routerOnline: true };
+    const localSales = db.sales || [];
+    localSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const rev = localSales.reduce((sum, s) => sum + (parseInt(s.amount) || parseInt(s.price) || 0), 0);
+    return { transactions: localSales, total: localSales.length, revenue: rev, newlyAddedCount: 0, routerOnline: true };
   }
-  const result = await callRouterOS("/system/script");
-  if (result.success && Array.isArray(result.data)) {
-    const currentRouterTxs = [];
-    const currentScriptIds = /* @__PURE__ */ new Set();
-    for (const script of result.data) {
-      const parsed = parseMikhmonScript(script);
-      if (parsed) {
-        currentRouterTxs.push(parsed);
-        currentScriptIds.add(parsed.id);
+  const fetchResult = await fetchScriptsWithPagination();
+  if (fetchResult.error) {
+    const localSales = db.sales || [];
+    const rev = localSales.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
+    return { transactions: localSales, total: localSales.length, revenue: rev, newlyAddedCount: 0, routerOnline: false };
+  }
+  const allScripts = fetchResult.scripts;
+  console.log(`[SyncScripts] ${allScripts.length} scripts lus depuis le MikroTik.`);
+  const currentRouterTxs = [];
+  for (const script of allScripts) {
+    const parsed = parseMikhmonScript(script);
+    if (parsed) {
+      const voucherLower = (parsed.voucher || parsed.username || "").toLowerCase();
+      const matchedPending = db.pendingFedaPay.find(
+        (p) => (p.voucher || "").toLowerCase() === voucherLower
+      );
+      if (matchedPending) {
+        parsed.source = "fedapay";
+        parsed.fedapayRef = matchedPending.fedapayRef;
+        parsed.mode = matchedPending.mode || "Mobile Money";
+        parsed.phone = matchedPending.phone || "";
+        parsed.fedapayAmount = matchedPending.amount;
+        if (matchedPending.amount && matchedPending.amount > 0) {
+          parsed.amount = matchedPending.amount;
+        }
+        console.log(`[SyncScripts] Script ${parsed.voucher} associ\xE9 au paiement FedaPay ${matchedPending.fedapayRef}`);
       }
+      currentRouterTxs.push(parsed);
     }
-    const nonRouterSales = db.sales.filter(
-      (s) => s.source !== "router_script" && !(s.id && String(s.id).startsWith("script_"))
-    );
-    const routerVoucherCodes = new Set(
-      currentRouterTxs.map((t) => (t.voucher || t.username || "").toLowerCase().trim()).filter(Boolean)
-    );
-    const dedupedNonRouterSales = nonRouterSales.filter((s) => {
-      const vCode = (s.voucher || s.reference || "").toLowerCase().trim();
-      if (s.source === "voucher" && vCode && routerVoucherCodes.has(vCode)) return false;
-      return true;
-    });
-    db.sales = [...currentRouterTxs, ...dedupedNonRouterSales];
-    writeDb(db);
-    currentRouterTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const totalRevenue = currentRouterTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
-    return {
-      transactions: currentRouterTxs,
-      total: currentRouterTxs.length,
-      revenue: totalRevenue,
-      newlyAddedCount: currentRouterTxs.length,
-      routerOnline: true
-    };
   }
-  const localSales = db.sales || [];
-  const scriptTxs = localSales.filter((s) => s.source === "router_script" || s.id && String(s.id).startsWith("script_")).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const rev = scriptTxs.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
-  return { transactions: scriptTxs, total: scriptTxs.length, revenue: rev, newlyAddedCount: 0, routerOnline: false };
+  db.sales = currentRouterTxs;
+  writeDb(db);
+  currentRouterTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const totalRevenue = currentRouterTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
+  console.log(`[SyncScripts] ${currentRouterTxs.length} ventes confirm\xE9es. Revenu total: ${totalRevenue} FCFA`);
+  return {
+    transactions: currentRouterTxs,
+    total: currentRouterTxs.length,
+    revenue: totalRevenue,
+    newlyAddedCount: currentRouterTxs.length,
+    routerOnline: true
+  };
 }
 app.get("/api/router/mikhmon-scripts", requireAuth, async (req, res) => {
   try {
