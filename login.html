@@ -630,6 +630,14 @@
                     </button>
                 </div>
 
+                <!-- Bouton WhatsApp Support Direct -->
+                <div class="whatsapp-support-bar" style="margin-top: 14px; text-align: center;">
+                    <a id="whatsapp-support-link" href="https://wa.me/2290144044414?text=Bonjour%202MC%20WIFI%2C%20j%27ai%20besoin%20d%27assistance" target="_blank" class="btn btn-sm w-100" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #25D366; color: #ffffff; border-radius: 50px; font-weight: 700; font-size: 13.5px; padding: 10px 16px; box-shadow: 0 4px 14px rgba(37, 211, 102, 0.3); text-decoration: none; transition: transform 0.15s ease;">
+                        <i class="fab fa-whatsapp" style="font-size: 18px;"></i>
+                        <span>Support WhatsApp : <strong id="whatsapp-display-number">+229 01 44 04 44 14</strong></span>
+                    </a>
+                </div>
+
             </section>
 
             <!-- Colonne 2 : Acheter un forfait Mobile Money -->
@@ -759,7 +767,11 @@
 
         <!-- Pied de page -->
         <footer class="app-footer">
-            <p>© 2026 2MC WIFI ZONE — Service Client & Assistance : <strong>+229 01 44 04 44 14</strong></p>
+            <p>© 2026 2MC WIFI ZONE — Service Client & Assistance : 
+                <a id="footer-call-link" href="tel:+2290144044414" style="color: inherit; font-weight: 700; text-decoration: underline;">
+                    <strong id="footer-display-number">+229 01 44 04 44 14</strong>
+                </a>
+            </p>
         </footer>
 
     </div>
@@ -1119,6 +1131,52 @@
             };
             reader.readAsDataURL(file);
         }
+
+        
+        // Synchronisation dynamique du numéro WhatsApp et support depuis le Dashboard
+        const SETTINGS_URL = (window.location.hostname === '2mc.alwaysdata.net' || window.location.hostname === 'localhost')
+            ? '/api/portal-settings'
+            : 'https://2mc.alwaysdata.net/api/portal-settings';
+
+        function updateSupportContacts(whatsapp, phone) {
+            if (!whatsapp && !phone) return;
+            const raw = String(whatsapp || phone);
+            const cleanDigits = raw.replace(/[^0-9]/g, '');
+            const displayNum = whatsapp || phone;
+
+            const waLink = document.getElementById('whatsapp-support-link');
+            const waText = document.getElementById('whatsapp-display-number');
+            if (waLink && cleanDigits) {
+                waLink.href = 'https://wa.me/' + cleanDigits + '?text=' + encodeURIComponent("Bonjour 2MC WIFI, j'ai besoin d'assistance pour ma connexion.");
+            }
+            if (waText) waText.textContent = displayNum;
+
+            const callLink = document.getElementById('footer-call-link');
+            const callText = document.getElementById('footer-display-number');
+            if (callLink && cleanDigits) callLink.href = 'tel:+' + cleanDigits;
+            if (callText) callText.textContent = displayNum;
+        }
+
+        // Cache local immédiat
+        try {
+            const cachedSettings = localStorage.getItem('2mc_portal_settings');
+            if (cachedSettings) {
+                const s = JSON.parse(cachedSettings);
+                updateSupportContacts(s.whatsappNumber, s.supportPhone);
+            }
+        } catch(e) {}
+
+        // Récupération automatique en ligne
+        fetch(SETTINGS_URL)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data && (data.whatsappNumber || data.supportPhone)) {
+                    updateSupportContacts(data.whatsappNumber, data.supportPhone);
+                    try { localStorage.setItem('2mc_portal_settings', JSON.stringify(data)); } catch(e) {}
+                    if (data.fedapayPublicKey) CONFIG.FEDAPAY_PUBLIC_KEY = data.fedapayPublicKey;
+                }
+            })
+            .catch(err => console.log('[Portal Settings] Utilisation config locale:', err.message));
 
         document.addEventListener('DOMContentLoaded', function() {
             var openBtn = document.getElementById('open-qr-scanner');

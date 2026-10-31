@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, CheckCircle, RefreshCw, Lock, Server, Key, Activity, Copy } from 'lucide-react';
+import { Settings, Save, CheckCircle, RefreshCw, Lock, Server, Key, Activity, Copy, MessageCircle, Phone } from 'lucide-react';
 import { AppSettings } from '../types';
 import { PushNotificationSettings } from './PushNotificationSettings';
 
@@ -347,6 +347,44 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
                   placeholder="sk_live_..."
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Section Support & WhatsApp Client */}
+          <div className="space-y-4 pt-2">
+            <h4 className="text-sm font-bold text-emerald-400 flex items-center gap-2 border-b border-slate-800 pb-2">
+              <MessageCircle className="w-4 h-4" />
+              <span>Contact Client & Support WhatsApp (Portail Captif)</span>
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">Numéro WhatsApp de Support</label>
+                <input
+                  type="text"
+                  value={settings.whatsappNumber || ''}
+                  placeholder="+229 01 44 04 44 14"
+                  onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-mono text-xs"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Ce numéro est automatiquement synchronisé et affiché sur le portail captif des clients pour l'assistance WhatsApp.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 font-medium">Téléphone d'Assistance / Appel Direct</label>
+                <input
+                  type="text"
+                  value={settings.supportPhone || ''}
+                  placeholder="+229 01 44 04 44 14"
+                  onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-mono text-xs"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Numéro composé lors du clic sur le lien d'appel téléphonique direct.
+                </p>
               </div>
             </div>
           </div>

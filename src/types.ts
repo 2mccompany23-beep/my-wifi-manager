@@ -76,4 +76,6 @@ export interface AppSettings {
   dnsName: string;
   connectionMode?: 'auto' | 'polling' | 'direct';
   pollSecretToken?: string;
+  whatsappNumber?: string;
+  supportPhone?: string;
 }

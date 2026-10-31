@@ -119,7 +119,9 @@ const defaultDb = {
     fedapayEnv: 'live',
     dnsName: 'mcwifi.net',
     connectionMode: 'auto', // 'auto' | 'polling' | 'direct'
-    pollSecretToken: 'mcwifi_secret_token_2026'
+    pollSecretToken: 'mcwifi_secret_token_2026',
+    whatsappNumber: '+229 01 44 04 44 14',
+    supportPhone: '+229 01 44 04 44 14'
   },
   sales: [],
   vouchers: [],
@@ -3219,6 +3221,34 @@ app.post('/api/settings', requireAuth, (req, res) => {
   db.settings = { ...db.settings, ...req.body, connectionMode };
   writeDb(db);
   res.json({ success: true, settings: db.settings });
+});
+
+// Endpoint public pour le portail captif (synchronisation automatique du WhatsApp & support)
+app.options(['/api/portal-settings', '/api/public-settings', '/www/settings.json'], (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  return res.sendStatus(204);
+});
+
+app.get(['/api/portal-settings', '/api/public-settings', '/www/settings.json'], (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  res.setHeader('Cache-Control', 'public, max-age=30'); // Cache 30s max pour mise à jour rapide
+
+  const db = readDb();
+  const whatsappNumber = db.settings?.whatsappNumber || '+229 01 44 04 44 14';
+  const supportPhone = db.settings?.supportPhone || whatsappNumber;
+  const dnsName = db.settings?.dnsName || 'mcwifi.net';
+  const fedapayPublicKey = db.settings?.fedapayPublicKey || 'pk_live_jYf2mjUa0Y_wHn4DWBDNseMm';
+
+  res.json({
+    whatsappNumber,
+    supportPhone,
+    dnsName,
+    fedapayPublicKey
+  });
 });
 
 // Endpoint de diagnostic et statut base de données PostgreSQL
