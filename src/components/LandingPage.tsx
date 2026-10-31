@@ -110,8 +110,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
   // FAQ Accordion State
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
 
+  // Scroll detection for sticky elevated animation
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-[#080c14] text-slate-100 font-sans selection:bg-emerald-500 selection:text-black overflow-x-hidden">
+    <div className="min-h-screen bg-[#080c14] text-slate-100 font-sans selection:bg-emerald-500 selection:text-black overflow-x-clip">
       
       {/* Texture de fond technique discrète (grille réseau) */}
       <div 
@@ -125,8 +137,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       {/* ========================================================
           1. HEADER / NAVIGATION BAR (STICKY, FLOTTANT, ARRONDI & SURÉLEVÉ)
       ======================================================== */}
-      <header className="sticky top-2.5 sm:top-4 z-50 px-3 sm:px-6 max-w-6xl mx-auto w-full transition-all">
-        <div className="relative rounded-2xl sm:rounded-full bg-[#0c121e]/92 backdrop-blur-xl border border-slate-700/80 shadow-[0_12px_40px_-5px_rgba(0,0,0,0.85),0_0_1px_1px_rgba(255,255,255,0.08)] px-3.5 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between">
+      <div className={`sticky top-0 z-50 w-full transition-all duration-300 ease-out pointer-events-none ${
+        isScrolled ? 'pt-2 sm:pt-3' : 'pt-3.5 sm:pt-5'
+      }`}>
+        <header className={`pointer-events-auto mx-auto px-3 sm:px-6 transition-all duration-300 ease-out ${
+          isScrolled ? 'max-w-5xl' : 'max-w-6xl'
+        }`}>
+          <div className={`relative rounded-2xl sm:rounded-full transition-all duration-300 ease-out flex items-center justify-between ${
+            isScrolled
+              ? 'bg-[#0c121e]/95 backdrop-blur-2xl border border-slate-700/90 shadow-[0_16px_40px_-5px_rgba(0,0,0,0.95),0_0_1px_1px_rgba(255,255,255,0.08)] px-3.5 sm:px-6 py-2 sm:py-2.5'
+              : 'bg-[#0c121e]/80 backdrop-blur-xl border border-slate-800/80 shadow-[0_8px_30px_-5px_rgba(0,0,0,0.7)] px-4 sm:px-6 py-2.5 sm:py-3.5'
+          }`}>
           
           {/* Brand & Hardware Tag */}
           <div className="flex items-center gap-2.5">
@@ -264,7 +285,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             </div>
           </div>
         )}
-      </header>
+        </header>
+      </div>
 
       {/* ========================================================
           2. HERO SECTION — VENTE DIRECTE SANS LANGUE DE BOIS
