@@ -198,6 +198,18 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
           </div>
 
           <div className="flex gap-2">
+            {onViewLanding && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onViewLanding();
+                }}
+                className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-800 text-indigo-300 border border-indigo-500/30 font-semibold text-xs text-center"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Vitrine</span>
+              </button>
+            )}
             <a
               href="/login.html"
               target="_blank"
