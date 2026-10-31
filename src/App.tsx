@@ -7,7 +7,6 @@ import { VoucherGenerator } from './components/VoucherGenerator';
 import { SalesHistory } from './components/SalesHistory';
 import { RouterSettings } from './components/RouterSettings';
 import { AdminLogin } from './components/AdminLogin';
-import { BlockingSpinner } from './components/BlockingSpinner';
 import { RouterStatus, HotspotUser, ActiveSession, SaleTransaction, VoucherItem } from './types';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { registerServiceWorker } from './utils/pushManager';
@@ -235,8 +234,12 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col selection:bg-indigo-600 selection:text-white">
-      {/* Blocking Full-Screen Spinner Overlay */}
-      <BlockingSpinner isLoading={loading} message={loadingMessage} />
+      {/* Sleek Non-Intrusive Top Progress Bar (remplace l'ancien modal bloquant) */}
+      {loading && (
+        <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-slate-900/60 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 animate-pulse w-full"></div>
+        </div>
+      )}
 
       {/* Header Bar */}
       <Header
@@ -250,6 +253,7 @@ export function App() {
         onRefresh={handleManualRefresh}
         onLogout={handleLogout}
         isLiveConnected={isLiveConnected}
+        isRefreshing={loading}
       />
 
       {/* Main Content View Container */}
@@ -264,7 +268,7 @@ export function App() {
               totalRevenue={totalRevenue}
               onNavigate={(tab) => {
                 setActiveTab(tab);
-                fetchAllData(true, `Chargement de la section ${tab}...`);
+                fetchAllData(false);
               }}
               onRefresh={handleManualRefresh}
             />

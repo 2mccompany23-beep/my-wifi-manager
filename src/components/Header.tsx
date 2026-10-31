@@ -9,9 +9,10 @@ interface HeaderProps {
   onRefresh: () => void;
   onLogout?: () => void;
   isLiveConnected?: boolean;
+  isRefreshing?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActiveTab, onRefresh, onLogout, isLiveConnected }) => {
+export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActiveTab, onRefresh, onLogout, isLiveConnected, isRefreshing }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -99,10 +100,11 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
 
           <button
             onClick={onRefresh}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
-            title="Rafraîchir"
+            disabled={isRefreshing}
+            className={`p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700 ${isRefreshing ? 'opacity-70 cursor-not-allowed' : ''}`}
+            title={isRefreshing ? 'Synchronisation en cours...' : 'Rafraîchir'}
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-400' : ''}`} />
           </button>
 
           <a
@@ -151,10 +153,11 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
 
           <button
             onClick={onRefresh}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
-            title="Rafraîchir"
+            disabled={isRefreshing}
+            className={`p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700 ${isRefreshing ? 'opacity-70 cursor-not-allowed' : ''}`}
+            title={isRefreshing ? 'Synchronisation en cours...' : 'Rafraîchir'}
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-400' : ''}`} />
           </button>
 
           {/* Mobile Menu Toggle Button */}
