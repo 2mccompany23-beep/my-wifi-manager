@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wifi, Router, Activity, ShieldCheck, RefreshCw, Zap, ExternalLink, DollarSign, Menu, X, LogOut, Settings } from 'lucide-react';
+import { Wifi, Router, Activity, ShieldCheck, RefreshCw, Zap, ExternalLink, DollarSign, Menu, X, LogOut, Settings, Globe } from 'lucide-react';
 import { RouterStatus } from '../types';
 
 interface HeaderProps {
@@ -8,11 +8,12 @@ interface HeaderProps {
   setActiveTab: (tab: string) => void;
   onRefresh: () => void;
   onLogout?: () => void;
+  onViewLanding?: () => void;
   isLiveConnected?: boolean;
   isRefreshing?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActiveTab, onRefresh, onLogout, isLiveConnected, isRefreshing }) => {
+export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActiveTab, onRefresh, onLogout, onViewLanding, isLiveConnected, isRefreshing }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -106,6 +107,17 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-400' : ''}`} />
           </button>
+
+          {onViewLanding && (
+            <button
+              onClick={onViewLanding}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white font-medium transition-colors border border-indigo-500/30 text-xs shadow-sm"
+              title="Voir la page vitrine publique"
+            >
+              <Globe className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Vitrine</span>
+            </button>
+          )}
 
           <a
             href="/login.html"

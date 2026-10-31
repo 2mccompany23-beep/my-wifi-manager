@@ -3,9 +3,10 @@ import { ShieldCheck, Lock, User, Eye, EyeOff, KeyRound, AlertCircle, ArrowRight
 
 interface AdminLoginProps {
   onLoginSuccess: (token: string, username: string) => void;
+  onBack?: () => void;
 }
 
-export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
+export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBack }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -121,6 +122,16 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
               </>
             )}
           </button>
+
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white font-medium text-xs transition-all border border-slate-700/60 flex items-center justify-center gap-2"
+            >
+              <span>← Retour à la présentation 2MC SpotCloud</span>
+            </button>
+          )}
 
         </form>
 

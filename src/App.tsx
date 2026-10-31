@@ -7,6 +7,7 @@ import { VoucherGenerator } from './components/VoucherGenerator';
 import { SalesHistory } from './components/SalesHistory';
 import { RouterSettings } from './components/RouterSettings';
 import { AdminLogin } from './components/AdminLogin';
+import { LandingPage } from './components/LandingPage';
 import { RouterStatus, HotspotUser, ActiveSession, SaleTransaction, VoucherItem } from './types';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { registerServiceWorker } from './utils/pushManager';
