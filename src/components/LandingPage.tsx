@@ -251,7 +251,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               </div>
 
               {/* Titre Principal percutant */}
-              <h1 className="text-3xl sm:text-5xl lg:text-5xl font-black text-white tracking-tight leading-[1.18]">
+              <h1 className="text-3xl sm:text-5xl lg:text-5xl font-heading font-black text-white tracking-tight leading-[1.18]">
                 Arrêtez de vendre des tickets Wi-Fi en papier. <br className="hidden sm:inline" />
                 <span className="text-emerald-400 underline decoration-emerald-500/50 underline-offset-8">
                   Encaissez automatiquement par Mobile Money 24h/24.
@@ -395,7 +395,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
               Expérience Interactive en Direct
             </span>
-            <h2 className="text-2xl sm:text-4xl font-black text-white">
+            <h2 className="text-2xl sm:text-4xl font-heading font-black text-white">
               Testez le parcours exact de vos clients et de votre cockpit
             </h2>
             <p className="text-sm text-slate-400">
@@ -672,7 +672,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
               Installation Plug & Play
             </span>
-            <h2 className="text-2xl sm:text-4xl font-black text-white">
+            <h2 className="text-2xl sm:text-4xl font-heading font-black text-white">
               Comment le système se branche chez vous en 5 minutes
             </h2>
             <p className="text-sm text-slate-400">
@@ -745,7 +745,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
               Applications Pratiques
             </span>
-            <h2 className="text-2xl sm:text-4xl font-black text-white">
+            <h2 className="text-2xl sm:text-4xl font-heading font-black text-white">
               Déjà rentabilisé dans 4 types d'établissements
             </h2>
             <p className="text-sm text-slate-400">
@@ -840,7 +840,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                 Calculateur Financier Réaliste
               </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-white">
+              <h2 className="text-2xl sm:text-3xl font-heading font-black text-white">
                 Simulez vos revenus mensuels nets
               </h2>
               <p className="text-xs sm:text-sm text-slate-400">
@@ -943,7 +943,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
               Investissement Transparent
             </span>
-            <h2 className="text-2xl sm:text-4xl font-black text-white">
+            <h2 className="text-2xl sm:text-4xl font-heading font-black text-white">
               Nos Formules Prêtes à l'Emploi
             </h2>
             <p className="text-sm text-slate-400">
@@ -1097,7 +1097,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
               Questions Directes
             </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-white">
+            <h2 className="text-2xl sm:text-3xl font-heading font-black text-white">
               Tout ce que vous devez savoir avant de commander
             </h2>
           </div>
