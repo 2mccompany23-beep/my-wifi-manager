@@ -1,247 +1,183 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2MC WIFI ZONE | Paiement Mobile Money</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2MC WIFI ZONE — Portail de Connexion</title>
+    <!-- FontAwesome & Bootstrap local -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="bootstrap.min.css">
     <link rel="stylesheet" href="/bootstrap.min.css">
+
     <style>
         :root {
-            --primary: #4361ee;
-            --primary-dark: #3a56d4;
-            --primary-light: #4895ef;
-            --secondary: #7209b7;
-            --secondary-dark: #5e08a0;
-            --accent: #f72585;
-            --accent-light: #ff4da6;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --dark-light: #343a40;
-            --success: #4cc9f0;
-            --success-dark: #3aa8d0;
-            --warning: #f8961e;
-            --danger: #e63946;
-            --gray: #6c757d;
-            --gray-light: #e9ecef;
-            --gray-lighter: #f8f9fa;
-            --border-radius: 16px;
-            --border-radius-sm: 8px;
-            --box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
-            --box-shadow-lg: 0 25px 60px rgba(0, 0, 0, 0.15);
-            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            --transition-fast: all 0.15s ease;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #eff6ff;
+            --primary-ring: rgba(37, 99, 235, 0.25);
+            --success: #10b981;
+            --success-light: #ecfdf5;
+            --warning: #f59e0b;
+            --dark: #0f172a;
+            --slate: #334155;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --bg-page: #f8fafc;
+            --card-bg: #ffffff;
+            --radius-xl: 20px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --shadow-subtle: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+            --shadow-card: 0 10px 25px -5px rgba(15, 23, 42, 0.06), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+            --shadow-lift: 0 20px 35px -8px rgba(37, 99, 235, 0.15);
+            --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
+            background-color: var(--bg-page);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.06) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
             color: var(--dark);
             min-height: 100vh;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            padding-top: 30px;
-            line-height: 1.6;
+            flex-direction: column;
+            justify-content: space-between;
+            line-height: 1.5;
+            padding: 16px 12px 24px;
         }
 
-        .container {
+        .main-container {
             width: 100%;
-            max-width: 1400px;
+            max-width: 1060px;
             margin: 0 auto;
         }
 
-        .login-wrapper {
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
+        /* En-tête Header */
+        .brand-header {
+            text-align: center;
+            margin-bottom: 24px;
+            padding-top: 8px;
         }
 
-        @media (min-width: 1024px) {
-            .login-wrapper {
-                display: grid;
-                grid-template-columns: 1fr 2.5fr;
-                gap: 30px;
+        .brand-logo-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #ffffff;
+            padding: 8px 18px 8px 12px;
+            border-radius: 50px;
+            box-shadow: var(--shadow-card);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            margin-bottom: 12px;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), #4f46e5);
+            color: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+        }
+
+        .brand-title {
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--dark);
+            margin: 0;
+        }
+
+        .brand-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #065f46;
+            background: #d1fae5;
+            padding: 4px 12px;
+            border-radius: 50px;
+        }
+
+        .brand-badge .status-dot {
+            width: 7px;
+            height: 7px;
+            background-color: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.2); }
+        }
+
+        /* Disposition deux colonnes desktop */
+        .app-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 992px) {
+            .app-grid {
+                grid-template-columns: 430px 1fr;
+                gap: 28px;
                 align-items: start;
             }
-
-            .header-section {
-                order: 1;
-            }
-
-            .auth-section {
-                order: 2;
-            }
         }
 
-        /* Header Section */
-        .header-section {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: var(--border-radius);
-            padding: 20px;
-            box-shadow: var(--box-shadow-lg);
-            height: fit-content;
-            order: 2;
+        /* Carte d'authentification */
+        .auth-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-xl);
+            padding: 24px;
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--border);
         }
 
-        @media (min-width: 1024px) {
-            .header-section {
-                order: 1;
-            }
-        }
-
-        .logo-container {
+        .auth-nav {
             display: flex;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
-        .logo {
-            width: 70px;
-            height: 70px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-radius: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            color: white;
-            margin-right: 20px;
-            box-shadow: 0 8px 20px rgba(67, 97, 238, 0.3);
-        }
-
-        .logo-text h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--dark);
-            margin-bottom: 5px;
-        }
-
-        .logo-text p {
-            color: var(--gray);
-            font-size: 16px;
-        }
-
-        .wifi-features {
-            margin: 30px 0;
-        }
-
-        .feature {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .feature-icon {
-            width: 50px;
-            height: 50px;
-            background: var(--gray-lighter);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            color: var(--primary);
-            font-size: 20px;
-        }
-
-        .feature-text h3 {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .feature-text p {
-            color: var(--gray);
-            font-size: 14px;
-        }
-
-        .support-info {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid var(--gray-light);
-        }
-
-        .support-info h3 {
-            font-size: 18px;
-            margin-bottom: 10px;
-            color: var(--dark);
-        }
-
-        .support-info p {
-            margin-bottom: 10px;
-            color: var(--gray);
-        }
-
-        .support-info a {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .support-info a:hover {
-            text-decoration: underline;
-        }
-
-        /* Auth Section */
-        .auth-section {
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 20px;
-            box-shadow: var(--box-shadow-lg);
-            height: fit-content;
-            order: 1;
-        }
-
-        @media (min-width: 1024px) {
-            .auth-section {
-                order: 2;
-            }
-        }
-
-        .section-title {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 30px;
-            color: var(--dark);
-            text-align: center;
-        }
-
-        .auth-toggle {
-            display: flex;
-            background-color: var(--gray-lighter);
+            background: #f1f5f9;
+            padding: 4px;
             border-radius: 50px;
-            padding: 6px;
-            margin-bottom: 30px;
-            position: relative;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
         }
 
-        .auth-toggle button {
+        .auth-nav-btn {
             flex: 1;
-            padding: 14px;
             border: none;
             background: transparent;
+            padding: 10px 12px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: var(--muted);
             border-radius: 50px;
-            font-weight: 600;
             cursor: pointer;
             transition: var(--transition);
-            z-index: 1;
-            font-size: 15px;
         }
 
-        .auth-toggle .active {
-            background-color: var(--primary);
-            color: white;
-            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        .auth-nav-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
         .auth-form {
@@ -250,746 +186,582 @@
 
         .auth-form.active {
             display: block;
-            animation: fadeIn 0.5s ease;
+            animation: fadeIn 0.25s ease-out;
         }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .form-group {
-            margin-bottom: 24px;
-        }
-
-        .form-group label {
+        .form-label-custom {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--slate);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
             display: block;
-            margin-bottom: 10px;
-            font-weight: 600;
+        }
+
+        .input-voucher-wrap {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .input-voucher {
+            width: 100%;
+            height: 54px;
+            padding: 10px 16px;
+            border-radius: var(--radius-lg);
+            border: 2px solid #cbd5e1;
+            font-size: 19px;
+            font-weight: 700;
+            letter-spacing: 2.5px;
+            text-align: center;
+            font-family: ui-monospace, 'Courier New', monospace;
+            text-transform: uppercase;
             color: var(--dark);
-            font-size: 15px;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 16px 18px;
-            border: 2px solid var(--gray-light);
-            border-radius: var(--border-radius-sm);
-            font-size: 16px;
+            background: #f8fafc;
             transition: var(--transition);
-            background: white;
         }
 
-        .form-control:focus {
+        .input-voucher:focus {
             border-color: var(--primary);
+            background: #ffffff;
             outline: none;
-            box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.15);
+            box-shadow: 0 0 0 4px var(--primary-ring);
         }
 
-        .btn {
-            display: block;
+        .input-standard {
             width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
-            color: white;
-            border: none;
-            border-radius: var(--border-radius-sm);
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
+            height: 48px;
+            padding: 10px 16px;
+            border-radius: var(--radius-md);
+            border: 1.5px solid #cbd5e1;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--dark);
+            background: #f8fafc;
+            margin-bottom: 14px;
             transition: var(--transition);
-            box-shadow: 0 6px 15px rgba(67, 97, 238, 0.25);
         }
 
-        .btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(67, 97, 238, 0.35);
+        .input-standard:focus {
+            border-color: var(--primary);
+            background: #ffffff;
+            outline: none;
+            box-shadow: 0 0 0 3px var(--primary-ring);
         }
 
-        .btn:active {
-            transform: translateY(-1px);
-        }
-
-        .divider {
+        .btn-connect {
+            width: 100%;
+            height: 52px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            color: #ffffff;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: 15.5px;
+            font-weight: 700;
             display: flex;
             align-items: center;
-            margin: 30px 0;
-            color: var(--gray);
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            transition: var(--transition);
         }
 
-        .divider::before,
-        .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--gray-light);
+        .btn-connect:active {
+            transform: scale(0.98);
         }
 
-        .divider span {
-            padding: 0 15px;
+        .btn-scan-qr {
+            width: 100%;
+            height: 46px;
+            margin-top: 10px;
+            background: #ffffff;
+            color: var(--slate);
+            border: 1.5px solid #cbd5e1;
+            border-radius: var(--radius-lg);
             font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: var(--transition);
         }
 
-        /* Pricing Section */
-        .pricing-section {
-            margin-top: 40px;
+        .btn-scan-qr:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .btn-scan-qr:active {
+            transform: scale(0.98);
+        }
+
+        /* Section Récupération Ticket */
+        .recovery-banner {
+            margin-top: 16px;
+            padding: 10px 14px;
+            background: #f0f7ff;
+            border: 1px dashed #93c5fd;
+            border-radius: var(--radius-md);
+            text-align: center;
+        }
+
+        .btn-recover-link {
+            background: none;
+            border: none;
+            color: var(--primary);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px;
+        }
+
+        .btn-recover-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Section Forfaits & Tarifs */
+        .pricing-panel {
+            background: var(--card-bg);
+            border-radius: var(--radius-xl);
+            padding: 24px;
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--border);
+        }
+
+        .panel-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .panel-heading h2 {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--dark);
+            margin: 0;
+            letter-spacing: -0.3px;
+        }
+
+        .momo-accepted-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #b45309;
+            background: #fef3c7;
+            padding: 4px 10px;
+            border-radius: 50px;
         }
 
         .pricing-grid {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
         }
 
-        /* Mobile: 1 colonne */
-        @media (min-width: 768px) {
+        @media (min-width: 600px) and (max-width: 991px) {
             .pricing-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(3, 1fr);
             }
         }
 
-        /* PC: 3 colonnes */
         @media (min-width: 1200px) {
             .pricing-grid {
                 grid-template-columns: repeat(3, 1fr);
             }
         }
 
-        .pricing-card {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-            padding: 25px;
-            text-align: center;
-            transition: var(--transition);
-            border: 2px solid transparent;
-            position: relative;
+        .plan-card {
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: var(--radius-lg);
+            padding: 16px 14px;
             display: flex;
             flex-direction: column;
-            height: 100%;
+            justify-content: space-between;
+            position: relative;
+            cursor: pointer;
+            transition: var(--transition);
         }
 
-        .pricing-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
-            border-color: rgba(67, 97, 238, 0.2);
-        }
-
-        .pricing-card.featured {
+        .plan-card:hover {
             border-color: var(--primary);
-            transform: scale(1.03);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.08);
         }
 
-        .pricing-card.featured .badge {
+        .plan-card:active {
+            transform: scale(0.98);
+        }
+
+        .plan-card.popular {
+            border-color: #3b82f6;
+            background: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+        }
+
+        .popular-badge {
             position: absolute;
             top: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(135deg, var(--accent), var(--accent-light));
-            color: white;
-            padding: 6px 18px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 700;
-            box-shadow: 0 5px 15px rgba(247, 37, 133, 0.3);
-        }
-
-        .pricing-card h3 {
-            font-size: 20px;
-            margin-bottom: 15px;
-            color: var(--dark);
-        }
-
-        .price {
-            font-size: 36px;
+            right: 12px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #ffffff;
+            font-size: 10px;
             font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 3px 8px;
+            border-radius: 50px;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+        }
+
+        .plan-name {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--dark);
+            margin-bottom: 4px;
+        }
+
+        .plan-price {
+            font-size: 20px;
+            font-weight: 900;
             color: var(--primary);
-            margin-bottom: 15px;
-            line-height: 1;
+            line-height: 1.1;
+            margin-bottom: 8px;
+            font-variant-numeric: tabular-nums;
         }
 
-        .price span {
-            font-size: 16px;
-            color: var(--gray);
-            font-weight: normal;
+        .plan-price span {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
         }
 
-        .features {
-            list-style: none;
-            margin-bottom: 25px;
-            flex-grow: 1;
+        .plan-meta {
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
 
-        .features li {
-            padding: 10px 0;
-            border-bottom: 1px solid var(--gray-light);
-            color: var(--gray);
-            font-size: 14px;
+        .plan-meta div {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .plan-meta i {
+            color: var(--success);
+            font-size: 10px;
+        }
+
+        .btn-buy-plan {
+            width: 100%;
+            height: 38px;
+            background: #f8fafc;
+            color: var(--primary);
+            border: 1px solid #bfdbfe;
+            border-radius: var(--radius-md);
+            font-size: 12.5px;
+            font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 6px;
+            transition: var(--transition);
         }
 
-        .features li:last-child {
-            border-bottom: none;
+        .plan-card:hover .btn-buy-plan,
+        .plan-card.popular .btn-buy-plan {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
         }
 
-        .features li i {
-            margin-right: 8px;
-            color: var(--success);
-            font-size: 12px;
+        /* Section Avantages & Contact */
+        .features-strip {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #f1f5f9;
         }
 
-        .mobile-money-badge {
-            display: inline-flex;
+        @media (min-width: 600px) {
+            .features-strip {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .feature-item {
+            display: flex;
             align-items: center;
-            background: linear-gradient(135deg, #e8f4fd, #d4e9fa);
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--slate);
+        }
+
+        .feature-item i {
             color: var(--primary);
-            padding: 10px 18px;
-            border-radius: 50px;
             font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.1);
         }
-
-        .mobile-money-badge i {
-            margin-right: 8px;
-            font-size: 16px;
-        }
-
-        .btn-mobile-money {
-            background: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
-            box-shadow: 0 6px 15px rgba(114, 9, 183, 0.25);
-        }
-
-        .btn-mobile-money:hover {
-            box-shadow: 0 10px 20px rgba(114, 9, 183, 0.35);
-        }
-
-
 
         /* Footer */
-        .footer {
+        .app-footer {
             text-align: center;
-            margin-top: 40px;
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 14px;
+            margin-top: 24px;
+            font-size: 12px;
+            color: var(--muted);
         }
 
-        .footer a {
-            color: white;
+        .app-footer a {
+            color: var(--slate);
             text-decoration: none;
             font-weight: 600;
         }
 
-        .footer a:hover {
-            text-decoration: underline;
-        }
-
-        /* Animations */
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.05);
-            }
-
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        .pulse {
-            animation: pulse 2s infinite;
-        }
-
-        /* QR Scanner */
-        .qr-scan-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #7209b7, #560bad);
-            color: white;
+        /* Modals & Popups Modernisés */
+        .modal-content {
+            border-radius: var(--radius-xl);
             border: none;
-            border-radius: var(--border-radius-sm);
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            box-shadow: 0 6px 15px rgba(114, 9, 183, 0.25);
-            margin-top: 12px;
-        }
-
-        .qr-scan-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(114, 9, 183, 0.4);
-        }
-
-        /* QR Modal */
-        #qr-modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.75);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #qr-modal-overlay.active {
-            display: flex;
-        }
-
-        #qr-modal {
-            background: white;
-            border-radius: 20px;
-            padding: 28px;
-            width: 90%;
-            max-width: 420px;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.4);
-            animation: fadeIn 0.3s ease;
-        }
-
-        #qr-modal h4 {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 6px;
-            color: var(--dark);
-            text-align: center;
-        }
-
-        #qr-modal p.qr-subtitle {
-            color: var(--gray);
-            font-size: 13px;
-            text-align: center;
-            margin-bottom: 16px;
-        }
-
-        #qr-reader {
-            width: 100%;
-            border-radius: 12px;
+            box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
             overflow: hidden;
-            border: 3px solid var(--secondary);
         }
 
-        #qr-close-btn {
-            display: block;
-            width: 100%;
-            margin-top: 16px;
-            padding: 12px;
-            background: var(--gray-lighter);
-            border: none;
-            border-radius: var(--border-radius-sm);
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            color: var(--dark);
-            transition: var(--transition);
-        }
-
-        #qr-close-btn:hover {
-            background: var(--gray-light);
-        }
-
-        #qr-status {
-            margin-top: 10px;
-            text-align: center;
-            font-size: 13px;
-            min-height: 22px;
-            color: var(--primary);
-            font-weight: 600;
-        }
-
-        @keyframes qrLaserAnim {
-            0% { top: 6%; opacity: 0.8; }
-            50% { top: 88%; opacity: 1; }
-            100% { top: 6%; opacity: 0.8; }
-        }
-
+        /* Laser QR */
         .qr-laser-line {
             position: absolute;
-            left: 6px;
-            right: 6px;
+            width: 100%;
             height: 3px;
-            background: linear-gradient(90deg, transparent, #10b981, #34d399, transparent);
-            box-shadow: 0 0 12px #10b981, 0 0 4px #34d399;
-            animation: qrLaserAnim 2s infinite ease-in-out;
+            background: linear-gradient(90deg, transparent, #10b981, transparent);
+            box-shadow: 0 0 12px #10b981;
+            animation: scan 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes scan {
+            0% { top: 0%; opacity: 0.2; }
+            50% { top: 96%; opacity: 1; }
+            100% { top: 0%; opacity: 0.2; }
         }
     </style>
-    <style>
-.pricing-card {
-    perspective: 1000px;
-    cursor: pointer;
-    overflow: visible; /* important pour ne pas cacher les flips */
-}
-
-.pricing-card .card-inner {
-    transition: transform 0.6s;
-    transform-style: preserve-3d;
-    position: relative;
-}
-
-/* Flip activé */
-.pricing-card.flipped .card-inner {
-    transform: rotateY(180deg);
-}
-
-/* Front (contenu original) */
-.pricing-card .card-front {
-    backface-visibility: hidden;
-    position: relative; /* pas absolute pour garder le flow */
-}
-
-/* Back (message MOMO) */
-.pricing-card .card-back {
-    backface-visibility: hidden;
-    transform: rotateY(180deg);
-    position: absolute; /* overlay sur le front */
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    /*padding: 15px;*/  
-    background: #f8f8f8;
-    border-radius: 10px;
-    border: 1px solid #ddd;
-    box-sizing: border-box;
-    font-size: 0.9em;
-    color: #333;
-}
-
-    </style>
-    <script src="bootstrap.bundle.min.js"></script>
-    <script src="/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
-    <script src="jsqr.min.js"></script>
-    <script src="/loc/jsqr.min.js"></script>
-    <script src="/jsqr.min.js"></script>
-    <script>
-        if (typeof jsQR === 'undefined') {
-            document.write('<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"><\/script>');
-        }
-    </script>
 </head>
-
 <body>
-    <div class="container">
-        <div class="login-wrapper">
-            <!-- Auth Section - Premier sur mobile -->
-            <div class="auth-section">
-                <div class="logo-container">
-                    <div class="logo">
-                        <i class="fas fa-wifi"></i>
-                    </div>
-                    <div class="logo-text">
-                        <h1>2MC WIFI ZONE</h1>
-                        <p>Connexion haut débit sécurisée</p>
-                    </div>
+
+    <div class="main-container">
+        
+        <!-- En-tête Principal -->
+        <header class="brand-header">
+            <div class="brand-logo-pill">
+                <div class="brand-icon">
+                    <i class="fas fa-wifi"></i>
+                </div>
+                <h1 class="brand-title">2MC WIFI ZONE</h1>
+            </div>
+            <div>
+                <span class="brand-badge">
+                    <span class="status-dot"></span> Réseau Hotspot Actif — Jusqu'à 50 Mbps
+                </span>
+            </div>
+        </header>
+
+        <!-- Grille Principale -->
+        <div class="app-grid">
+            
+            <!-- Colonne 1 : Authentification & Connexion -->
+            <section class="auth-card">
+                
+                <div class="auth-nav">
+                    <button type="button" id="toggle-simple" class="auth-nav-btn active">
+                        <i class="fas fa-ticket-alt me-1"></i> Code Ticket
+                    </button>
+                    <button type="button" id="toggle-classic" class="auth-nav-btn">
+                        <i class="fas fa-user-lock me-1"></i> Mode Classique
+                    </button>
                 </div>
 
-                <!-- Authentication Toggle -->
-                <div class="auth-toggle">
-                    <button id="toggle-simple" class="active">Code Unique</button>
-                    <button id="toggle-classic">Mode Classique</button>
-                </div>
-
-                <!-- Simple Authentication Form -->
+                <!-- Formulaire 1 : Code Unique (Le plus populaire) -->
                 <form id="simple-form" class="auth-form active">
-                    <div class="form-group">
-                        <label for="simple-code">Code d'accès unique</label>
-                        <input type="text" id="simple-code" class="form-control" placeholder="Entrez votre code d'accès"
-                            required>
+                    <label for="simple-code" class="form-label-custom">Entrez votre code d'accès</label>
+                    <div class="input-voucher-wrap">
+                        <input type="text" id="simple-code" class="input-voucher" placeholder="EX: 8AY5Q9" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" required>
                     </div>
-                    <button type="submit" class="btn">Se connecter</button>
-                    <button type="button" class="qr-scan-btn" id="open-qr-scanner">
-                        <i class="fas fa-qrcode"></i> Scanner un QR Code
+                    <button type="submit" class="btn-connect">
+                        <i class="fas fa-bolt"></i> Se connecter à Internet
+                    </button>
+                    <button type="button" class="btn-scan-qr" id="open-qr-scanner">
+                        <i class="fas fa-qrcode text-primary"></i> Scanner le QR Code du ticket
                     </button>
                 </form>
 
-                <!-- Classic Authentication Form -->
+                <!-- Formulaire 2 : Classique (Utilisateur & Mot de passe) -->
                 <form id="classic-form" class="auth-form">
-                    <div class="form-group">
-                        <label for="username">Nom d'utilisateur</label>
-                        <input type="text" id="username" class="form-control"
-                            placeholder="Entrez votre nom d'utilisateur" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="password">Mot de passe</label>
-                        <input type="password" id="password" class="form-control"
-                            placeholder="Entrez votre mot de passe" required>
-                    </div>
-                    <button type="submit" class="btn">Se connecter</button>
+                    <label for="username" class="form-label-custom">Nom d'utilisateur</label>
+                    <input type="text" id="username" class="input-standard" placeholder="Identifiant" required>
+                    <label for="password" class="form-label-custom">Mot de passe</label>
+                    <input type="password" id="password" class="input-standard" placeholder="••••••••" required>
+                    <button type="submit" class="btn-connect">
+                        <i class="fas fa-lock"></i> Se connecter
+                    </button>
                 </form>
 
-                <div class="recovery-section text-center my-3">
-                    <button type="button" id="btn-recover-ticket" class="btn btn-sm w-100" style="border-radius:50px; font-size:13px; padding:10px 14px; font-weight:600; border: 1.5px dashed #4361ee; color: #4361ee; background: #f0f4ff; transition: all 0.2s ease;">
-                        <i class="fas fa-receipt"></i> Déjà payé par Mobile Money ? Récupérer mon ticket
+                <!-- Bouton d'assistance Récupération -->
+                <div class="recovery-banner">
+                    <button type="button" id="btn-recover-ticket" class="btn-recover-link">
+                        <i class="fas fa-receipt text-warning"></i> Déjà payé par MoMo ? Récupérer mon ticket
                     </button>
                 </div>
 
-                <div class="divider">
-                    <span>OU</span>
-                </div>
+            </section>
 
-                <!-- Pricing Section -->
-                <!-- Pricing Section -->
-                <div class="pricing-section">
-
-                    <h2 class="section-title">Forfaits WiFi Disponibles</h2>
-                    <div class="pricing-grid">
-
-
-                        <!-- Forfait 24h -->
-                        <!-- Forfait 4h -->
-                        <div class="pricing-card">
-                            <h3>4 Heures</h3>
-                            <div class="price">100 FCFA <span>/ 4h</span></div>
-                            <ul class="features">
-
-                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
-                                <li><i class="fas fa-check"></i> Validité 2 jours</li>
-                            </ul>
-                            <div class="mobile-money-badge">
-                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
-                            </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="4h" data-price="100">Choisir ce
-                                forfait</button>
-                        </div>
-                        <!-- Forfait 12h -->
-                        <div class="pricing-card">
-                            <h3>12 Heures</h3>
-                            <div class="price">200 FCFA <span>/ 12h</span></div>
-                            <ul class="features">
-
-                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
-                                <li><i class="fas fa-check"></i> Validité 2 jours</li>
-                            </ul>
-                            <div class="mobile-money-badge">
-                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
-                            </div>
-                            <button class="btn btn-mobile-money select-plan" data-price="100" data-plan="4h">Choisir ce
-                                forfait</button>
-                        </div>
-
-                        <!-- Forfait 24h -->
-                        <div class="pricing-card">
-                            <h3>24 Heures</h3>
-                            <div class="price">300 FCFA <span>/ 24h</span></div>
-                            <ul class="features">
-
-                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
-                                <li><i class="fas fa-check"></i> Validité 2 jours</li>
-                            </ul>
-                            <div class="mobile-money-badge">
-                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
-                            </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="24h" data-price="300">Choisir ce
-                                forfait</button>
-                        </div>
-
-                        <!-- Forfait 24h / 4 jours -->
-                        <div class="pricing-card">
-                            <h3>4 jours</h3>
-                            <div class="price">500 FCFA <span>/ 4 jours</span></div>
-                            <ul class="features">
-
-                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
-                                <li><i class="fas fa-check"></i> Validité 4 jours</li>
-                            </ul>
-                            <div class="mobile-money-badge">
-                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
-                            </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="4j" data-price="500">Choisir ce
-                                forfait</button>
-                        </div>
-
-
-
-                        <!-- Forfait 7 jours -->
-                        <div class="pricing-card">
-                            <h3>7 Jours</h3>
-                            <div class="price">1 200 FCFA <span>/ 7j</span></div>
-                            <ul class="features">
-
-                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
-                                <li><i class="fas fa-check"></i> Validité 7 jours</li>
-                            </ul>
-                            <div class="mobile-money-badge">
-                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
-                            </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="7j" data-price="1200">Choisir ce
-                                forfait</button>
-                        </div>
-
-                        <!-- Forfait 30 jours -->
-                        <div class="pricing-card">
-                            <h3>30 Jours</h3>
-                            <div class="price">4 000 FCFA <span>/ 30j</span></div>
-                            <ul class="features">
-
-                                <li><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</li>
-                                <li><i class="fas fa-check"></i> Validité 30 jours</li>
-                            </ul>
-                            <div class="mobile-money-badge">
-                                <i class="fas fa-mobile-alt"></i> Paiement par Momo disponible
-                            </div>
-                            <button class="btn btn-mobile-money select-plan" data-plan="30j" data-price="4000">Choisir
-                                ce forfait</button>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Header Section - Deuxième sur mobile -->
-            <div class="header-section">
-                <div class="logo-container">
-                    <div class="logo">
-                        <i class="fas fa-wifi"></i>
-                    </div>
-                    <div class="logo-text">
-                        <h1>2MC WIFI ZONE</h1>
-                        <p>Connexion haut débit sécurisée</p>
-                    </div>
-                </div>
-
-                <div class="wifi-features">
-                    <div class="feature">
-                        <div class="feature-icon">
-                            <i class="fas fa-bolt"></i>
-                        </div>
-                        <div class="feature-text">
-                            <h3>Débit Ultra Rapide</h3>
-                            <p>Jusqu'à 50 Mbps en téléchargement</p>
-                        </div>
-                    </div>
-                    <div class="feature">
-                        <div class="feature-icon">
-                            <i class="fas fa-shield-alt"></i>
-                        </div>
-                        <div class="feature-text">
-                            <h3>Connexion Sécurisée</h3>
-                            <p>Protocole de chiffrement avancé</p>
-                        </div>
-                    </div>
-                    <div class="feature">
-                        <div class="feature-icon">
-                            <i class="fas fa-mobile-alt"></i>
-                        </div>
-                        <div class="feature-text">
-                            <h3>Paiement Mobile Money</h3>
-                            <p>Payez facilement avec votre téléphone</p>
-                        </div>
-                    </div>
-                    <div class="feature">
-                        <div class="feature-icon">
-                            <i class="fas fa-headset"></i>
-                        </div>
-                        <div class="feature-text">
-                            <h3>Support 24h/24</h3>
-                            <p>Assistance technique toujours disponible</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="support-info">
-                    <h3>Besoin d'aide ?</h3>
-                    <p>Notre équipe est disponible 24h/24 pour vous assister</p>
-                    <p><i class="fas fa-phone"></i> <a href="tel:+229 44">+229 44</a></p>
-                    <p><i class="fas fa-envelope"></i> <a
-                            href="mailto:2mccompany23@gmail.com">2mccompany23@gmail.com</a></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="footer">
-            <p>© 2025 2MC COMPANY ETS. Tous droits réservés. | <a href="#">Conditions d'utilisation</a> | <a
-                    href="#">Politique de confidentialité</a></p>
-        </div>
-    </div>
-
-    <!-- QR Scanner Modal -->
-    <div id="qr-modal-overlay">
-        <div id="qr-modal">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <h4 style="margin:0;"><i class="fas fa-qrcode" style="color: var(--secondary);"></i> Scanner votre ticket</h4>
-                <button type="button" id="qr-close-x-btn" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1; padding:0 4px;">✕</button>
-            </div>
-            <p class="qr-subtitle" id="qr-subtitle-text" style="margin-bottom:12px;">Pointez la caméra vers le code QR de votre ticket</p>
-
-            <!-- Cadre de visée de la caméra -->
-            <div id="qr-viewport-container" style="position:relative; width:100%; aspect-ratio:1/1; max-height:280px; background:#0f172a; border-radius:16px; overflow:hidden; margin-bottom:12px; box-shadow:inset 0 0 20px rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center;">
-                <!-- Flux vidéo direct -->
-                <video id="qr-video" playsinline autoplay muted style="width:100%; height:100%; object-fit:cover; display:none;"></video>
+            <!-- Colonne 2 : Acheter un forfait Mobile Money -->
+            <section class="pricing-panel">
                 
-                <!-- Aperçu image (en cas de capture photo) -->
-                <img id="qr-preview-img" style="width:100%; height:100%; object-fit:contain; display:none;" />
-                
-                <!-- Canvas d'analyse invisible -->
-                <canvas id="qr-canvas" style="display:none;"></canvas>
-
-                <!-- Viseur / Réticule HUD -->
-                <div id="qr-hud" style="position:absolute; inset:16px; pointer-events:none; border:1px solid rgba(255,255,255,0.2); border-radius:12px; box-shadow:0 0 0 9999px rgba(15,23,42,0.45); display:block;">
-                    <!-- Coins HUD -->
-                    <div style="position:absolute; top:-2px; left:-2px; width:22px; height:22px; border-top:4px solid #10b981; border-left:4px solid #10b981; border-top-left-radius:10px;"></div>
-                    <div style="position:absolute; top:-2px; right:-2px; width:22px; height:22px; border-top:4px solid #10b981; border-right:4px solid #10b981; border-top-right-radius:10px;"></div>
-                    <div style="position:absolute; bottom:-2px; left:-2px; width:22px; height:22px; border-bottom:4px solid #10b981; border-left:4px solid #10b981; border-bottom-left-radius:10px;"></div>
-                    <div style="position:absolute; bottom:-2px; right:-2px; width:22px; height:22px; border-bottom:4px solid #10b981; border-right:4px solid #10b981; border-bottom-right-radius:10px;"></div>
-                    <!-- Ligne laser animée -->
-                    <div id="qr-laser" class="qr-laser-line"></div>
+                <div class="panel-heading">
+                    <h2>Forfaits WiFi Disponibles</h2>
+                    <span class="momo-accepted-tag">
+                        <i class="fas fa-mobile-alt"></i> MTN MoMo & Moov
+                    </span>
                 </div>
 
-                <!-- Fallback si la vidéo directe est bloquée par le navigateur/HTTP -->
-                <div id="qr-camera-prompt" style="display:none; text-align:center; padding:18px; z-index:2;">
-                    <i class="fas fa-camera" style="font-size:40px; color:#a855f7; margin-bottom:8px; display:block;"></i>
-                    <p style="color:#e2e8f0; font-size:12px; margin:0 0 10px;">Accès vidéo restreint en mode portail HTTP.</p>
-                    <button type="button" id="qr-take-photo-btn" style="background:linear-gradient(135deg,#7209b7,#4361ee); color:white; border:none; padding:10px 16px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer;">
-                        📷 Prendre une photo du ticket
-                    </button>
+                <div class="pricing-grid">
+
+                    <!-- 4 Heures -->
+                    <div class="plan-card" data-plan="4h" data-price="100">
+                        <div>
+                            <div class="plan-name">4 Heures</div>
+                            <div class="plan-price">100 <span>FCFA</span></div>
+                            <div class="plan-meta">
+                                <div><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</div>
+                                <div><i class="fas fa-check"></i> Validité 2 jours</div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-buy-plan select-plan" data-plan="4h" data-price="100">
+                            <i class="fas fa-shopping-cart"></i> Payer 100 F
+                        </button>
+                    </div>
+
+                    <!-- 12 Heures -->
+                    <div class="plan-card" data-plan="12h" data-price="200">
+                        <div>
+                            <div class="plan-name">12 Heures</div>
+                            <div class="plan-price">200 <span>FCFA</span></div>
+                            <div class="plan-meta">
+                                <div><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</div>
+                                <div><i class="fas fa-check"></i> Validité 2 jours</div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-buy-plan select-plan" data-plan="12h" data-price="200">
+                            <i class="fas fa-shopping-cart"></i> Payer 200 F
+                        </button>
+                    </div>
+
+                    <!-- 24 Heures (Populaire) -->
+                    <div class="plan-card popular" data-plan="24h" data-price="300">
+                        <span class="popular-badge">Populaire</span>
+                        <div>
+                            <div class="plan-name">24 Heures</div>
+                            <div class="plan-price">300 <span>FCFA</span></div>
+                            <div class="plan-meta">
+                                <div><i class="fas fa-check"></i> Débit jusqu'à 50 Mbps</div>
+                                <div><i class="fas fa-check"></i> Validité 2 jours</div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-buy-plan select-plan" data-plan="24h" data-price="300">
+                            <i class="fas fa-shopping-cart"></i> Payer 300 F
+                        </button>
+                    </div>
+
+                    <!-- 4 Jours -->
+                    <div class="plan-card" data-plan="4j" data-price="500">
+                        <div>
+                            <div class="plan-name">4 Jours</div>
+                            <div class="plan-price">500 <span>FCFA</span></div>
+                            <div class="plan-meta">
+                                <div><i class="fas fa-check"></i> Illimité 4 jours</div>
+                                <div><i class="fas fa-check"></i> Connexion stable</div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-buy-plan select-plan" data-plan="4j" data-price="500">
+                            <i class="fas fa-shopping-cart"></i> Payer 500 F
+                        </button>
+                    </div>
+
+                    <!-- 7 Jours -->
+                    <div class="plan-card" data-plan="7j" data-price="1200">
+                        <div>
+                            <div class="plan-name">7 Jours</div>
+                            <div class="plan-price">1 200 <span>FCFA</span></div>
+                            <div class="plan-meta">
+                                <div><i class="fas fa-check"></i> Semaine complète</div>
+                                <div><i class="fas fa-check"></i> Priorité réseau</div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-buy-plan select-plan" data-plan="7j" data-price="1200">
+                            <i class="fas fa-shopping-cart"></i> Payer 1 200 F
+                        </button>
+                    </div>
+
+                    <!-- 30 Jours -->
+                    <div class="plan-card" data-plan="30j" data-price="4000">
+                        <div>
+                            <div class="plan-name">30 Jours</div>
+                            <div class="plan-price">4 000 <span>FCFA</span></div>
+                            <div class="plan-meta">
+                                <div><i class="fas fa-check"></i> Mois complet</div>
+                                <div><i class="fas fa-check"></i> Haute vitesse</div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-buy-plan select-plan" data-plan="30j" data-price="4000">
+                            <i class="fas fa-shopping-cart"></i> Payer 4 000 F
+                        </button>
+                    </div>
+
                 </div>
-            </div>
 
-            <!-- Inputs cachés pour la capture photo directe et fichier -->
-            <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display:none;" />
-            <input type="file" id="qr-gallery-input" accept="image/*" style="display:none;" />
+                <!-- Bandeau Avantages -->
+                <div class="features-strip">
+                    <div class="feature-item">
+                        <i class="fas fa-bolt"></i> 50 Mbps Rapide
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-shield-alt"></i> Sécurisé
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-wallet"></i> Instantané
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-headset"></i> Support 24/7
+                    </div>
+                </div>
 
-            <!-- Barre de boutons d'action rapide -->
-            <div style="display:flex; gap:8px; margin-bottom:8px;">
-                <button type="button" id="qr-trigger-photo-btn" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:9px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
-                    <i class="fas fa-camera"></i> Prendre photo
-                </button>
-                <button type="button" id="qr-trigger-gallery-btn" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:9px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
-                    <i class="fas fa-image"></i> Choisir image
-                </button>
-                <button type="button" id="qr-switch-camera-btn" style="display:none; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:9px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;" title="Changer de caméra">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-            </div>
+            </section>
 
-            <!-- Message de statut -->
-            <div id="qr-status" style="margin-top:2px; text-align:center; font-size:12px; min-height:20px;"></div>
-
-            <!-- Bouton fermer -->
-            <button type="button" id="qr-close-btn" style="margin-top:8px;">✕ Fermer</button>
         </div>
+
+        <!-- Pied de page -->
+        <footer class="app-footer">
+            <p>© 2026 2MC WIFI ZONE — Service Client & Assistance : <strong>+229 01 44 04 44 14</strong></p>
+        </footer>
+
     </div>
 
     <!-- Spinner de vérification enrichi -->
@@ -1002,7 +774,7 @@
             <h4 class="fw-bold mb-2 text-white">Vérification de votre paiement</h4>
             <p id="spinnerText" class="text-white-50 mb-3" style="font-size: 14px; line-height: 1.5;">
                 Veuillez valider le débit sur votre téléphone Mobile Money (MTN / MoMo).<br>
-                Nous vérifions la confirmation de l'opérateur...
+                Nous vérifions la confirmation auprès de l'opérateur...
             </p>
             <div id="spinnerRefBadge" class="badge bg-dark bg-opacity-50 text-warning px-3 py-2 mb-3 text-truncate d-block" style="font-family: monospace; font-size: 13px;">
                 Réf: <span id="spinnerRefText">En attente...</span>
@@ -1029,7 +801,7 @@
                 <div class="modal-body text-center p-4">
                     <p class="text-muted mb-2">Votre code d'accès WiFi Hotspot est prêt :</p>
                     
-                    <div class="p-3 my-3 bg-light rounded-3 border" style="background: #f8fafc; border: 2px dashed #4361ee !important;">
+                    <div class="p-3 my-3 bg-light rounded-3 border" style="background: #f8fafc; border: 2px dashed #2563eb !important;">
                         <span class="d-block text-muted small mb-1 fw-bold text-uppercase">Code Voucher Unique</span>
                         <h2 id="voucherCode" class="fw-bold text-primary m-0" style="letter-spacing: 4px; font-family: monospace; font-size: 32px;">--------</h2>
                     </div>
@@ -1066,7 +838,7 @@
                 </div>
                 <div class="modal-body p-4">
                     <p class="text-muted small mb-3">
-                        Si votre compte Mobile Money a été débité mais que vous n'avez pas vu le code, entrez la référence de transaction ou vérifiez votre dernier achat :
+                        Si votre compte Mobile Money a été débité mais que vous n'avez pas vu le code, vérifiez votre dernier achat ou entrez votre référence :
                     </p>
                     
                     <div id="recoverLastTxBox" class="p-3 mb-3 bg-light rounded-3 border d-none">
@@ -1090,12 +862,62 @@
             </div>
         </div>
     </div>
+
+    <!-- QR Scanner Modal -->
+    <div id="qr-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px); z-index:1060; align-items:center; justify-content:center; padding:16px;">
+        <div id="qr-modal" style="background:#ffffff; border-radius:20px; width:100%; max-width:380px; padding:20px; box-shadow:0 25px 50px rgba(0,0,0,0.3);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h5 style="margin:0; font-weight:800;"><i class="fas fa-qrcode text-primary me-2"></i>Scanner un ticket</h5>
+                <button type="button" id="qr-close-x-btn" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; line-height:1; padding:0 4px;">✕</button>
+            </div>
+            <p class="small text-muted mb-3" id="qr-subtitle-text">Pointez la caméra vers le code QR de votre ticket imprimé</p>
+
+            <div id="qr-viewport-container" style="position:relative; width:100%; aspect-ratio:1/1; max-height:260px; background:#0f172a; border-radius:16px; overflow:hidden; margin-bottom:12px; display:flex; align-items:center; justify-content:center;">
+                <video id="qr-video" playsinline autoplay muted style="width:100%; height:100%; object-fit:cover; display:none;"></video>
+                <img id="qr-preview-img" style="width:100%; height:100%; object-fit:contain; display:none;" />
+                <canvas id="qr-canvas" style="display:none;"></canvas>
+
+                <div id="qr-hud" style="position:absolute; inset:16px; pointer-events:none; border:1px solid rgba(255,255,255,0.2); border-radius:12px; box-shadow:0 0 0 9999px rgba(15,23,42,0.45); display:block;">
+                    <div style="position:absolute; top:-2px; left:-2px; width:22px; height:22px; border-top:4px solid #10b981; border-left:4px solid #10b981; border-top-left-radius:10px;"></div>
+                    <div style="position:absolute; top:-2px; right:-2px; width:22px; height:22px; border-top:4px solid #10b981; border-right:4px solid #10b981; border-top-right-radius:10px;"></div>
+                    <div style="position:absolute; bottom:-2px; left:-2px; width:22px; height:22px; border-bottom:4px solid #10b981; border-left:4px solid #10b981; border-bottom-left-radius:10px;"></div>
+                    <div style="position:absolute; bottom:-2px; right:-2px; width:22px; height:22px; border-bottom:4px solid #10b981; border-right:4px solid #10b981; border-bottom-right-radius:10px;"></div>
+                    <div id="qr-laser" class="qr-laser-line"></div>
+                </div>
+
+                <div id="qr-camera-prompt" style="display:none; text-align:center; padding:18px; z-index:2;">
+                    <i class="fas fa-camera text-primary mb-2" style="font-size:36px; display:block;"></i>
+                    <p style="color:#e2e8f0; font-size:12px; margin:0 0 10px;">Accès direct caméra restreint en mode portail HTTP.</p>
+                    <button type="button" id="qr-take-photo-btn" class="btn btn-primary btn-sm px-3 py-2 fw-bold" style="border-radius:10px;">
+                        📷 Prendre une photo du ticket
+                    </button>
+                </div>
+            </div>
+
+            <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display:none;" />
+            <input type="file" id="qr-gallery-input" accept="image/*" style="display:none;" />
+
+            <div style="display:flex; gap:8px;">
+                <button type="button" id="qr-trigger-photo-btn" class="btn btn-light btn-sm flex-grow-1 border fw-semibold" style="border-radius:10px;">
+                    <i class="fas fa-camera me-1"></i> Prendre photo
+                </button>
+                <button type="button" id="qr-trigger-gallery-btn" class="btn btn-light btn-sm flex-grow-1 border fw-semibold" style="border-radius:10px;">
+                    <i class="fas fa-image me-1"></i> Galerie
+                </button>
+            </div>
+            <button type="button" id="qr-close-btn" class="btn btn-outline-secondary btn-sm w-100 mt-2" style="border-radius:10px;">✕ Fermer</button>
+        </div>
     </div>
 
+    <!-- Scripts Bootstrap, jsQR & FedaPay -->
+    <script src="bootstrap.bundle.min.js"></script>
+    <script src="/bootstrap.bundle.min.js"></script>
+    <script src="jsqr.min.js"></script>
+    <script src="/jsqr.min.js"></script>
+    <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
+
+    <!-- Scanner QR haute compatibilité -->
     <script>
-        // ============================================================
-        // SCANNER QR UNIFIÉ & HAUTE COMPATIBILITÉ (HTTP + HTTPS + OFFLINE)
-        // ============================================================
         var qrStream = null;
         var qrScanning = false;
         var qrAnimId = null;
@@ -1105,75 +927,64 @@
         if ('BarcodeDetector' in window) {
             try {
                 barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
-            } catch(e) {
-                barcodeDetector = null;
-            }
+            } catch(e) {}
         }
 
-        function setQrStatus(html) {
-            var el = document.getElementById('qr-status');
-            if (el) el.innerHTML = html;
-        }
-
-        function extractCodeFromQr(text) {
-            if (!text) return null;
-            text = String(text).trim();
+        function extractVoucherFromQrText(raw) {
+            if (!raw) return null;
+            var t = String(raw).trim();
             try {
-                if (text.startsWith('http://') || text.startsWith('https://')) {
-                    var parsed = new URL(text);
-                    var u = parsed.searchParams.get('username') || parsed.searchParams.get('user') || parsed.searchParams.get('code');
-                    if (u) return u.trim().toLowerCase();
+                if (t.indexOf('?') !== -1) {
+                    var u = new URL(t, 'http://dummy.local');
+                    var candidate = u.searchParams.get('voucher') ||
+                                    u.searchParams.get('username') ||
+                                    u.searchParams.get('code');
+                    if (candidate) return candidate.trim();
                 }
             } catch(e) {}
-            var match = text.match(/[?&]username=([^&]+)/i);
-            if (match) return decodeURIComponent(match[1]).trim().toLowerCase();
-            return text.trim().toLowerCase();
+            var m = t.match(/[?&](?:voucher|username|code)=([^&#]+)/i);
+            if (m && m[1]) return decodeURIComponent(m[1]).trim();
+            if (/^[a-zA-Z0-9_-.]{3,32}$/.test(t)) {
+                return t;
+            }
+            return t;
         }
 
-        function handleQrSuccess(rawResult) {
-            var code = extractCodeFromQr(rawResult);
-            if (!code) return;
+        function onVoucherScanned(rawCode) {
+            var voucher = extractVoucherFromQrText(rawCode);
+            if (!voucher) {
+                alert('Code QR non reconnu comme ticket WiFi valide.');
+                return;
+            }
+            closeQrScanner();
+            var simpleInput = document.getElementById('simple-code');
+            if (simpleInput) simpleInput.value = voucher;
+            submitMikrotikLogin({ username: voucher, password: voucher });
+        }
 
+        function openQrScanner() {
+            var overlay = document.getElementById('qr-modal-overlay');
+            if (overlay) overlay.style.display = 'flex';
+            startQrCamera();
+        }
+
+        function closeQrScanner() {
             stopQrCamera();
-            try {
-                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            } catch(e) {}
-
-            setQrStatus('<div style="background:#dcfce7; color:#15803d; padding:8px 12px; border-radius:8px; font-weight:700; font-size:13px; border:1px solid #86efac;">' +
-                '✅ Code détecté : <strong>' + code + '</strong><br><small style="font-weight:normal;">Connexion automatique...</small></div>');
-
-            var codeInput = document.getElementById('simple-code');
-            if (codeInput) codeInput.value = code;
-
-            setTimeout(function() {
-                closeQrScanner();
-                submitMikrotikLogin({ username: code, password: code });
-            }, 900);
+            var overlay = document.getElementById('qr-modal-overlay');
+            if (overlay) overlay.style.display = 'none';
         }
 
         function startQrCamera() {
             var video = document.getElementById('qr-video');
-            var promptEl = document.getElementById('qr-camera-prompt');
-            var hud = document.getElementById('qr-hud');
-            var previewImg = document.getElementById('qr-preview-img');
+            var prompt = document.getElementById('qr-camera-prompt');
+            var preview = document.getElementById('qr-preview-img');
 
-            if (previewImg) previewImg.style.display = 'none';
-            if (promptEl) promptEl.style.display = 'none';
-            if (hud) hud.style.display = 'block';
-
-            // Sur HTTP ou si mediaDevices est absent (navigateurs stricts sur portail captif)
+            if (preview) preview.style.display = 'none';
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                console.warn('getUserMedia indisponible sur ce contexte (HTTP/navigateur)');
-                showCameraPrompt();
-                // Ouvre directement l'appareil photo natif sur mobile
-                setTimeout(function() {
-                    var fileInput = document.getElementById('qr-file-input');
-                    if (fileInput) fileInput.click();
-                }, 250);
+                if (video) video.style.display = 'none';
+                if (prompt) prompt.style.display = 'block';
                 return;
             }
-
-            setQrStatus('<span style="color:#64748b;">⏳ Démarrage caméra...</span>');
 
             var constraints = {
                 video: {
@@ -1187,86 +998,25 @@
             navigator.mediaDevices.getUserMedia(constraints)
                 .then(function(stream) {
                     qrStream = stream;
-                    video.srcObject = stream;
-                    video.setAttribute('playsinline', 'true');
-                    video.style.display = 'block';
-                    video.play().then(function() {
-                        qrScanning = true;
-                        setQrStatus('<span style="color:#10b981;">🟢 Caméra active. Visez le QR code.</span>');
-                        var switchBtn = document.getElementById('qr-switch-camera-btn');
-                        if (switchBtn) switchBtn.style.display = 'block';
-                        scanQrFrame();
-                    }).catch(function(err) {
-                        console.warn('Erreur lecture vidéo:', err);
-                        showCameraPrompt();
-                    });
+                    if (video) {
+                        video.srcObject = stream;
+                        video.style.display = 'block';
+                        if (prompt) prompt.style.display = 'none';
+                        video.setAttribute('playsinline', 'true');
+                        video.play().then(function() {
+                            qrScanning = true;
+                            requestAnimationFrame(scanQrFrame);
+                        }).catch(function() {
+                            qrScanning = true;
+                            requestAnimationFrame(scanQrFrame);
+                        });
+                    }
                 })
                 .catch(function(err) {
-                    console.warn('getUserMedia refusé ou indisponible:', err);
-                    showCameraPrompt();
-                    // Ouvre directement la caméra mobile en fallback
-                    setTimeout(function() {
-                        var fileInput = document.getElementById('qr-file-input');
-                        if (fileInput) fileInput.click();
-                    }, 250);
+                    console.warn('[QR Camera] Accès direct refusé/indisponible:', err.message);
+                    if (video) video.style.display = 'none';
+                    if (prompt) prompt.style.display = 'block';
                 });
-        }
-
-        function showCameraPrompt() {
-            stopQrCamera();
-            var video = document.getElementById('qr-video');
-            var promptEl = document.getElementById('qr-camera-prompt');
-            var hud = document.getElementById('qr-hud');
-            if (video) video.style.display = 'none';
-            if (promptEl) promptEl.style.display = 'block';
-            if (hud) hud.style.display = 'none';
-            setQrStatus('<span style="color:#f59e0b;">Prenez une photo de votre ticket pour scanner.</span>');
-        }
-
-        function scanQrFrame() {
-            if (!qrScanning) return;
-            var video = document.getElementById('qr-video');
-            if (!video) return;
-
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                if (barcodeDetector) {
-                    barcodeDetector.detect(video).then(function(barcodes) {
-                        if (barcodes && barcodes.length > 0) {
-                            handleQrSuccess(barcodes[0].rawValue);
-                            return;
-                        }
-                        if (qrScanning) qrAnimId = requestAnimationFrame(scanQrFrame);
-                    }).catch(function() {
-                        fallbackCanvasScan(video);
-                    });
-                    return;
-                } else {
-                    fallbackCanvasScan(video);
-                    return;
-                }
-            }
-            if (qrScanning) qrAnimId = requestAnimationFrame(scanQrFrame);
-        }
-
-        function fallbackCanvasScan(video) {
-            var canvas = document.getElementById('qr-canvas');
-            if (!canvas) return;
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
-            var ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-            if (typeof jsQR !== 'undefined') {
-                var code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: 'dontInvert'
-                });
-                if (code && code.data) {
-                    handleQrSuccess(code.data);
-                    return;
-                }
-            }
-            if (qrScanning) qrAnimId = requestAnimationFrame(scanQrFrame);
         }
 
         function stopQrCamera() {
@@ -1276,7 +1026,9 @@
                 qrAnimId = null;
             }
             if (qrStream) {
-                qrStream.getTracks().forEach(function(t) { t.stop(); });
+                try {
+                    qrStream.getTracks().forEach(function(t) { t.stop(); });
+                } catch(e) {}
                 qrStream = null;
             }
             var video = document.getElementById('qr-video');
@@ -1286,152 +1038,127 @@
             }
         }
 
+        function scanQrFrame() {
+            if (!qrScanning) return;
+            var video = document.getElementById('qr-video');
+            var canvas = document.getElementById('qr-canvas');
+            if (!video || !canvas || video.readyState < 2) {
+                qrAnimId = requestAnimationFrame(scanQrFrame);
+                return;
+            }
+
+            var vw = video.videoWidth;
+            var vh = video.videoHeight;
+            if (vw > 0 && vh > 0) {
+                canvas.width = vw;
+                canvas.height = vh;
+                var ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(video, 0, 0, vw, vh);
+
+                if (barcodeDetector) {
+                    barcodeDetector.detect(canvas)
+                        .then(function(barcodes) {
+                            if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                                onVoucherScanned(barcodes[0].rawValue);
+                            } else {
+                                fallbackJsQr(ctx, vw, vh);
+                            }
+                        })
+                        .catch(function() {
+                            fallbackJsQr(ctx, vw, vh);
+                        });
+                } else {
+                    fallbackJsQr(ctx, vw, vh);
+                }
+            } else {
+                qrAnimId = requestAnimationFrame(scanQrFrame);
+            }
+        }
+
+        function fallbackJsQr(ctx, w, h) {
+            if (typeof jsQR !== 'undefined') {
+                try {
+                    var imgData = ctx.getImageData(0, 0, w, h);
+                    var code = jsQR(imgData.data, w, h, { inversionAttempts: 'attemptBoth' });
+                    if (code && code.data) {
+                        onVoucherScanned(code.data);
+                        return;
+                    }
+                } catch(e) {}
+            }
+            if (qrScanning) {
+                qrAnimId = requestAnimationFrame(scanQrFrame);
+            }
+        }
+
         function decodeQrFromFile(file) {
             if (!file) return;
-            stopQrCamera();
-            setQrStatus('<span style="color:#6366f1;">⏳ Analyse de la photo en cours...</span>');
-
             var reader = new FileReader();
             reader.onload = function(e) {
                 var img = new Image();
                 img.onload = function() {
-                    var previewImg = document.getElementById('qr-preview-img');
-                    var promptEl = document.getElementById('qr-camera-prompt');
-                    var hud = document.getElementById('qr-hud');
-                    if (previewImg) {
-                        previewImg.src = e.target.result;
-                        previewImg.style.display = 'block';
-                    }
-                    if (promptEl) promptEl.style.display = 'none';
-                    if (hud) hud.style.display = 'block';
+                    var canvas = document.getElementById('qr-canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    var ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
 
-                    if (barcodeDetector) {
-                        barcodeDetector.detect(img).then(function(barcodes) {
-                            if (barcodes && barcodes.length > 0) {
-                                handleQrSuccess(barcodes[0].rawValue);
+                    if (typeof jsQR !== 'undefined') {
+                        try {
+                            var imgData = ctx.getImageData(0, 0, img.width, img.height);
+                            var code = jsQR(imgData.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+                            if (code && code.data) {
+                                onVoucherScanned(code.data);
                                 return;
                             }
-                            decodeWithJsQr(img);
-                        }).catch(function() {
-                            decodeWithJsQr(img);
-                        });
-                    } else {
-                        decodeWithJsQr(img);
+                        } catch(err) {}
                     }
+                    alert('Aucun code QR détecté sur cette photo. Assurez-vous de bien cadrer le ticket.');
                 };
                 img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
 
-        function decodeWithJsQr(img) {
-            var canvas = document.getElementById('qr-canvas');
-            if (!canvas) return;
-            var maxDim = 1200;
-            var w = img.width;
-            var h = img.height;
-            if (w > maxDim || h > maxDim) {
-                if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
-                else { w = Math.round(w * maxDim / h); h = maxDim; }
-            }
-            canvas.width = w;
-            canvas.height = h;
-            var ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, w, h);
-            var imageData = ctx.getImageData(0, 0, w, h);
-
-            if (typeof jsQR !== 'undefined') {
-                var result = jsQR(imageData.data, imageData.width, imageData.height);
-                if (result && result.data) {
-                    handleQrSuccess(result.data);
-                    return;
-                }
-            }
-            setQrStatus('<div style="background:#fee2e2; color:#b91c1c; padding:8px; border-radius:8px; font-size:12px; border:1px solid #fca5a5;">' +
-                '❌ QR code non reconnu.<br>Prenez une photo nette, sans reflets et bien cadrée du ticket.</div>');
-        }
-
-        function openQrScanner() {
-            var overlay = document.getElementById('qr-modal-overlay');
-            if (overlay) overlay.classList.add('active');
-            setQrStatus('');
-            startQrCamera();
-        }
-
-        function closeQrScanner() {
-            stopQrCamera();
-            var overlay = document.getElementById('qr-modal-overlay');
-            if (overlay) overlay.classList.remove('active');
-            var f1 = document.getElementById('qr-file-input');
-            if (f1) f1.value = '';
-            var f2 = document.getElementById('qr-gallery-input');
-            if (f2) f2.value = '';
-            setQrStatus('');
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             var openBtn = document.getElementById('open-qr-scanner');
-            if (openBtn) openBtn.addEventListener('click', openQrScanner);
-
+            var closeX = document.getElementById('qr-close-x-btn');
             var closeBtn = document.getElementById('qr-close-btn');
+            var fileInput = document.getElementById('qr-file-input');
+            var galleryInput = document.getElementById('qr-gallery-input');
+            var triggerPhoto = document.getElementById('qr-trigger-photo-btn');
+            var triggerGallery = document.getElementById('qr-trigger-gallery-btn');
+            var takePhotoBtn = document.getElementById('qr-take-photo-btn');
+
+            if (openBtn) openBtn.addEventListener('click', openQrScanner);
+            if (closeX) closeX.addEventListener('click', closeQrScanner);
             if (closeBtn) closeBtn.addEventListener('click', closeQrScanner);
 
-            var closeXBtn = document.getElementById('qr-close-x-btn');
-            if (closeXBtn) closeXBtn.addEventListener('click', closeQrScanner);
+            if (triggerPhoto) triggerPhoto.addEventListener('click', function() { if (fileInput) fileInput.click(); });
+            if (takePhotoBtn) takePhotoBtn.addEventListener('click', function() { if (fileInput) fileInput.click(); });
+            if (triggerGallery) triggerGallery.addEventListener('click', function() { if (galleryInput) galleryInput.click(); });
 
-            var overlay = document.getElementById('qr-modal-overlay');
-            if (overlay) overlay.addEventListener('click', function(e) {
-                if (e.target === this) closeQrScanner();
-            });
-
-            // Boutons pour capturer ou choisir une photo
-            var triggerPhotoBtn = document.getElementById('qr-trigger-photo-btn');
-            if (triggerPhotoBtn) triggerPhotoBtn.addEventListener('click', function() {
-                document.getElementById('qr-file-input').click();
-            });
-
-            var promptTakeBtn = document.getElementById('qr-take-photo-btn');
-            if (promptTakeBtn) promptTakeBtn.addEventListener('click', function() {
-                document.getElementById('qr-file-input').click();
-            });
-
-            var triggerGalleryBtn = document.getElementById('qr-trigger-gallery-btn');
-            if (triggerGalleryBtn) triggerGalleryBtn.addEventListener('click', function() {
-                document.getElementById('qr-gallery-input').click();
-            });
-
-            var switchCamBtn = document.getElementById('qr-switch-camera-btn');
-            if (switchCamBtn) switchCamBtn.addEventListener('click', function() {
-                qrCurrentFacingMode = qrCurrentFacingMode === 'environment' ? 'user' : 'environment';
-                stopQrCamera();
-                startQrCamera();
-            });
-
-            // Écoute des inputs fichiers
-            var fileInput = document.getElementById('qr-file-input');
             if (fileInput) fileInput.addEventListener('change', function(e) {
                 if (e.target.files && e.target.files[0]) decodeQrFromFile(e.target.files[0]);
             });
-
-            var galleryInput = document.getElementById('qr-gallery-input');
             if (galleryInput) galleryInput.addEventListener('change', function(e) {
                 if (e.target.files && e.target.files[0]) decodeQrFromFile(e.target.files[0]);
             });
         });
     </script>
+
+    <!-- Logique Principale FedaPay & Authentification -->
     <script>
-        // Configuration globale
         const CONFIG = {
             FEDAPAY_PUBLIC_KEY: 'pk_live_jYf2mjUa0Y_wHn4DWBDNseMm',
             GET_VOUCHER_URL: (window.location.hostname === '2mc.alwaysdata.net' || window.location.hostname === 'localhost')
                 ? '/www/get_voucher.php'
                 : 'https://2mc.alwaysdata.net/www/get_voucher.php',
             MIKROTIK_LOGIN_URL: 'http://mcwifi.net/login',
-            VOUCHER_POLL_INTERVAL: 2500, // 2.5 secondes pour éviter le rate-limiting FedaPay
-            VOUCHER_POLL_TIMEOUT: 180000  // 3 minutes (180s) pour couvrir le délai opérateur USSD
+            VOUCHER_POLL_INTERVAL: 2500, // 2.5s anti-spam
+            VOUCHER_POLL_TIMEOUT: 180000  // 3 minutes de tolérance USSD
         };
 
-        // Stockage persistant de secours pour résister aux rechargements / sorties de veille
         const STORAGE_KEY_PENDING = '2mc_pending_feda_tx';
         const STORAGE_KEY_LAST = '2mc_last_voucher';
 
@@ -1450,7 +1177,6 @@
                 const raw = localStorage.getItem(STORAGE_KEY_PENDING);
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
-                // Valide seulement si moins de 15 minutes
                 if (Date.now() - parsed.startedAt < 15 * 60 * 1000) {
                     return parsed;
                 }
@@ -1480,7 +1206,6 @@
             } catch(e) { return null; }
         }
 
-        // Fonction de login globale vers MikroTik
         function submitMikrotikLogin(params) {
             var hotspotUrl = CONFIG.MIKROTIK_LOGIN_URL;
             var queryString = Object.keys(params)
@@ -1490,46 +1215,13 @@
             window.location.href = hotspotUrl + '?' + queryString;
         }
 
-        var momoactive = true; // variable globale
-        function setupCards() {
-            document.querySelectorAll('.pricing-card').forEach(card => {
-                if (!card.querySelector('.card-inner')) {
-                    const inner = document.createElement('div');
-                    inner.className = 'card-inner';
-
-                    const front = document.createElement('div');
-                    front.className = 'card-front';
-                    while (card.firstChild) {
-                        front.appendChild(card.firstChild);
-                    }
-
-                    const back = document.createElement('div');
-                    back.className = 'card-back';
-                    back.innerHTML = `<div style="font-family: Arial, sans-serif; text-align: center; padding: 5px; line-height: 1.3; max-height: 100%; overflow-y: auto; box-sizing: border-box;">
-  <h4 style="color: #2E86C1; font-size: 1.5em; margin: 10px 0;">Paiement Mobile Money bientôt disponible !</h4>
-  <p style="font-size: 0.95em; margin: 10px 0;">Pour le moment, vous pouvez :</p>
-  <ul style="list-style-type: none; padding: 0; font-size: 0.95em; margin: 0;">
-    <li>📍 Retirer votre ticket physique au Carrefour après l'école</li>
-    <li>📱 Ou nous contacter au <strong>01 44 04 44 114</strong></li>
-  </ul>
-</div>`;
-
-                    inner.appendChild(front);
-                    inner.appendChild(back);
-                    card.appendChild(inner);
-                }
-            });
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             var currentReference = null;
             var voucherInterval = null;
             var autoConnectTimer = null;
             var timerInterval = null;
 
-            setupCards();
-
-            // Gestion du bouton masquage spinner
+            // Masquer spinner
             const cancelSpinnerBtn = document.getElementById('btn-cancel-spinner');
             if (cancelSpinnerBtn) {
                 cancelSpinnerBtn.addEventListener('click', function() {
@@ -1538,7 +1230,7 @@
                 });
             }
 
-            // Gestion du bouton de récupération de ticket
+            // Bouton assistance ticket
             const btnRecover = document.getElementById('btn-recover-ticket');
             if (btnRecover) {
                 btnRecover.addEventListener('click', function() {
@@ -1550,14 +1242,15 @@
 
                     if (pending && pending.reference) {
                         box.classList.remove('d-none');
-                        text.textContent = 'En cours: ' + pending.reference;
+                        text.textContent = 'En cours : ' + pending.reference;
+                        checkBtn.textContent = 'Vérifier';
                         checkBtn.onclick = function() {
                             bootstrap.Modal.getInstance(document.getElementById('recoverModal'))?.hide();
                             startVoucherCheck(pending.plan, pending.reference);
                         };
                     } else if (last && last.code) {
                         box.classList.remove('d-none');
-                        text.textContent = 'Dernier code: ' + last.code.toUpperCase();
+                        text.textContent = 'Dernier code : ' + last.code.toUpperCase();
                         checkBtn.textContent = 'Afficher';
                         checkBtn.onclick = function() {
                             bootstrap.Modal.getInstance(document.getElementById('recoverModal'))?.hide();
@@ -1571,7 +1264,7 @@
                 });
             }
 
-            // Formulaire modal de recherche manuelle
+            // Formulaire recherche manuelle
             const recoverForm = document.getElementById('recover-form');
             if (recoverForm) {
                 recoverForm.addEventListener('submit', function(e) {
@@ -1583,59 +1276,73 @@
                 });
             }
 
-            // Reprise automatique si un paiement récent était en cours
+            // Reprise automatique si paiement en attente
             const savedTx = getPendingTransaction();
             if (savedTx && savedTx.reference) {
-                console.log('🔄 Reprise automatique de la vérification de paiement:', savedTx.reference);
+                console.log('🔄 Reprise automatique de la vérification:', savedTx.reference);
                 startVoucherCheck(savedTx.plan, savedTx.reference);
             }
 
-            // Clic sur les cartes de tarifs
-            document.querySelectorAll('.pricing-card').forEach(function(card) {
-                card.addEventListener('click', function() {
-                    var btn = card.querySelector('.select-plan');
-                    if (!btn) return;
-                    var price = btn.dataset.price;
-                    var plan = btn.dataset.plan;
-                    if (!price || !plan) return;
-                    if (!momoactive) {
-                        card.classList.toggle('flipped');
-                    } else {
-                        initiatePayment(parseInt(price) * 1, plan);
+            // Clic direct sur carte ou bouton d'achat
+            document.querySelectorAll('.plan-card, .select-plan').forEach(function(el) {
+                el.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var price = el.dataset.price;
+                    var plan = el.dataset.plan;
+                    if (!price || !plan) {
+                        var parent = el.closest('.plan-card');
+                        if (parent) {
+                            price = parent.dataset.price;
+                            plan = parent.dataset.plan;
+                        }
+                    }
+                    if (price && plan) {
+                        initiatePayment(parseInt(price, 10), plan);
                     }
                 });
             });
 
-            // Toggle formulaires
-            document.getElementById('toggle-simple').addEventListener('click', function() {
-                this.classList.add('active');
-                document.getElementById('toggle-classic').classList.remove('active');
-                document.getElementById('simple-form').classList.add('active');
-                document.getElementById('classic-form').classList.remove('active');
-            });
-            document.getElementById('toggle-classic').addEventListener('click', function() {
-                this.classList.add('active');
-                document.getElementById('toggle-simple').classList.remove('active');
-                document.getElementById('classic-form').classList.add('active');
-                document.getElementById('simple-form').classList.remove('active');
-            });
+            // Toggle formulaires Code / Classique
+            const toggleSimple = document.getElementById('toggle-simple');
+            const toggleClassic = document.getElementById('toggle-classic');
+            const simpleForm = document.getElementById('simple-form');
+            const classicForm = document.getElementById('classic-form');
 
-            // Formulaire code unique
-            document.getElementById('simple-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                var code = document.getElementById('simple-code').value.trim();
-                if (!code) { alert('Veuillez entrer votre code d'accès'); return; }
-                submitMikrotikLogin({ username: code, password: code });
-            });
+            if (toggleSimple && toggleClassic) {
+                toggleSimple.addEventListener('click', function() {
+                    toggleSimple.classList.add('active');
+                    toggleClassic.classList.remove('active');
+                    simpleForm.classList.add('active');
+                    classicForm.classList.remove('active');
+                });
+                toggleClassic.addEventListener('click', function() {
+                    toggleClassic.classList.add('active');
+                    toggleSimple.classList.remove('active');
+                    classicForm.classList.add('active');
+                    simpleForm.classList.remove('active');
+                });
+            }
 
-            // Formulaire classique
-            document.getElementById('classic-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                var username = document.getElementById('username').value.trim();
-                var password = document.getElementById('password').value.trim();
-                if (!username || !password) { alert('Veuillez remplir tous les champs'); return; }
-                submitMikrotikLogin({ username: username, password: password });
-            });
+            // Soumission formulaire Code Unique
+            if (simpleForm) {
+                simpleForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var code = document.getElementById('simple-code').value.trim();
+                    if (!code) { alert('Veuillez entrer votre code d'accès'); return; }
+                    submitMikrotikLogin({ username: code, password: code });
+                });
+            }
+
+            // Soumission formulaire Classique
+            if (classicForm) {
+                classicForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var username = document.getElementById('username').value.trim();
+                    var password = document.getElementById('password').value.trim();
+                    if (!username || !password) { alert('Veuillez remplir tous les champs'); return; }
+                    submitMikrotikLogin({ username: username, password: password });
+                });
+            }
 
             function initiatePayment(amount, plan) {
                 if (!amount || amount <= 0) {
@@ -1660,7 +1367,6 @@
                     onComplete: function(response) {
                         console.log('FedaPay onComplete response:', response);
                         
-                        // Extraction tolérante de la référence ou ID
                         let ref = null;
                         if (response?.transaction?.reference) {
                             ref = response.transaction.reference;
@@ -1681,12 +1387,9 @@
                             savePendingTransaction(ref, plan);
                             startVoucherCheck(plan, ref);
                         } else {
-                            // Même en cas de fermeture manuelle, si une référence en attente existe, vérifier
                             const pending = getPendingTransaction();
                             if (pending && pending.reference) {
                                 startVoucherCheck(pending.plan, pending.reference);
-                            } else {
-                                console.warn('Paiement terminé ou fermé sans référence explicite.');
                             }
                         }
                     },
@@ -1719,7 +1422,6 @@
                 let attemptCount = 0;
                 const startTime = Date.now();
 
-                // Chronomètre d'attente
                 timerInterval = setInterval(() => {
                     const sec = Math.floor((Date.now() - startTime) / 1000);
                     if (spinnerElapsed) spinnerElapsed.textContent = sec + 's';
@@ -1743,14 +1445,12 @@
                     try {
                         const res = await fetch(`${CONFIG.GET_VOUCHER_URL}?reference=${encodeURIComponent(ref)}`, {
                             method: 'GET',
-                            headers: {
-                                'Accept': 'application/json'
-                            }
+                            headers: { 'Accept': 'application/json' }
                         });
 
                         if (!res.ok) {
                             if (res.status === 404) {
-                                console.log(`⏳ Tentative ${attemptCount} (${Math.floor(elapsed/1000)}s) : En attente d'approbation...`);
+                                console.log(`⏳ Tentative ${attemptCount} (${Math.floor(elapsed/1000)}s) : En attente...`);
                                 return;
                             }
                             throw new Error(`HTTP ${res.status}`);
@@ -1763,7 +1463,7 @@
                             if (spinner) spinner.classList.add('d-none');
                             clearPendingTransaction();
                             saveLastVoucher(data.voucher, data.plan || plan);
-                            console.log('✅ Voucher reçu avec succès:', data.voucher);
+                            console.log('✅ Voucher reçu:', data.voucher);
                             displayVoucher(data.voucher);
                         }
                     } catch (err) {
@@ -1771,7 +1471,6 @@
                     }
                 };
 
-                // Première vérification immédiate, puis polling régulier
                 checkEndpoint();
                 voucherInterval = setInterval(checkEndpoint, CONFIG.VOUCHER_POLL_INTERVAL);
             }
@@ -1779,15 +1478,12 @@
             function displayVoucher(voucherCode) {
                 const codeUpper = voucherCode.toUpperCase();
                 
-                // 1. Afficher dans le modal
                 const codeEl = document.getElementById('voucherCode');
                 if (codeEl) codeEl.textContent = codeUpper;
 
-                // 2. Pré-remplir automatiquement le formulaire de la page
                 const simpleCodeInput = document.getElementById('simple-code');
                 if (simpleCodeInput) simpleCodeInput.value = codeUpper;
 
-                // 3. Bouton copier avec fallback compatible HTTP/WebView
                 const copyBtn = document.getElementById('copyVoucherBtn');
                 if (copyBtn) {
                     copyBtn.onclick = function() {
@@ -1802,7 +1498,6 @@
                     };
                 }
 
-                // 4. Bouton Se connecter
                 const connectBtn = document.getElementById('connectBtn');
                 if (connectBtn) {
                     connectBtn.onclick = function(e) {
@@ -1812,7 +1507,6 @@
                     };
                 }
 
-                // 5. Compte à rebours connexion automatique (5 secondes)
                 let countdown = 5;
                 const autoNotice = document.getElementById('autoConnectNotice');
                 const autoSec = document.getElementById('autoConnectSec');
@@ -1838,7 +1532,6 @@
                     }
                 }, 1000);
 
-                // Afficher le modal
                 new bootstrap.Modal(document.getElementById('voucherModal')).show();
             }
 
@@ -1861,5 +1554,4 @@
         });
     </script>
 </body>
-
 </html>
