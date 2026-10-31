@@ -31,7 +31,9 @@ import {
   Check,
   Sparkles,
   Sliders,
-  Power
+  Power,
+  Menu,
+  X
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -39,6 +41,9 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
+  // Menu mobile responsive
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   // Contact commercial WhatsApp
   const WHATSAPP_CONTACT = '2290144044414';
   const WHATSAPP_DISPLAY = '+229 01 44 04 44 14';
