@@ -85,6 +85,21 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
+// Protection stricte contre l'accès direct aux fichiers système et bases de données
+app.use((req, res, next) => {
+  const p = req.path.toLowerCase();
+  if (
+    p.includes('/data/') ||
+    p.includes('.env') ||
+    p.includes('db.json') ||
+    p.includes('server.js') ||
+    p.includes('server.bundle')
+  ) {
+    return res.status(403).json({ error: 'Accès interdit.' });
+  }
+  next();
+});
+
 // --- Rate Limiter login ---
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
