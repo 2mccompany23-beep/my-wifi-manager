@@ -468,6 +468,78 @@ async function deleteVouchersFromPg(ids) {
   }
 }
 
+// Remplacement COMPLET des ventes dans PostgreSQL (purge + insert).
+// Appelé après chaque sync complète avec les scripts MikroTik pour garantir
+// que PostgreSQL reflète exactement la réalité du routeur (source de vérité).
+async function replaceSalesInPostgres(sales) {
+  if (!Array.isArray(sales)) return;
+  try {
+    const client = await pgPool.connect();
+    try {
+      // 1. Récupérer les IDs actuellement en base
+      const existingRes = await client.query('SELECT id FROM sales');
+      const existingIds = new Set(existingRes.rows.map(r => r.id));
+
+      // 2. IDs de la vraie liste actuelle
+      const currentIds = new Set(sales.filter(s => s && s.id).map(s => String(s.id)));
+
+      // 3. Purger les ventes stales (présentes en PG mais pas dans la vraie liste)
+      const toDelete = [...existingIds].filter(id => !currentIds.has(id));
+      if (toDelete.length > 0) {
+        await client.query('DELETE FROM sales WHERE id = ANY($1)', [toDelete]);
+        console.log(`[PostgreSQL] 🗑 ${toDelete.length} vente(s) stale(s) purgée(s) de PostgreSQL.`);
+      }
+
+      // 4. Upsert les ventes actuelles
+      for (const s of sales.slice(0, 300)) {
+        if (!s || !s.id) continue;
+        const d = s.date ? new Date(s.date) : new Date();
+        await client.query(
+          `INSERT INTO sales (
+            id, reference, voucher, amount, plan, profile, mode, phone, date, source, status, comment, fedapay_ref, ip, mac, duration, data
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+          ) ON CONFLICT (id) DO UPDATE SET
+            amount = EXCLUDED.amount,
+            date = EXCLUDED.date,
+            status = EXCLUDED.status,
+            source = EXCLUDED.source,
+            fedapay_ref = EXCLUDED.fedapay_ref,
+            data = EXCLUDED.data`,
+          [
+            String(s.id),
+            s.reference || String(s.id),
+            s.voucher || s.username || '',
+            parseInt(s.amount || s.price || 0) || 0,
+            s.plan || s.profile || '',
+            s.profile || '',
+            s.mode || '',
+            s.phone || '',
+            isNaN(d.getTime()) ? new Date() : d,
+            s.source || 'router_script',
+            s.status || 'SUCCESS',
+            s.comment || '',
+            s.fedapayRef || s.fedapay_ref || null,
+            s.ip || '',
+            s.mac || '',
+            s.duration || '',
+            JSON.stringify(s)
+          ]
+        );
+      }
+
+      const total = sales.reduce((sum, s) => sum + (parseInt(s.amount || 0) || 0), 0);
+      console.log(`[PostgreSQL] ✅ Sales synchronisées : ${sales.length} ventes, ${total} FCFA.`);
+      isPostgresConnected = true;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    isPostgresConnected = false;
+    console.warn('[PostgreSQL replaceSales Fail]:', err.message);
+  }
+}
+
 // Écriture : mise à jour mémoire + réplica local + persistance PostgreSQL
 function writeDb(data) {
   cachedDb = data;
@@ -2735,6 +2807,12 @@ async function fetchAndSyncRouterScripts(force = false) {
   // Les pendingFedaPay non encore associés ne sont PAS dans db.sales
   db.sales = currentRouterTxs;
   writeDb(db);
+
+  // Synchronisation COMPLÈTE PostgreSQL : purge des ventes stales + upsert des vraies ventes
+  // Garantit que PG reflète exactement les scripts MikroTik après chaque sync
+  replaceSalesInPostgres(currentRouterTxs).catch(err =>
+    console.warn('[PostgreSQL replaceSales Warn]:', err.message)
+  );
 
   currentRouterTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const totalRevenue = currentRouterTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
