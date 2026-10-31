@@ -166,6 +166,25 @@ function verifyPassword(plaintext, stored) {
   return crypto.timingSafeEqual(Buffer.from(derived, 'hex'), Buffer.from(hash, 'hex'));
 }
 
+// ============================================================
+// SERVER-SENT EVENTS (SSE) - POOL CLIENTS & BROADCASTER
+// ============================================================
+const sseClients = new Map(); // clientId (string) -> { res, timer, ip, connectedAt }
+
+function broadcastSSE(event, data = {}) {
+  if (sseClients.size === 0) return;
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const [clientId, client] of sseClients.entries()) {
+    try {
+      client.res.write(payload);
+    } catch (err) {
+      clearInterval(client.timer);
+      try { client.res.end(); } catch {}
+      sseClients.delete(clientId);
+    }
+  }
+}
+
 // --- PostgreSQL Connection Pool (AlwaysData 2mc_wifi) ---
 const pgPool = new Pool({
   host: process.env.PG_HOST || 'postgresql-2mc.alwaysdata.net',
@@ -1236,6 +1255,73 @@ app.post('/api/auth/change-password', requireAuth, (req, res) => {
   res.json({ success: true, message: 'Mot de passe administrateur mis à jour avec succès' });
 });
 
+// ============================================================
+// SERVER-SENT EVENTS (SSE) - FLUX TEMPS RÉEL DASHBOARD
+// ============================================================
+app.get('/api/sse/stream', (req, res, next) => {
+  const token = req.query.token || (req.headers['authorization']?.startsWith('Bearer ') ? req.headers['authorization'].substring(7) : null);
+  const db = readDb();
+  const validSecret = db.settings?.pollSecretToken || 'mcwifi_secret_token_2026';
+  if (isTokenValid(token) || (token && token === validSecret)) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Non autorisé. Veuillez vous connecter à l\'administration.' });
+}, (req, res) => {
+  // Headers conformes pour streaming HTTP SSE + désactivation buffering Nginx AlwaysData
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+    'Access-Control-Allow-Origin': '*'
+  });
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+
+  const clientId = `sse_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  // Heartbeat comment toutes les 20 secondes pour empêcher tout timeout reverse-proxy
+  const timer = setInterval(() => {
+    try {
+      res.write(':keepalive\n\n');
+    } catch {
+      clearInterval(timer);
+      sseClients.delete(clientId);
+    }
+  }, 20000);
+
+  sseClients.set(clientId, { res, timer, ip: req.ip, connectedAt: Date.now() });
+
+  // Événement d'initialisation immédiat envoyé au client
+  try {
+    const db = readDb();
+    const currentSales = db.sales || [];
+    const totalRev = currentSales.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
+    res.write(`event: init\ndata: ${JSON.stringify({
+      status: 'connected',
+      clientId,
+      salesCount: currentSales.length,
+      totalRevenue: totalRev,
+      activeWatchers: typeof activeWatchers !== 'undefined' ? activeWatchers.size : 0,
+      timestamp: Date.now()
+    })}\n\n`);
+  } catch (err) {
+    console.warn('[SSE Init Warning]:', err.message);
+  }
+
+  // Nettoyage lors de la fermeture de la connexion ou erreur réseau
+  req.on('close', () => {
+    clearInterval(timer);
+    sseClients.delete(clientId);
+  });
+
+  req.on('error', () => {
+    clearInterval(timer);
+    sseClients.delete(clientId);
+  });
+});
+
 // --- PROTECTED ADMIN API ROUTES ---
 
 // Router Status & Resources
@@ -1555,6 +1641,7 @@ app.delete('/api/router/active/:id', requireAuth, async (req, res) => {
   // REST API: DELETE /ip/hotspot/active/*1
   // Native API: /ip/hotspot/active/remove with =.id=*1
   const result = await callRouterOS(`/ip/hotspot/active/${decodedId}`, 'DELETE', { '.id': decodedId });
+  broadcastSSE('session_disconnected', { id: decodedId });
   res.json({ success: true, message: 'Session déconnectée avec succès' });
 });
 
@@ -1994,6 +2081,9 @@ app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
     }).catch(e => console.warn('[Watcher] Erreur démarrage manuel:', e.message));
   }
 
+  // Notifier en direct les dashboards connectés via SSE
+  broadcastSSE('vouchers_generated', { count: created.length, profile });
+
   res.json({ success: true, vouchers: created, count: created.length });
 });
 
@@ -2130,6 +2220,13 @@ async function processFedaPayApproval(transaction, db) {
   watchVoucherConnection(voucherCode, pendingEntry).catch(e =>
     console.warn('[Watcher] Erreur démarrage:', e.message)
   );
+
+  // Notification SSE temps réel vers les dashboards connectés
+  broadcastSSE('fedapay_approved', {
+    voucher: voucherCode,
+    plan,
+    amount
+  });
 
   return { voucher: voucherCode, plan };
 }
@@ -2686,6 +2783,13 @@ async function onVoucherConnected(voucherCode, db, pendingEntry, source, parsedS
 
   const totalRevenue = db.sales.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
 
+  // Diffusion temps réel SSE vers tous les tableaux de bord connectés
+  broadcastSSE('sale', {
+    sale: saleEntry,
+    totalRevenue,
+    message: `Nouveau client connecté : +${amount} FCFA (${plan})`
+  });
+
   // Notification Push immédiate avec le nouveau solde
   sendSalePushNotification({
     title: `🎉 Client connecté ! +${amount} FCFA`,
@@ -2818,6 +2922,13 @@ async function fetchAndSyncRouterScripts(force = false) {
   const totalRevenue = currentRouterTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
 
   console.log(`[SyncScripts] ${currentRouterTxs.length} ventes confirmées. Revenu total: ${totalRevenue} FCFA`);
+
+  // Diffusion temps réel SSE de la synchronisation des ventes
+  broadcastSSE('sales_sync', {
+    totalRevenue,
+    totalSales: currentRouterTxs.length,
+    newlyAddedCount: currentRouterTxs.length
+  });
 
   return {
     transactions: currentRouterTxs,
@@ -3068,6 +3179,7 @@ app.get('/api/system/db-status', async (req, res) => {
       memorySalesCount: db.sales?.length || 0,
       vouchersCount: db.vouchers?.length || 0,
       pendingFedaPayCount: db.pendingFedaPay?.length || 0,
+      sseClientsCount: sseClients.size,
       timestamp: new Date().toISOString()
     });
   } catch (err) {

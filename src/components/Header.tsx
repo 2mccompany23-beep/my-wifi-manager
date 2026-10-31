@@ -8,9 +8,10 @@ interface HeaderProps {
   setActiveTab: (tab: string) => void;
   onRefresh: () => void;
   onLogout?: () => void;
+  isLiveConnected?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActiveTab, onRefresh, onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActiveTab, onRefresh, onLogout, isLiveConnected }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -81,6 +82,21 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
             </div>
           )}
 
+          {isLiveConnected ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold text-xs shadow-sm" title="Synchronisation temps réel SSE active">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Live</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 text-xs font-medium" title="Mode de synchronisation périodique">
+              <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span>Sync 30s</span>
+            </div>
+          )}
+
           <button
             onClick={onRefresh}
             className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
@@ -112,6 +128,13 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
 
         {/* Mobile Header Actions */}
         <div className="flex items-center gap-2 lg:hidden">
+          {isLiveConnected && (
+            <div className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[10px] flex items-center gap-1 shadow-sm" title="Live SSE Actif">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>LIVE</span>
+            </div>
+          )}
+
           {/* Quick status dot */}
           <div className={`px-2.5 py-1 rounded-full border text-[11px] font-semibold flex items-center gap-1.5 ${
             routerStatus?.pollingActive

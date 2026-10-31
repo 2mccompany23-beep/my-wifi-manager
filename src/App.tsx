@@ -23,6 +23,7 @@ export function App() {
   const [sales, setSales] = useState<SaleTransaction[]>([]);
   const [vouchers, setVouchers] = useState<VoucherItem[]>([]);
   const [totalRevenue, setTotalRevenue] = useState<number>(0);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
@@ -121,11 +122,106 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (authToken) {
-      fetchAllData();
-      const interval = setInterval(fetchAllData, 30000);
-      return () => clearInterval(interval);
+    if (!authToken) {
+      setIsLiveConnected(false);
+      return;
     }
+
+    // Chargement initial
+    fetchAllData();
+
+    // Écouteur Server-Sent Events (SSE) temps réel
+    let es: EventSource | null = null;
+    let reconnectTimer: any = null;
+
+    const initSSE = () => {
+      try {
+        es = new EventSource(`/api/sse/stream?token=${encodeURIComponent(authToken)}`);
+
+        es.addEventListener('open', () => {
+          setIsLiveConnected(true);
+        });
+
+        es.addEventListener('init', () => {
+          setIsLiveConnected(true);
+        });
+
+        // Nouvelle vente détectée (connexion d'un voucher ou paiement validé)
+        es.addEventListener('sale', (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.sale) {
+              setSales((prev) => {
+                const filtered = prev.filter((s) => s.id !== data.sale.id && s.voucher !== data.sale.voucher);
+                return [data.sale, ...filtered];
+              });
+            }
+            if (data.totalRevenue !== undefined) {
+              setTotalRevenue(data.totalRevenue);
+            }
+          } catch (err) {
+            console.warn('[SSE sale parse error]:', err);
+          }
+        });
+
+        // Synchronisation des ventes MikroTik complétée
+        es.addEventListener('sales_sync', (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.totalRevenue !== undefined) {
+              setTotalRevenue(data.totalRevenue);
+            }
+          } catch {}
+          // Rafraîchir silencieusement l'ensemble des données
+          fetchAllData(false);
+        });
+
+        // Nouveaux vouchers créés
+        es.addEventListener('vouchers_generated', () => {
+          fetchAllData(false);
+        });
+
+        // Paiement FedaPay approuvé
+        es.addEventListener('fedapay_approved', () => {
+          fetchAllData(false);
+        });
+
+        // Session active déconnectée
+        es.addEventListener('session_disconnected', (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.id) {
+              setActiveSessions((prev) => prev.filter((s: any) => s['.id'] !== data.id && s.id !== data.id));
+            }
+          } catch {}
+        });
+
+        es.onerror = () => {
+          setIsLiveConnected(false);
+          if (es && es.readyState === EventSource.CLOSED) {
+            es.close();
+            reconnectTimer = setTimeout(initSSE, 5000);
+          }
+        };
+      } catch (err) {
+        console.warn('[SSE connection exception]:', err);
+        setIsLiveConnected(false);
+      }
+    };
+
+    initSSE();
+
+    // Fallback de sécurité : synchronisation automatique toutes les 30s
+    const interval = setInterval(fetchAllData, 30000);
+
+    return () => {
+      clearInterval(interval);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (es) {
+        es.close();
+      }
+      setIsLiveConnected(false);
+    };
   }, [authToken]);
 
   // Gatekeeper: If not logged in, render the secure AdminLogin screen!
@@ -153,6 +249,7 @@ export function App() {
         }}
         onRefresh={handleManualRefresh}
         onLogout={handleLogout}
+        isLiveConnected={isLiveConnected}
       />
 
       {/* Main Content View Container */}
