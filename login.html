@@ -956,7 +956,7 @@
             } catch(e) {}
             var m = t.match(/[?&](?:voucher|username|code)=([^&#]+)/i);
             if (m && m[1]) return decodeURIComponent(m[1]).trim();
-            if (/^[a-zA-Z0-9_-.]{3,32}$/.test(t)) {
+            if (/^[a-zA-Z0-9_\-.]{3,32}$/.test(t)) {
                 return t;
             }
             return t;
@@ -1386,7 +1386,7 @@
                 simpleForm.addEventListener('submit', function(e) {
                     e.preventDefault();
                     var code = document.getElementById('simple-code').value.trim();
-                    if (!code) { alert('Veuillez entrer votre code d'accès'); return; }
+                    if (!code) { alert("Veuillez entrer votre code d'accès"); return; }
                     submitMikrotikLogin({ username: code, password: code });
                 });
             }
