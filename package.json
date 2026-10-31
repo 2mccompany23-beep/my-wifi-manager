@@ -8,6 +8,7 @@
     "dev:server": "node server.js",
     "build": "tsc && vite build",
     "deploy": "node deploy.js",
+    "upload:router": "node scripts/upload-to-router.cjs",
     "preview": "vite preview",
     "start": "node server.js"
   },
