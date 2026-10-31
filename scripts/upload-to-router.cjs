@@ -79,3 +79,4 @@ try {
   console.error('Assurez-vous que votre PC est connecté au Wi-Fi du routeur et que le service FTP (port 21) est actif.\n');
   process.exit(1);
 }
+
