@@ -43,20 +43,37 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// --- CORS restreint aux origines connues ---
+// --- CORS restreint aux origines connues + portail captif MikroTik ---
 const allowedOrigins = [
-  'https://2mc.alwaysdata.net',      // URL de production principale
+  'https://2mc.alwaysdata.net',      // URL de production principale AlwaysData
   'https://ssh-2mc.alwaysdata.net',  // URL SSH AlwaysData
-  'https://mcwifi.net',              // Domaine custom
+  'https://mcwifi.net',              // Domaine custom Hotspot HTTPS
+  'http://mcwifi.net',               // Domaine custom Hotspot HTTP (routeur MikroTik)
   'http://localhost:5173',           // Dev Vite
   'http://localhost:5000'            // Dev serveur
 ];
+
+// Helper pour vérifier si l'origine est autorisée (inclut IPs privées du hotspot MikroTik)
+function isOriginAllowed(origin) {
+  if (!origin) return true; // Same-origin, cURL, webhooks, requêtes directes
+  if (allowedOrigins.includes(origin)) return true;
+  // Autoriser toutes les IPs locales / privées (Hotspot MikroTik : 10.x.x.x, 192.168.x.x, 172.16-31.x.x)
+  if (/^https?:\/\/(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(origin)) {
+    return true;
+  }
+  // Autoriser tout sous-domaine de mcwifi.net ou 2mc.alwaysdata.net
+  if (/^https?:\/\/([a-z0-9-]+\.)*(mcwifi\.net|alwaysdata\.net)(:\d+)?$/i.test(origin)) {
+    return true;
+  }
+  return false;
+}
+
 app.use(cors({
   origin: (origin, cb) => {
-    // Pas d'origin = requête same-origin (static assets, curl, etc.) → OK
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    if (isOriginAllowed(origin)) return cb(null, true);
     console.warn(`[CORS] Origine bloquée: ${origin}`);
-    cb(new Error('Origine CORS non autorisée'));
+    // Renvoyer false sans exception 500
+    cb(null, false);
   },
   credentials: true
 }));
@@ -1805,7 +1822,13 @@ async function runSyncSalesJob(jobId, force = true) {
       currentStep: 'Connexion au routeur MikroTik et lecture des scripts Mikhmon...'
     });
 
-    const result = await fetchAndSyncRouterScripts(force);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Délai d\'attente dépassé (le routeur MikroTik met trop de temps)')), 20000)
+    );
+    const result = await Promise.race([
+      fetchAndSyncRouterScripts(force),
+      timeoutPromise
+    ]);
 
     updateJob(jobId, {
       current: 85,
@@ -1824,6 +1847,7 @@ async function runSyncSalesJob(jobId, force = true) {
     console.error(`[SyncSales Job] Erreur job ${jobId}:`, err);
     updateJob(jobId, {
       status: 'failed',
+      progress: 100,
       error: `Erreur de synchronisation: ${err.message}`
     });
   }
@@ -1833,10 +1857,24 @@ async function runSyncSalesJob(jobId, force = true) {
 app.get('/api/jobs/active', requireAuth, (req, res) => {
   const now = Date.now();
   for (const job of backgroundJobs.values()) {
-    if (job.status === 'running') return res.json({ active: true, job });
-    if (now - job.updatedAt < 12000) return res.json({ active: true, job });
+    if (job.status === 'running') {
+      // Sécurité : si un job tourne depuis plus de 25s, le marquer échoué
+      if (now - (job.updatedAt || job.createdAt) > 25000) {
+        job.status = 'failed';
+        job.error = 'Délai d\'attente dépassé (timeout routeur)';
+        continue;
+      }
+      return res.json({ active: true, job });
+    }
+    if (now - job.updatedAt < 5000) return res.json({ active: true, job });
   }
   return res.json({ active: false, job: null });
+});
+
+// Endpoint pour purger immédiatement tous les jobs bloqués
+app.all('/api/jobs/clear', requireAuth, (req, res) => {
+  backgroundJobs.clear();
+  return res.json({ success: true, message: 'Toutes les tâches d\'arrière-plan ont été réinitialisées.' });
 });
 
 app.get('/api/jobs/:id', requireAuth, (req, res) => {
@@ -2231,20 +2269,33 @@ async function processFedaPayApproval(transaction, db) {
   return { voucher: voucherCode, plan };
 }
 
+// Options CORS pre-flight pour les endpoints clients
+app.options(['/www/get_voucher.php', '/get_voucher.php', '/api/fedapay/voucher'], (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  return res.sendStatus(204);
+});
+
 // FedaPay / Polling get_voucher.php endpoint for login.html (PUBLIC FOR CLIENTS)
 // DOUBLE VÉRIFICATION: Vérifie d'abord en local, puis directement auprès de l'API FedaPay si le webhook n'est pas encore arrivé
 app.get(['/www/get_voucher.php', '/get_voucher.php', '/api/fedapay/voucher'], async (req, res) => {
+  // En-têtes CORS permissifs : indispensable pour les téléphones connectés au portail captif HTTP (mcwifi.net / 10.14.26.1)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+
   const { reference } = req.query;
-  console.log(`[get_voucher] Vérification référence: ${reference}`);
+  console.log(`[get_voucher] Vérification référence: ${reference} (IP: ${req.ip})`);
 
   if (!reference || typeof reference !== 'string' || reference.length > 100) {
     return res.status(400).json({ error: 'Référence manquante ou invalide' });
   }
 
   const db = readDb();
-  // 1. Cherche dans les ventes locales existantes
   const cleanRef = reference.trim();
-  // Chercher d'abord dans les ventes confirmées (script MikroTik validé)
+
+  // 1. Chercher d'abord dans les ventes confirmées (script MikroTik validé)
   const existingSale = (db.sales || []).find(s =>
     String(s.reference || '').trim() === cleanRef ||
     String(s.id || '').trim() === cleanRef ||
@@ -2253,30 +2304,45 @@ app.get(['/www/get_voucher.php', '/get_voucher.php', '/api/fedapay/voucher'], as
   );
 
   if (existingSale && existingSale.voucher) {
+    console.log(`[get_voucher] ✅ Trouvé dans sales: ${existingSale.voucher}`);
     return res.json({ voucher: existingSale.voucher, plan: existingSale.plan || '24h' });
   }
 
-  // Chercher dans pendingFedaPay (paiement reçu, client pas encore connecté)
+  // 2. Chercher dans pendingFedaPay (paiement reçu/webhook traité, client pas encore connecté)
   const pendingEntry = (db.pendingFedaPay || []).find(s =>
     String(s.reference || '').trim() === cleanRef ||
     String(s.id || '').trim() === cleanRef ||
-    String(s.voucher || '').trim() === cleanRef
+    String(s.voucher || '').trim() === cleanRef ||
+    (s.fedapayRef && String(s.fedapayRef).trim() === cleanRef)
   );
 
   if (pendingEntry && pendingEntry.voucher) {
+    console.log(`[get_voucher] ✅ Trouvé dans pendingFedaPay: ${pendingEntry.voucher}`);
     return res.json({ voucher: pendingEntry.voucher, plan: pendingEntry.plan || '24h' });
   }
-  // 2. Si pas trouvé en base locale, interrogation DIRECTE et temps réel de l'API FedaPay
+
+  // 3. Chercher dans vouchers générés récents
+  const existingVoucher = (db.vouchers || []).find(v =>
+    (v.fedapayRef && String(v.fedapayRef).trim() === cleanRef) ||
+    String(v.code || '').trim() === cleanRef
+  );
+
+  if (existingVoucher && existingVoucher.code) {
+    console.log(`[get_voucher] ✅ Trouvé dans vouchers: ${existingVoucher.code}`);
+    return res.json({ voucher: existingVoucher.code, plan: existingVoucher.profile || '24h' });
+  }
+
+  // 4. Si pas trouvé en base locale, interrogation DIRECTE et temps réel de l'API FedaPay
   const secretKey = db.settings?.fedapaySecretKey;
   if (secretKey) {
     try {
       const fedapayTx = await verifyFedaPayTransaction(cleanRef, secretKey);
       if (fedapayTx && (fedapayTx.status === 'approved' || fedapayTx.status === 'transferred')) {
-        console.log(`[get_voucher] ✅ Paiement vérifié avec succès auprès de l'API FedaPay pour ${cleanRef}`);
+        console.log(`[get_voucher] ✅ Paiement vérifié en direct auprès de l'API FedaPay pour ${cleanRef}`);
         const result = await processFedaPayApproval(fedapayTx, db);
         return res.json({ voucher: result.voucher, plan: result.plan });
       } else if (fedapayTx) {
-        console.log(`[get_voucher] Transaction FedaPay ${cleanRef} statut actuel: ${fedapayTx.status}`);
+        console.log(`[get_voucher] Transaction FedaPay ${cleanRef} en cours (statut: ${fedapayTx.status})`);
       }
     } catch (e) {
       console.warn(`[get_voucher] Erreur vérification API FedaPay:`, e.message);

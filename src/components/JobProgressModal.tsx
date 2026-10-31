@@ -81,9 +81,9 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({ jobId, onCom
       checkJob(jobId);
       pollIntervalRef.current = setInterval(() => checkJob(jobId), 750);
     } else {
-      // Vérifier au montage si un job est en cours
-      checkJob(null);
-      pollIntervalRef.current = setInterval(() => checkJob(null), 1500);
+      // Si aucun jobId explicite, ne jamais afficher de modal bloquant l'écran
+      setVisible(false);
+      setJob(null);
     }
 
     return () => {
@@ -105,7 +105,10 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({ jobId, onCom
   const isRunning = job.status === 'running';
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-200">
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-200"
+    >
       <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-indigo-500/30 shadow-2xl max-w-md w-full bg-slate-900/95 relative overflow-hidden space-y-6">
         
         {/* Lueur d'arrière-plan animée */}
@@ -116,15 +119,14 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({ jobId, onCom
           isCompleted ? 'bg-teal-500/20' : isFailed ? 'bg-red-500/20' : 'bg-purple-500/25 animate-pulse'
         }`}></div>
 
-        {/* Bouton fermeture si terminé ou échoué */}
-        {(isCompleted || isFailed) && (
-          <button
-            onClick={handleClose}
-            className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800/60 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
+        {/* Bouton fermeture TOUJOURS disponible (ne bloque jamais l'utilisateur) */}
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-white p-1.5 rounded-full hover:bg-slate-800/80 transition-colors cursor-pointer"
+          title="Fermer ou continuer en arrière-plan"
+        >
+          <X className="w-5 h-5" />
+        </button>
 
         {/* Icône d'état */}
         <div className="flex items-center justify-center">
@@ -193,9 +195,18 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({ jobId, onCom
         {/* Badge d'avertissement tâche de fond */}
         <div className="flex items-center justify-center pt-1">
           {isRunning && (
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[11px] font-medium">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-              <span>Tâche de fond active — Ne fermez pas l'application</span>
+            <div className="flex flex-col items-center gap-2.5">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[11px] font-medium">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                <span>Tâche de fond active</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="text-xs text-slate-400 hover:text-indigo-400 underline transition-colors cursor-pointer py-1"
+              >
+                Continuer à utiliser l'application en arrière-plan
+              </button>
             </div>
           )}
 
