@@ -738,6 +738,12 @@
                     <button type="submit" class="btn">Se connecter</button>
                 </form>
 
+                <div class="recovery-section text-center my-3">
+                    <button type="button" id="btn-recover-ticket" class="btn btn-sm w-100" style="border-radius:50px; font-size:13px; padding:10px 14px; font-weight:600; border: 1.5px dashed #4361ee; color: #4361ee; background: #f0f4ff; transition: all 0.2s ease;">
+                        <i class="fas fa-receipt"></i> Déjà payé par Mobile Money ? Récupérer mon ticket
+                    </button>
+                </div>
+
                 <div class="divider">
                     <span>OU</span>
                 </div>
@@ -986,32 +992,104 @@
         </div>
     </div>
 
-    <!-- Spinner caché au départ -->
+    <!-- Spinner de vérification enrichi -->
     <div id="loadingSpinner" class="d-none justify-content-center align-items-center"
-        style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1050;">
-        <div class="spinner-border text-light" role="status" style="width:5rem; height:5rem;">
-            <span class="visually-hidden">Chargement...</span>
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.85); backdrop-filter:blur(6px); z-index:1050; padding:20px;">
+        <div class="text-center text-white" style="max-width: 420px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; padding: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+            <div class="spinner-border text-primary mb-3" role="status" style="width:4.5rem; height:4.5rem; border-width: 0.35em;">
+                <span class="visually-hidden">Chargement...</span>
+            </div>
+            <h4 class="fw-bold mb-2 text-white">Vérification de votre paiement</h4>
+            <p id="spinnerText" class="text-white-50 mb-3" style="font-size: 14px; line-height: 1.5;">
+                Veuillez valider le débit sur votre téléphone Mobile Money (MTN / MoMo).<br>
+                Nous vérifions la confirmation de l'opérateur...
+            </p>
+            <div id="spinnerRefBadge" class="badge bg-dark bg-opacity-50 text-warning px-3 py-2 mb-3 text-truncate d-block" style="font-family: monospace; font-size: 13px;">
+                Réf: <span id="spinnerRefText">En attente...</span>
+            </div>
+            <div class="text-white-50 small mb-3" id="spinnerTimerText">
+                Temps écoulé : <strong id="spinnerElapsedSec" class="text-white">0s</strong>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-light px-3" id="btn-cancel-spinner" style="border-radius: 50px;">
+                Masquer la fenêtre (la vérification continue)
+            </button>
         </div>
     </div>
 
-    <!-- Modal voucher -->
-    <div class="modal fade" id="voucherModal" tabindex="-1" aria-labelledby="voucherModalLabel" aria-hidden="true">
+    <!-- Modal Voucher Prêt Amélioré -->
+    <div class="modal fade" id="voucherModal" tabindex="-1" aria-labelledby="voucherModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content text-dark">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="voucherModalLabel">✅ Voucher prêt</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+                <div class="modal-header bg-success text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold" id="voucherModalLabel">
+                        <i class="fas fa-check-circle me-2"></i>Paiement Confirmé !
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
                 </div>
-                <div class="modal-body">
-                    <p>Votre code voucher :</p>
-                    <h3 id="voucherCode" class="text-center"></h3>
-                    <button class="btn btn-outline-primary w-100 mb-2" id="copyVoucherBtn">📋 Copier le code</button>
+                <div class="modal-body text-center p-4">
+                    <p class="text-muted mb-2">Votre code d'accès WiFi Hotspot est prêt :</p>
+                    
+                    <div class="p-3 my-3 bg-light rounded-3 border" style="background: #f8fafc; border: 2px dashed #4361ee !important;">
+                        <span class="d-block text-muted small mb-1 fw-bold text-uppercase">Code Voucher Unique</span>
+                        <h2 id="voucherCode" class="fw-bold text-primary m-0" style="letter-spacing: 4px; font-family: monospace; font-size: 32px;">--------</h2>
+                    </div>
+
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-outline-primary flex-grow-1 py-2 fw-semibold" id="copyVoucherBtn" style="border-radius: 12px;">
+                            <i class="fas fa-copy me-1"></i> Copier le code
+                        </button>
+                    </div>
+
+                    <div id="autoConnectNotice" class="alert alert-info py-2 px-3 small d-flex align-items-center justify-content-between mb-0" style="border-radius: 10px;">
+                        <span><i class="fas fa-wifi me-1"></i> Connexion auto dans <strong id="autoConnectSec">5</strong>s...</span>
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 text-danger fw-bold" id="cancelAutoConnectBtn">Annuler</button>
+                    </div>
                 </div>
-                <div class="modal-footer">
-                    <a href="#" id="connectBtn" class="btn btn-success w-100">Se connecter au portail</a>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="button" id="connectBtn" class="btn btn-success w-100 py-3 fw-bold fs-6 shadow-sm" style="border-radius: 14px;">
+                        <i class="fas fa-bolt me-2"></i>Se connecter à Internet maintenant
+                    </button>
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Modal Récupération Ticket Déjà Payé -->
+    <div class="modal fade" id="recoverModal" tabindex="-1" aria-labelledby="recoverModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="recoverModalLabel">
+                        <i class="fas fa-search me-2 text-primary"></i>Retrouver mon ticket payé
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">
+                        Si votre compte Mobile Money a été débité mais que vous n'avez pas vu le code, entrez la référence de transaction ou vérifiez votre dernier achat :
+                    </p>
+                    
+                    <div id="recoverLastTxBox" class="p-3 mb-3 bg-light rounded-3 border d-none">
+                        <span class="d-block small text-muted fw-bold">Dernière transaction détectée sur ce téléphone :</span>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span id="recoverLastRefText" class="fw-bold font-monospace small text-primary text-truncate me-2">trx_...</span>
+                            <button type="button" class="btn btn-sm btn-primary px-3" id="btn-check-last-tx">Vérifier</button>
+                        </div>
+                    </div>
+
+                    <form id="recover-form">
+                        <div class="form-group mb-3">
+                            <label for="recover-ref-input" class="form-label small fw-bold">Référence de transaction FedaPay (ex: trx_...)</label>
+                            <input type="text" id="recover-ref-input" class="form-control" placeholder="Entrez trx_... ou l'ID reçu par SMS" required style="border-radius: 10px;">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" style="border-radius: 10px;">
+                            <i class="fas fa-sync-alt me-1"></i> Rechercher et débloquer mon code
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
     </div>
 
     <script>
@@ -1349,11 +1427,60 @@
                 ? '/www/get_voucher.php'
                 : 'https://2mc.alwaysdata.net/www/get_voucher.php',
             MIKROTIK_LOGIN_URL: 'http://mcwifi.net/login',
-            VOUCHER_POLL_INTERVAL: 1000,
-            VOUCHER_POLL_TIMEOUT: 60000
+            VOUCHER_POLL_INTERVAL: 2500, // 2.5 secondes pour éviter le rate-limiting FedaPay
+            VOUCHER_POLL_TIMEOUT: 180000  // 3 minutes (180s) pour couvrir le délai opérateur USSD
         };
 
-        // Fonction de login globale (accessible depuis le QR scanner aussi)
+        // Stockage persistant de secours pour résister aux rechargements / sorties de veille
+        const STORAGE_KEY_PENDING = '2mc_pending_feda_tx';
+        const STORAGE_KEY_LAST = '2mc_last_voucher';
+
+        function savePendingTransaction(ref, plan) {
+            try {
+                localStorage.setItem(STORAGE_KEY_PENDING, JSON.stringify({
+                    reference: ref,
+                    plan: plan || '24h',
+                    startedAt: Date.now()
+                }));
+            } catch(e) {}
+        }
+
+        function getPendingTransaction() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY_PENDING);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                // Valide seulement si moins de 15 minutes
+                if (Date.now() - parsed.startedAt < 15 * 60 * 1000) {
+                    return parsed;
+                }
+                localStorage.removeItem(STORAGE_KEY_PENDING);
+            } catch(e) {}
+            return null;
+        }
+
+        function clearPendingTransaction() {
+            try { localStorage.removeItem(STORAGE_KEY_PENDING); } catch(e) {}
+        }
+
+        function saveLastVoucher(code, plan) {
+            try {
+                localStorage.setItem(STORAGE_KEY_LAST, JSON.stringify({
+                    code: code,
+                    plan: plan || '24h',
+                    date: new Date().toISOString()
+                }));
+            } catch(e) {}
+        }
+
+        function getLastVoucher() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY_LAST);
+                return raw ? JSON.parse(raw) : null;
+            } catch(e) { return null; }
+        }
+
+        // Fonction de login globale vers MikroTik
         function submitMikrotikLogin(params) {
             var hotspotUrl = CONFIG.MIKROTIK_LOGIN_URL;
             var queryString = Object.keys(params)
@@ -1370,28 +1497,22 @@
                     const inner = document.createElement('div');
                     inner.className = 'card-inner';
 
-                    // Tout le contenu actuel devient card-front
                     const front = document.createElement('div');
                     front.className = 'card-front';
                     while (card.firstChild) {
                         front.appendChild(card.firstChild);
                     }
 
-                    // Création de la face arrière avec le message MOMO
                     const back = document.createElement('div');
                     back.className = 'card-back';
-                    back.innerHTML = `<div style="font-family: Arial, sans-serif; text-align: center; padding: 5px; line-height: 1.3; 
-            max-height: 100%; overflow-y: auto; box-sizing: border-box;">
+                    back.innerHTML = `<div style="font-family: Arial, sans-serif; text-align: center; padding: 5px; line-height: 1.3; max-height: 100%; overflow-y: auto; box-sizing: border-box;">
   <h4 style="color: #2E86C1; font-size: 1.5em; margin: 10px 0;">Paiement Mobile Money bientôt disponible !</h4>
   <p style="font-size: 0.95em; margin: 10px 0;">Pour le moment, vous pouvez :</p>
   <ul style="list-style-type: none; padding: 0; font-size: 0.95em; margin: 0;">
-    <li>📍 Retirer votre ticket physique au Carrefour après l'école (en quittant le goudron)</li>
-    <li>📱 Ou nous contacter au <strong>01 44 04 44 114</strong> pour effectuer un dépôt et recevoir votre code</li>
+    <li>📍 Retirer votre ticket physique au Carrefour après l'école</li>
+    <li>📱 Ou nous contacter au <strong>01 44 04 44 114</strong></li>
   </ul>
-  <p style="margin-top: 15px; font-style: italic; font-size: 0.9em;">Merci de votre compréhension et de votre patience !</p>
-</div>
-
-            `;
+</div>`;
 
                     inner.appendChild(front);
                     inner.appendChild(back);
@@ -1403,9 +1524,73 @@
         document.addEventListener('DOMContentLoaded', function() {
             var currentReference = null;
             var voucherInterval = null;
+            var autoConnectTimer = null;
+            var timerInterval = null;
+
             setupCards();
 
-            // Ajoute le clic pour flip / paiement
+            // Gestion du bouton masquage spinner
+            const cancelSpinnerBtn = document.getElementById('btn-cancel-spinner');
+            if (cancelSpinnerBtn) {
+                cancelSpinnerBtn.addEventListener('click', function() {
+                    const sp = document.getElementById('loadingSpinner');
+                    if (sp) sp.classList.add('d-none');
+                });
+            }
+
+            // Gestion du bouton de récupération de ticket
+            const btnRecover = document.getElementById('btn-recover-ticket');
+            if (btnRecover) {
+                btnRecover.addEventListener('click', function() {
+                    const pending = getPendingTransaction();
+                    const last = getLastVoucher();
+                    const box = document.getElementById('recoverLastTxBox');
+                    const text = document.getElementById('recoverLastRefText');
+                    const checkBtn = document.getElementById('btn-check-last-tx');
+
+                    if (pending && pending.reference) {
+                        box.classList.remove('d-none');
+                        text.textContent = 'En cours: ' + pending.reference;
+                        checkBtn.onclick = function() {
+                            bootstrap.Modal.getInstance(document.getElementById('recoverModal'))?.hide();
+                            startVoucherCheck(pending.plan, pending.reference);
+                        };
+                    } else if (last && last.code) {
+                        box.classList.remove('d-none');
+                        text.textContent = 'Dernier code: ' + last.code.toUpperCase();
+                        checkBtn.textContent = 'Afficher';
+                        checkBtn.onclick = function() {
+                            bootstrap.Modal.getInstance(document.getElementById('recoverModal'))?.hide();
+                            displayVoucher(last.code);
+                        };
+                    } else {
+                        box.classList.add('d-none');
+                    }
+
+                    new bootstrap.Modal(document.getElementById('recoverModal')).show();
+                });
+            }
+
+            // Formulaire modal de recherche manuelle
+            const recoverForm = document.getElementById('recover-form');
+            if (recoverForm) {
+                recoverForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const ref = document.getElementById('recover-ref-input').value.trim();
+                    if (!ref) return;
+                    bootstrap.Modal.getInstance(document.getElementById('recoverModal'))?.hide();
+                    startVoucherCheck('24h', ref);
+                });
+            }
+
+            // Reprise automatique si un paiement récent était en cours
+            const savedTx = getPendingTransaction();
+            if (savedTx && savedTx.reference) {
+                console.log('🔄 Reprise automatique de la vérification de paiement:', savedTx.reference);
+                startVoucherCheck(savedTx.plan, savedTx.reference);
+            }
+
+            // Clic sur les cartes de tarifs
             document.querySelectorAll('.pricing-card').forEach(function(card) {
                 card.addEventListener('click', function() {
                     var btn = card.querySelector('.select-plan');
@@ -1439,7 +1624,7 @@
             document.getElementById('simple-form').addEventListener('submit', function(e) {
                 e.preventDefault();
                 var code = document.getElementById('simple-code').value.trim();
-                if (!code) { alert('Veuillez entrer votre code d\'accès'); return; }
+                if (!code) { alert('Veuillez entrer votre code d'accès'); return; }
                 submitMikrotikLogin({ username: code, password: code });
             });
 
@@ -1452,153 +1637,229 @@
                 submitMikrotikLogin({ username: username, password: password });
             });
 
-
-        function initiatePayment(amount, plan) {
-            // Valider le montant
-            if (!amount || amount <= 0) {
-                alert('Montant invalide');
-                return;
-            }
-
-            const widget = FedaPay.init({
-                public_key: CONFIG.FEDAPAY_PUBLIC_KEY,
-                transaction: {
-                    amount,
-                    description: `Accès Internet Hotspot ${plan}`,
-                    custom_data: {
-                        plan: plan,
-                        timestamp: new Date().toISOString()
-                    }
-                },
-                customer: {
-                    email: new Date().getTime() + '@client.local',
-                    lastname: 'Client WiFi'
-                },
-                onComplete: function(response) {
-                    console.log('Payment response:', response);
-                    
-                    // Extraire la référence
-                    let ref = null;
-                    if (response?.transaction?.reference) {
-                        ref = response.transaction.reference;
-                    } else if (response?.data?.transaction?.reference) {
-                        ref = response.data.transaction.reference;
-                    } else if (response?.transaction_key) {
-                        ref = response.transaction_key;
-                    } else if (response?.id) {
-                        ref = response.id;
-                    }
-                    
-                    if (ref) {
-                        console.log('✅ Référence trouvée:', ref);
-                        currentReference = ref;
-                        startVoucherCheck(plan);
-                    } else {
-                        console.error('Réponse:', response);
-                        alert('❌ Paiement terminé mais référence introuvable.');
-                    }
-                },
-                onError: function(error) {
-                    console.error('❌ Erreur FedaPay:', error);
-                    alert('❌ Erreur paiement: ' + (error?.message || error));
-                }
-            });
-            widget.open();
-        }
-
-        function startVoucherCheck(plan) {
-            if (!currentReference) {
-                alert('❌ Référence de paiement manquante');
-                return;
-            }
-
-            const spinner = document.getElementById('loadingSpinner');
-            if (spinner) spinner.classList.remove('d-none');
-
-            if (voucherInterval) clearInterval(voucherInterval);
-
-            let attemptCount = 0;
-            const startTime = Date.now();
-
-            console.log(`🔍 Vérification voucher: ${currentReference}`);
-
-            voucherInterval = setInterval(() => {
-                attemptCount++;
-                const elapsed = Date.now() - startTime;
-
-                // Timeout après 60 secondes
-                if (elapsed > CONFIG.VOUCHER_POLL_TIMEOUT) {
-                    clearInterval(voucherInterval);
-                    if (spinner) spinner.classList.add('d-none');
-                    console.error('⏱ Timeout (60s)');
-                    alert('⏱ Délai dépassé.\\nRéférence: ' + currentReference);
+            function initiatePayment(amount, plan) {
+                if (!amount || amount <= 0) {
+                    alert('Montant invalide');
                     return;
                 }
 
-                // Requête au serveur
-                fetch(`${CONFIG.GET_VOUCHER_URL}?reference=${encodeURIComponent(currentReference)}`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                const widget = FedaPay.init({
+                    public_key: CONFIG.FEDAPAY_PUBLIC_KEY,
+                    transaction: {
+                        amount,
+                        description: `Accès Internet Hotspot ${plan}`,
+                        custom_data: {
+                            plan: plan,
+                            timestamp: new Date().toISOString()
+                        }
+                    },
+                    customer: {
+                        email: new Date().getTime() + '@client.local',
+                        lastname: 'Client WiFi'
+                    },
+                    onComplete: function(response) {
+                        console.log('FedaPay onComplete response:', response);
+                        
+                        // Extraction tolérante de la référence ou ID
+                        let ref = null;
+                        if (response?.transaction?.reference) {
+                            ref = response.transaction.reference;
+                        } else if (response?.data?.transaction?.reference) {
+                            ref = response.data.transaction.reference;
+                        } else if (response?.transaction?.id) {
+                            ref = String(response.transaction.id);
+                        } else if (response?.transaction_key) {
+                            ref = response.transaction_key;
+                        } else if (response?.id) {
+                            ref = String(response.id);
+                        } else if (response?.reference) {
+                            ref = response.reference;
+                        }
+                        
+                        if (ref) {
+                            console.log('✅ Référence trouvée:', ref);
+                            savePendingTransaction(ref, plan);
+                            startVoucherCheck(plan, ref);
+                        } else {
+                            // Même en cas de fermeture manuelle, si une référence en attente existe, vérifier
+                            const pending = getPendingTransaction();
+                            if (pending && pending.reference) {
+                                startVoucherCheck(pending.plan, pending.reference);
+                            } else {
+                                console.warn('Paiement terminé ou fermé sans référence explicite.');
+                            }
+                        }
+                    },
+                    onError: function(error) {
+                        console.error('❌ Erreur FedaPay:', error);
+                        alert('❌ Erreur paiement: ' + (error?.message || error));
                     }
-                })
-                    .then(res => {
+                });
+                widget.open();
+            }
+
+            function startVoucherCheck(plan, forcedRef) {
+                const ref = forcedRef || currentReference;
+                if (!ref) {
+                    alert('❌ Référence de paiement manquante');
+                    return;
+                }
+                currentReference = ref;
+                savePendingTransaction(ref, plan);
+
+                const spinner = document.getElementById('loadingSpinner');
+                const spinnerRefText = document.getElementById('spinnerRefText');
+                const spinnerElapsed = document.getElementById('spinnerElapsedSec');
+                if (spinner) spinner.classList.remove('d-none');
+                if (spinnerRefText) spinnerRefText.textContent = ref;
+
+                if (voucherInterval) clearInterval(voucherInterval);
+                if (timerInterval) clearInterval(timerInterval);
+
+                let attemptCount = 0;
+                const startTime = Date.now();
+
+                // Chronomètre d'attente
+                timerInterval = setInterval(() => {
+                    const sec = Math.floor((Date.now() - startTime) / 1000);
+                    if (spinnerElapsed) spinnerElapsed.textContent = sec + 's';
+                }, 1000);
+
+                console.log(`🔍 Vérification voucher pour la référence: ${ref}`);
+
+                const checkEndpoint = async () => {
+                    attemptCount++;
+                    const elapsed = Date.now() - startTime;
+
+                    if (elapsed > CONFIG.VOUCHER_POLL_TIMEOUT) {
+                        clearInterval(voucherInterval);
+                        clearInterval(timerInterval);
+                        if (spinner) spinner.classList.add('d-none');
+                        console.error('⏱ Timeout vérification (180s)');
+                        alert('⏱ Délai de vérification dépassé (3 minutes).\nSi vous avez été débité, utilisez le bouton "Déjà payé ? Récupérer mon ticket" avec votre référence : ' + ref);
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`${CONFIG.GET_VOUCHER_URL}?reference=${encodeURIComponent(ref)}`, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+
                         if (!res.ok) {
                             if (res.status === 404) {
-                                console.log(`⏳ Tentative ${attemptCount}: En attente...`);
-                                return null;
+                                console.log(`⏳ Tentative ${attemptCount} (${Math.floor(elapsed/1000)}s) : En attente d'approbation...`);
+                                return;
                             }
                             throw new Error(`HTTP ${res.status}`);
                         }
-                        return res.json();
-                    })
-                    .then(data => {
-                        if (!data) return;
 
-                        if (data.voucher) {
+                        const data = await res.json();
+                        if (data && data.voucher) {
                             clearInterval(voucherInterval);
+                            clearInterval(timerInterval);
                             if (spinner) spinner.classList.add('d-none');
-                            console.log('✅ Voucher reçu:', data.voucher);
+                            clearPendingTransaction();
+                            saveLastVoucher(data.voucher, data.plan || plan);
+                            console.log('✅ Voucher reçu avec succès:', data.voucher);
                             displayVoucher(data.voucher);
-                        } else if (data.error) {
-                            console.warn('⚠️ Erreur:', data.error);
-                            if (data.error.includes('Aucun')) {
-                                clearInterval(voucherInterval);
-                                if (spinner) spinner.classList.add('d-none');
-                                alert('⚠️ ' + data.error);
-                            }
                         }
-                    })
-                    .catch(err => {
-                        console.error(`❌ Tentative ${attemptCount}:`, err.message);
-                    });
-            }, CONFIG.VOUCHER_POLL_INTERVAL);
-        }
+                    } catch (err) {
+                        console.warn(`⚠️ Tentative ${attemptCount} fetch error:`, err.message);
+                    }
+                };
 
-        function displayVoucher(voucherCode) {
-            // Afficher le voucher
-            document.getElementById('voucherCode').textContent = voucherCode.toUpperCase();
+                // Première vérification immédiate, puis polling régulier
+                checkEndpoint();
+                voucherInterval = setInterval(checkEndpoint, CONFIG.VOUCHER_POLL_INTERVAL);
+            }
 
-            // Bouton copier
-            document.getElementById('copyVoucherBtn').onclick = () => {
-                navigator.clipboard.writeText(voucherCode).then(() => {
-                    const btn = document.getElementById('copyVoucherBtn');
-                    btn.textContent = '✓ Copié !';
-                    setTimeout(() => btn.textContent = '📋 Copier le code', 2000);
-                }).catch(() => alert('Code: ' + voucherCode));
-            };
+            function displayVoucher(voucherCode) {
+                const codeUpper = voucherCode.toUpperCase();
+                
+                // 1. Afficher dans le modal
+                const codeEl = document.getElementById('voucherCode');
+                if (codeEl) codeEl.textContent = codeUpper;
 
-            // Bouton connexion
-            document.getElementById('connectBtn').href =
-                `${CONFIG.MIKROTIK_LOGIN_URL}?username=${encodeURIComponent(voucherCode)}&password=${encodeURIComponent(voucherCode)}`;
+                // 2. Pré-remplir automatiquement le formulaire de la page
+                const simpleCodeInput = document.getElementById('simple-code');
+                if (simpleCodeInput) simpleCodeInput.value = codeUpper;
 
-            // Afficher le modal
-            new bootstrap.Modal(document.getElementById('voucherModal')).show();
-        }
+                // 3. Bouton copier avec fallback compatible HTTP/WebView
+                const copyBtn = document.getElementById('copyVoucherBtn');
+                if (copyBtn) {
+                    copyBtn.onclick = function() {
+                        if (navigator.clipboard && window.isSecureContext) {
+                            navigator.clipboard.writeText(codeUpper).then(() => {
+                                copyBtn.innerHTML = '<i class="fas fa-check text-success me-1"></i> Copié !';
+                                setTimeout(() => copyBtn.innerHTML = '<i class="fas fa-copy me-1"></i> Copier le code', 2000);
+                            }).catch(() => fallbackCopy(codeUpper, copyBtn));
+                        } else {
+                            fallbackCopy(codeUpper, copyBtn);
+                        }
+                    };
+                }
+
+                // 4. Bouton Se connecter
+                const connectBtn = document.getElementById('connectBtn');
+                if (connectBtn) {
+                    connectBtn.onclick = function(e) {
+                        e.preventDefault();
+                        if (autoConnectTimer) clearTimeout(autoConnectTimer);
+                        submitMikrotikLogin({ username: codeUpper, password: codeUpper });
+                    };
+                }
+
+                // 5. Compte à rebours connexion automatique (5 secondes)
+                let countdown = 5;
+                const autoNotice = document.getElementById('autoConnectNotice');
+                const autoSec = document.getElementById('autoConnectSec');
+                const cancelAutoBtn = document.getElementById('cancelAutoConnectBtn');
+                
+                if (autoNotice) autoNotice.classList.remove('d-none');
+                if (autoSec) autoSec.textContent = countdown;
+
+                if (cancelAutoBtn) {
+                    cancelAutoBtn.onclick = function() {
+                        if (autoConnectTimer) clearInterval(autoConnectTimer);
+                        if (autoNotice) autoNotice.classList.add('d-none');
+                    };
+                }
+
+                if (autoConnectTimer) clearInterval(autoConnectTimer);
+                autoConnectTimer = setInterval(function() {
+                    countdown--;
+                    if (autoSec) autoSec.textContent = countdown;
+                    if (countdown <= 0) {
+                        clearInterval(autoConnectTimer);
+                        submitMikrotikLogin({ username: codeUpper, password: codeUpper });
+                    }
+                }, 1000);
+
+                // Afficher le modal
+                new bootstrap.Modal(document.getElementById('voucherModal')).show();
+            }
+
+            function fallbackCopy(text, btn) {
+                try {
+                    const temp = document.createElement('textarea');
+                    temp.value = text;
+                    document.body.appendChild(temp);
+                    temp.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(temp);
+                    if (btn) {
+                        btn.innerHTML = '<i class="fas fa-check text-success me-1"></i> Copié !';
+                        setTimeout(() => btn.innerHTML = '<i class="fas fa-copy me-1"></i> Copier le code', 2000);
+                    }
+                } catch(e) {
+                    alert('Votre code : ' + text);
+                }
+            }
         });
     </script>
-
 </body>
 
 </html>
