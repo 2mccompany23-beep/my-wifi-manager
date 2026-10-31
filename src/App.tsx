@@ -304,6 +304,26 @@ export function App() {
         </div>
       )}
 
+      {/* Demo Mode Notice Banner for Prospects */}
+      {adminUser === 'demo' && (
+        <div className="bg-gradient-to-r from-amber-950/90 via-slate-900 to-indigo-950/90 border-b border-amber-500/30 px-3 sm:px-6 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2 shadow-lg sticky top-0 z-50">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 text-[10px] tracking-wide uppercase">
+              Mode Démo Invité
+            </span>
+            <span className="text-slate-300 text-[11px] sm:text-xs">
+              Vous testez les fonctionnalités 2MC SpotCloud en lecture & simulation sécurisée. Aucune modification n'altère le routeur de production.
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 font-semibold text-[11px] transition-colors cursor-pointer shrink-0"
+          >
+            Quitter la Démo
+          </button>
+        </div>
+      )}
+
       {/* Header Bar */}
       <Header
         routerStatus={routerStatus}

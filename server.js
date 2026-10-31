@@ -130,28 +130,38 @@ const defaultDb = {
 
 // In-memory active auth tokens avec expiration (8h)
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 heures
-const activeSessionTokens = new Map(); // token -> expiresAt
+const activeSessionTokens = new Map(); // token -> { expiresAt, role, username }
 
-function generateAuthToken() {
+function generateAuthToken(metadata = { role: 'admin', username: 'admin' }) {
   const token = 'mauth_' + crypto.randomBytes(32).toString('hex');
-  activeSessionTokens.set(token, Date.now() + SESSION_TTL_MS);
+  activeSessionTokens.set(token, {
+    expiresAt: Date.now() + SESSION_TTL_MS,
+    role: metadata.role || 'admin',
+    username: metadata.username || 'admin'
+  });
   return token;
 }
 
-function isTokenValid(token) {
-  if (!token || !activeSessionTokens.has(token)) return false;
-  const expiresAt = activeSessionTokens.get(token);
+function getSessionData(token) {
+  if (!token || !activeSessionTokens.has(token)) return null;
+  const session = activeSessionTokens.get(token);
+  const expiresAt = typeof session === 'number' ? session : session.expiresAt;
   if (Date.now() > expiresAt) {
     activeSessionTokens.delete(token); // Purge token expiré
-    return false;
+    return null;
   }
-  return true;
+  return typeof session === 'object' ? session : { expiresAt, role: 'admin', username: 'admin' };
+}
+
+function isTokenValid(token) {
+  return getSessionData(token) !== null;
 }
 
 // Purge automatique des tokens expirés toutes les heures
 setInterval(() => {
   const now = Date.now();
-  for (const [token, expiresAt] of activeSessionTokens.entries()) {
+  for (const [token, session] of activeSessionTokens.entries()) {
+    const expiresAt = typeof session === 'number' ? session : session.expiresAt;
     if (now > expiresAt) activeSessionTokens.delete(token);
   }
 }, 60 * 60 * 1000);
@@ -161,7 +171,9 @@ function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : req.query.token;
 
-  if (isTokenValid(token)) {
+  const session = getSessionData(token);
+  if (session) {
+    req.user = session;
     return next();
   }
   return res.status(401).json({ error: 'Non autorisé. Veuillez vous connecter à l\'administration.' });
@@ -1223,10 +1235,18 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   const db = readDb();
   const adminConfig = db.adminAuth || { username: 'admin', password: hashPassword('admin') };
 
+  // 1. Compte Démo / Test Client (Accès sécurisé pour tester l'interface en direct)
+  if (username === 'demo' && (password === 'demo' || password === 'demo2026')) {
+    const token = generateAuthToken({ role: 'demo', username: 'demo' });
+    console.log(`[Auth] Utilisateur Démo Invité connecté avec succès (IP: ${req.ip})`);
+    return res.json({ success: true, token, username: 'demo', role: 'demo' });
+  }
+
+  // 2. Compte Administrateur Principal
   if (username === adminConfig.username && verifyPassword(password, adminConfig.password)) {
-    const token = generateAuthToken();
+    const token = generateAuthToken({ role: 'admin', username: adminConfig.username });
     console.log(`[Auth] Admin connecté avec succès (IP: ${req.ip})`);
-    return res.json({ success: true, token, username: adminConfig.username });
+    return res.json({ success: true, token, username: adminConfig.username, role: 'admin' });
   }
 
   console.warn(`[Auth] Échec de connexion (IP: ${req.ip})`);
@@ -1246,11 +1266,18 @@ app.post('/api/auth/logout', (req, res) => {
 // Verify Token
 app.get('/api/auth/verify', requireAuth, (req, res) => {
   const db = readDb();
-  res.json({ valid: true, username: db.adminAuth?.username || 'admin' });
+  res.json({
+    valid: true,
+    username: req.user?.username || db.adminAuth?.username || 'admin',
+    role: req.user?.role || 'admin'
+  });
 });
 
 // Change Master Admin Password
 app.post('/api/auth/change-password', requireAuth, (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.status(403).json({ error: 'Action désactivée : Le mot de passe ne peut pas être modifié en mode Démo.' });
+  }
   const { currentPassword, newPassword } = req.body;
   const db = readDb();
   const adminConfig = db.adminAuth || { username: 'admin', password: hashPassword('admin') };
@@ -1653,6 +1680,9 @@ app.get('/api/router/active', requireAuth, async (req, res) => {
 
 // Disconnect Active Session (Kill session)
 app.delete('/api/router/active/:id', requireAuth, async (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.json({ success: true, message: 'Session déconnectée avec succès (simulation mode démo)' });
+  }
   const { id } = req.params;
   const decodedId = decodeURIComponent(id);
   console.log(`[RouterOS] Disconnecting session ${decodedId}`);
@@ -1666,6 +1696,9 @@ app.delete('/api/router/active/:id', requireAuth, async (req, res) => {
 
 // Delete Hotspot User
 app.delete('/api/router/users/:id', requireAuth, async (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.json({ success: true, message: 'Utilisateur supprimé avec succès (simulation mode démo)' });
+  }
   const { id } = req.params;
   const decodedId = decodeURIComponent(id);
   console.log(`[RouterOS] Deleting user ${decodedId}`);
@@ -2013,6 +2046,9 @@ app.patch('/api/router/users/:id', requireAuth, async (req, res) => {
 
 // Reset Counters for Existing Hotspot User
 app.post('/api/router/users/:id/reset', requireAuth, async (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.json({ success: true, message: 'Compteurs réinitialisés (simulation mode démo)' });
+  }
   const { id } = req.params;
   const decodedId = decodeURIComponent(id);
   console.log(`[RouterOS] Resetting counters for user ${decodedId}`);
@@ -2037,6 +2073,26 @@ app.post('/api/router/users/:id/reset', requireAuth, async (req, res) => {
 // Generate Batch / Single Vouchers
 app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
   const { prefix = '', length = 8, profile = '100-F-4h', quantity = 1, price = 100 } = req.body;
+
+  // Simulation complète en Mode Démo (génère des vrais tickets virtuels sans polluer le routeur réel)
+  if (req.user && req.user.role === 'demo') {
+    const qty = Math.max(1, Math.min(parseInt(quantity) || 1, 100));
+    const demoVouchers = [];
+    for (let i = 0; i < qty; i++) {
+      const code = generateVoucherCode(prefix || 'DEMO', length);
+      demoVouchers.push({
+        id: `demo_${Date.now()}_${i}`,
+        code,
+        profile,
+        price: parseInt(price) || 100,
+        created: new Date().toISOString(),
+        status: 'AVAILABLE',
+        comment: 'm-demo'
+      });
+    }
+    return res.json({ success: true, count: demoVouchers.length, vouchers: demoVouchers, simulated: true });
+  }
+
   const db = readDb();
   if (!db.vouchers) db.vouchers = [];
   if (!db.hotspotUsers) db.hotspotUsers = [];
@@ -3215,6 +3271,9 @@ app.get('/api/settings', requireAuth, (req, res) => {
 });
 
 app.post('/api/settings', requireAuth, (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.status(403).json({ error: 'Action désactivée : La modification des paramètres routeur est verrouillée en mode Démo.' });
+  }
   const db = readDb();
   const isAlwaysData = isAlwaysDataEnvironment();
   const connectionMode = isAlwaysData ? 'polling' : 'direct';

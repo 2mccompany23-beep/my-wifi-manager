@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Lock, User, Eye, EyeOff, KeyRound, AlertCircle, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Lock, User, Eye, EyeOff, KeyRound, AlertCircle, ArrowRight, Sparkles } from 'lucide-react';
 
 interface AdminLoginProps {
   onLoginSuccess: (token: string, username: string) => void;
@@ -33,6 +33,32 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBack }
       }
     } catch (err) {
       setErrorMsg('Erreur de connexion au serveur d\'authentification');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setErrorMsg(null);
+    setIsSubmitting(true);
+    setUsername('demo');
+    setPassword('demo');
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'demo', password: 'demo' })
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setErrorMsg(data.error || 'Erreur de connexion au compte démo');
+      } else if (data.token) {
+        onLoginSuccess(data.token, 'demo');
+      }
+    } catch (err) {
+      setErrorMsg('Erreur de connexion');
     } finally {
       setIsSubmitting(false);
     }
@@ -123,11 +149,33 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBack }
             )}
           </button>
 
+          {/* Démo 1-Clic pour les clients / prospects */}
+          <div className="pt-2 space-y-2">
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-slate-800"></div>
+              <span className="flex-shrink mx-3 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Test Client / Démonstration</span>
+              <div className="flex-grow border-t border-slate-800"></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={isSubmitting}
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500/15 via-teal-500/15 to-emerald-500/15 hover:from-emerald-500/25 hover:to-teal-500/25 text-emerald-300 hover:text-white border border-emerald-500/30 font-semibold text-xs transition-all shadow-sm flex items-center justify-center gap-2 group cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-400 group-hover:rotate-12 transition-transform" />
+              <span>Tester le Dashboard (Compte Démo Invité)</span>
+            </button>
+            <p className="text-[10px] text-slate-500 text-center">
+              Identifiants pour vos clients : <span className="font-mono text-emerald-400 font-semibold">demo</span> / <span className="font-mono text-emerald-400 font-semibold">demo</span>
+            </p>
+          </div>
+
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white font-medium text-xs transition-all border border-slate-700/60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white font-medium text-xs transition-all border border-slate-700/60 flex items-center justify-center gap-2 mt-2"
             >
               <span>← Retour à la présentation 2MC SpotCloud</span>
             </button>
