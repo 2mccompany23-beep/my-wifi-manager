@@ -941,52 +941,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
           
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-2">
             <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
-              Investissement Transparent
+              Formules & Branding Sur-Mesure
             </span>
             <h2 className="text-2xl sm:text-4xl font-heading font-black text-white">
-              Nos Formules Prêtes à l'Emploi
+              Investissement Rentabilisé Dès le 1er Mois
             </h2>
             <p className="text-sm text-slate-400">
-              Sans abonnement mensuel obligatoire. Vous achetez votre matériel et vous êtes propriétaire à 100%.
+              Sans abonnement mensuel obligatoire. Matériel de qualité industrielle, identité visuelle personnalisée et propriétaire à vie.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch max-w-6xl mx-auto">
             
-            {/* Formule 1 : Licence Seule */}
+            {/* Formule 1 : Vous avez déjà un MikroTik */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-7 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
                 <span className="px-2.5 py-1 rounded bg-slate-800 text-[10px] font-mono text-slate-300 uppercase font-bold">
-                  Vous avez déjà un MikroTik
+                  Vous avez déjà votre matériel
                 </span>
-                <h3 className="text-lg font-bold text-white">Pack Configuration & Licence</h3>
-                <div className="text-2xl font-black text-white font-mono">25 000 <span className="text-xs font-normal text-slate-400">FCFA (1 fois)</span></div>
+                <h3 className="text-lg font-bold text-white">Pack Licence & Portail Captif Custom</h3>
+                <div className="text-2xl font-black text-white font-mono">35 000 <span className="text-xs font-normal text-slate-400">FCFA (1 fois)</span></div>
                 <p className="text-xs text-slate-400">
-                  Nous prenons le contrôle de votre routeur MikroTik existant à distance pour installer et activer 2MC SpotCloud.
+                  Idéal si vous possédez déjà un routeur MikroTik. Nos ingénieurs prennent la main à distance pour tout configurer et habiller votre portail.
                 </p>
 
                 <ul className="space-y-2 text-xs text-slate-300 pt-2 font-mono">
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Configuration RouterOS complète</span>
+                    <span>Configuration RouterOS v7 complète à distance</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Portail captif mcwifi.net personnalisé</span>
+                    <span><strong>Confection d'un portail captif personnalisé</strong> (votre logo, vos tarifs, vos couleurs)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Passerelle FedaPay intégrée</span>
+                    <span>Intégration Mobile Money FedaPay directe</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Accès Dashboard Cloud sécurisé</span>
+                    <span>Accès au Dashboard 2MC SpotCloud</span>
                   </li>
                 </ul>
               </div>
 
               <a
-                href={getWhatsAppLink("Bonjour, j'ai déjà un routeur MikroTik et je souhaite commander le Pack Configuration à 25 000 FCFA.")}
+                href={getWhatsAppLink("Bonjour, j'ai déjà un routeur MikroTik et je souhaite commander le Pack Licence & Portail Captif Customisé à 35 000 FCFA.")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-slate-700 cursor-pointer"
@@ -999,85 +999,101 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
             {/* Formule 2 : Routeur Clé en Main Recommandé */}
             <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl p-6 sm:p-7 flex flex-col justify-between space-y-6 relative shadow-2xl shadow-emerald-500/10">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-mono font-black uppercase tracking-wider">
-                PACK CLÉ EN MAIN LE PLUS VENDU
+                PACK ROUTEUR + BRANDING COMPLET (RECOMMANDÉ)
               </div>
 
               <div className="space-y-4 pt-1">
                 <span className="px-2.5 py-1 rounded bg-emerald-500/15 text-[10px] font-mono text-emerald-400 uppercase font-bold">
-                  Matériel Physique + Système Inclus
+                  Routeur Neuf + Branding Visuel + Logiciel
                 </span>
-                <h3 className="text-lg font-bold text-white">Routeur MikroTik Prêt à Brancher</h3>
-                <div className="text-3xl font-black text-emerald-400 font-mono">55 000 <span className="text-xs font-normal text-slate-400">FCFA</span></div>
+                <h3 className="text-lg font-bold text-white">Routeur Clé en Main & Studio Graphique</h3>
+                <div className="text-3xl font-black text-emerald-400 font-mono">75 000 <span className="text-xs font-normal text-slate-400">FCFA (1 fois)</span></div>
                 <p className="text-xs text-slate-300">
-                  Vous recevez un routeur MikroTik configuré, testé et scellé. Vous le branchez sur votre box et vous commencez à encaisser le jour même.
+                  La solution clé en main intégrale : vous recevez un routeur MikroTik neuf, avec votre propre identité visuelle créée de A à Z.
                 </p>
 
                 <ul className="space-y-2 text-xs text-slate-200 pt-2 font-mono">
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span><strong>Boîtier MikroTik physique inclus & garanti</strong></span>
+                    <span><strong>Routeur MikroTik physique neuf inclus & garanti</strong> (valeur 35 000 à 40 000 FCFA)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Système 2MC SpotCloud pré-installé</span>
+                    <span><strong>Création de votre Identité Visuelle</strong> : logo de votre Wi-Fi Zone + kit affiches & stickers QR Code prêts à imprimer</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Plug & Play : 0 compétence technique requise</span>
+                    <span><strong>Confection sur-mesure de votre Portail de Connexion</strong> brandé à 100% à votre nom</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Assistance WhatsApp directe 7j/7</span>
+                    <span>Système 2MC SpotCloud pré-installé et testé en atelier</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Plug & Play : vous branchez sur votre box et encaissez en 2 minutes</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Support VIP & Assistance WhatsApp directe 7j/7</span>
                   </li>
                 </ul>
               </div>
 
               <a
-                href={getWhatsAppLink("Bonjour, je souhaite commander le Pack Routeur MikroTik Prêt à Brancher à 55 000 FCFA.")}
+                href={getWhatsAppLink("Bonjour, je souhaite commander le Pack Routeur Clé en Main & Identité Visuelle à 75 000 FCFA.")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all hover:scale-[1.01] cursor-pointer"
               >
-                <span>Commander Mon Routeur Prêt à Brancher</span>
+                <span>Commander Mon Pack Clé en Main</span>
                 <ArrowRight className="w-4 h-4" />
               </a>
             </div>
 
-            {/* Formule 3 : Multi-Sites / Entreprise */}
+            {/* Formule 3 : Multi-Sites / Entreprise / Marque Blanche */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-7 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
                 <span className="px-2.5 py-1 rounded bg-slate-800 text-[10px] font-mono text-slate-300 uppercase font-bold">
-                  Hôtels & Complexes
+                  Hôtels, Complexes & Franchises
                 </span>
-                <h3 className="text-lg font-bold text-white">Installation Multi-Antennes</h3>
-                <div className="text-2xl font-black text-white font-mono">Sur Devis</div>
+                <h3 className="text-lg font-bold text-white">Marque Blanche Totale & Multi-Sites</h3>
+                <div className="text-2xl font-black text-white font-mono">Sur Devis <span className="text-xs font-normal text-slate-400">(Dès 150 000 F)</span></div>
                 <p className="text-xs text-slate-400">
-                  Déploiement avec antennes extérieures longue portée (Ubiquiti UniFi, TP-Link CPE210/510), couverture de quartier entier ou hôtels.
+                  Pour les établissements haut de gamme, hôtels et chaînes exigeant une application et un réseau 100% à leurs couleurs.
                 </p>
 
                 <ul className="space-y-2 text-xs text-slate-300 pt-2 font-mono">
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Audit de couverture et positionnement</span>
+                    <span><strong>Customisation Complète de l'App (Marque Blanche)</strong> : Votre logo, vos couleurs, votre domaine web exclusif</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Plusieurs points d'accès unifiés</span>
+                    <span>Portail captif multi-sites unifié pour plusieurs établissements</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Support dédié et maintenance prioritaire</span>
+                    <span>Déploiement multi-antennes longue portée (Ubiquiti / TP-Link Omada)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Audit de couverture Wi-Fi & bridage de bande passante par chambre</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Support dédié 24h/24 & Contrat de maintenance SLA prioritaire</span>
                   </li>
                 </ul>
               </div>
 
               <a
-                href={getWhatsAppLink("Bonjour, je souhaite un devis personnalisé pour un projet Wi-Fi multi-antennes / hôtel.")}
+                href={getWhatsAppLink("Bonjour, je souhaite un devis personnalisé pour un projet Marque Blanche Totale / Hôtellerie Multi-Sites.")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-slate-700 cursor-pointer"
               >
-                <span>Demander un Devis WhatsApp</span>
+                <span>Demander un Devis Sur-Mesure</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
             </div>

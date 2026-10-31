@@ -27,7 +27,6 @@ export function App() {
     }
     return false;
   });
-  const [showLandingPreview, setShowLandingPreview] = useState<boolean>(false);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [routerStatus, setRouterStatus] = useState<RouterStatus | null>(null);
@@ -286,27 +285,6 @@ export function App() {
     );
   }
 
-  // If authenticated but previewing landing page:
-  if (showLandingPreview) {
-    return (
-      <div className="relative">
-        <div className="sticky top-0 z-50 bg-indigo-950/95 border-b border-indigo-500/30 px-4 py-2.5 flex items-center justify-between backdrop-blur-md text-xs text-indigo-200 shadow-xl">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Mode Aperçu Vitrine (Connecté en tant que <strong className="text-white">{adminUser || 'Admin'}</strong>)</span>
-          </div>
-          <button
-            onClick={() => setShowLandingPreview(false)}
-            className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-sm transition-colors cursor-pointer"
-          >
-            ← Revenir au Dashboard MikroTik
-          </button>
-        </div>
-        <LandingPage onOpenLogin={() => setShowLandingPreview(false)} />
-      </div>
-    );
-  }
-
   const handleManualRefresh = () => {
     fetchAllData(true, 'Synchronisation et rafraîchissement des données MikroTik...');
   };
@@ -351,7 +329,6 @@ export function App() {
         }}
         onRefresh={handleManualRefresh}
         onLogout={handleLogout}
-        onViewLanding={() => setShowLandingPreview(true)}
         isLiveConnected={isLiveConnected}
         isRefreshing={loading}
       />
