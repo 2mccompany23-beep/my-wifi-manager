@@ -261,7 +261,10 @@ async function initPostgresCache() {
       cachedDb = {
         adminAuth: adminAuth || diskDb.adminAuth || defaultDb.adminAuth,
         settings: settings || diskDb.settings || defaultDb.settings,
-        sales: sales.length > 0 ? sales : (diskDb.sales || []),
+        // IMPORTANT: sales = TOUJOURS depuis db.json local (source de vérité = scripts MikroTik).
+        // PostgreSQL peut contenir des données stales (migration). Ne jamais l'utiliser comme
+        // source initiale pour les ventes — seul le sync routeur les met à jour correctement.
+        sales: diskDb.sales || [],
         vouchers: vouchers.length > 0 ? vouchers : (diskDb.vouchers || []),
         pendingFedaPay: pendingFedaPay.length > 0 ? pendingFedaPay : (diskDb.pendingFedaPay || []),
         pushSubscriptions: pushSubscriptions.length > 0 ? pushSubscriptions : (diskDb.pushSubscriptions || []),
@@ -323,7 +326,7 @@ async function persistToPostgres(data) {
         );
       }
 
-      // 3. Sales (Persist up to 200 recent sales)
+      // 3. Sales — UPSERT uniquement (pas de purge ici, la purge est faite par replaceSalesInPostgres)
       if (Array.isArray(data.sales) && data.sales.length > 0) {
         const salesToPersist = data.sales.slice(0, 200);
         for (const s of salesToPersist) {
