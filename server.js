@@ -1904,6 +1904,21 @@ app.post('/api/vouchers/generate', requireAuth, async (req, res) => {
 
   writeDb(db);
   console.log(`[Vouchers] ${created.length} ticket(s) généré(s) avec succès (Profil: ${profile}, Commentaire: ${mikhmonComment})`);
+
+  // Démarrer un watcher par ticket généré manuellement
+  for (const v of created) {
+    watchVoucherConnection(v.code, {
+      id: v.id,
+      voucher: v.code,
+      amount: v.price,
+      plan: v.profile,
+      profile: v.profile,
+      source: 'manual',
+      mode: 'Cash',
+      phone: ''
+    }).catch(e => console.warn('[Watcher] Erreur démarrage manuel:', e.message));
+  }
+
   res.json({ success: true, vouchers: created, count: created.length });
 });
 
@@ -2035,6 +2050,11 @@ async function processFedaPayApproval(transaction, db) {
   } catch (err) {
     console.error('[FedaPay] Erreur création user routeur:', err.message);
   }
+
+  // Démarrer le watcher en arrière-plan pour détecter la connexion du client
+  watchVoucherConnection(voucherCode, pendingEntry).catch(e =>
+    console.warn('[Watcher] Erreur démarrage:', e.message)
+  );
 
   return { voucher: voucherCode, plan };
 }
@@ -2424,6 +2444,184 @@ app.post('/api/router/push-sales', (req, res) => {
   return res.json({ success: true, added, total: db.sales.length });
 });
 
+// ============================================================
+// BACKGROUND WATCHER — Surveille la connexion d'un client
+// après génération d'un ticket (FedaPay ou manuel).
+// Déclenché automatiquement dès qu'un ticket est généré.
+// Durée max: 20 minutes. Intervalle: 30 secondes.
+// Arrêt automatique dès que le client se connecte.
+// ============================================================
+const connectionWatchers = new Map(); // voucherCode -> { timerId, attempts, pendingEntry, createdAt }
+
+const WATCHER_MAX_DURATION_MS = 20 * 60 * 1000; // 20 minutes
+const WATCHER_INTERVAL_MS = 30 * 1000;           // sondage toutes les 30s
+const WATCHER_MAX_ATTEMPTS = Math.floor(WATCHER_MAX_DURATION_MS / WATCHER_INTERVAL_MS); // 40
+
+async function watchVoucherConnection(voucherCode, pendingEntry) {
+  if (!voucherCode) return;
+  const code = voucherCode.toLowerCase();
+
+  // Ne pas démarrer un watcher déjà actif pour ce voucher
+  if (connectionWatchers.has(code)) return;
+
+  console.log(`[Watcher] 👁 Démarrage surveillance connexion pour le ticket: ${voucherCode} (max ${WATCHER_MAX_DURATION_MS / 60000} min)`);
+
+  let attempts = 0;
+
+  async function pollOnce() {
+    attempts++;
+
+    // Vérifier si le ticket est déjà enregistré dans les ventes (connexion détectée entre-temps)
+    const db = readDb();
+    const alreadyInSales = (db.sales || []).some(s =>
+      (s.voucher || '').toLowerCase() === code ||
+      (s.username || '').toLowerCase() === code
+    );
+
+    if (alreadyInSales) {
+      console.log(`[Watcher] ✅ Ticket ${voucherCode} déjà confirmé dans les ventes — Arrêt du watcher.`);
+      stopWatcher(code);
+      return;
+    }
+
+    if (attempts >= WATCHER_MAX_ATTEMPTS) {
+      console.log(`[Watcher] ⏰ Timeout — Ticket ${voucherCode} non utilisé après ${WATCHER_MAX_DURATION_MS / 60000} min.`);
+      stopWatcher(code);
+      return;
+    }
+
+    // Sonder les sessions actives du hotspot (connexion en temps réel)
+    try {
+      const activeSessions = await callRouterOS('/ip/hotspot/active');
+      if (activeSessions && activeSessions.success && Array.isArray(activeSessions.data)) {
+        const matchedSession = activeSessions.data.find(s =>
+          (s.user || s.name || '').toLowerCase() === code
+        );
+        if (matchedSession) {
+          console.log(`[Watcher] 🎉 Client connecté via session active ! Ticket: ${voucherCode}`);
+          await onVoucherConnected(voucherCode, db, pendingEntry, 'active_session');
+          stopWatcher(code);
+          return;
+        }
+      }
+    } catch (e) {
+      // Session active inaccessible (polling cloud) — continuer avec les scripts
+    }
+
+    // Sonder les scripts MikroTik (source de vérité principale)
+    try {
+      const scriptResult = await callRouterOS('/system/script');
+      if (scriptResult && scriptResult.success && Array.isArray(scriptResult.data)) {
+        const matchedScript = scriptResult.data.find(s => {
+          const parsed = parseMikhmonScript(s);
+          return parsed && (parsed.voucher || parsed.username || '').toLowerCase() === code;
+        });
+        if (matchedScript) {
+          const parsed = parseMikhmonScript(matchedScript);
+          if (parsed) {
+            console.log(`[Watcher] 🎉 Script MikroTik détecté ! Ticket: ${voucherCode} (${parsed.amount} FCFA)`);
+            await onVoucherConnected(voucherCode, db, pendingEntry, 'router_script', parsed);
+            stopWatcher(code);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      // Routeur inaccessible momentanément, on réessaiera au prochain cycle
+      console.warn(`[Watcher] ⚠️ Tentative ${attempts}/${WATCHER_MAX_ATTEMPTS} — Routeur inaccessible: ${e.message}`);
+    }
+  }
+
+  // Démarrage du watcher avec setInterval
+  const timerId = setInterval(async () => {
+    try {
+      await pollOnce();
+    } catch (err) {
+      console.warn(`[Watcher] Erreur cycle ${attempts}:`, err.message);
+    }
+  }, WATCHER_INTERVAL_MS);
+
+  connectionWatchers.set(code, { timerId, attempts: 0, pendingEntry, createdAt: Date.now() });
+
+  // Premier sondage après 15 secondes (le temps que le client ouvre la page)
+  setTimeout(async () => {
+    try { await pollOnce(); } catch (e) {}
+  }, 15000);
+}
+
+function stopWatcher(code) {
+  const w = connectionWatchers.get(code);
+  if (w) {
+    clearInterval(w.timerId);
+    connectionWatchers.delete(code);
+    console.log(`[Watcher] 🛑 Arrêt watcher pour: ${code}. Total actifs: ${connectionWatchers.size}`);
+  }
+}
+
+// Appelé quand le watcher détecte une connexion réelle du client
+async function onVoucherConnected(voucherCode, db, pendingEntry, source, parsedScript = null) {
+  if (!db.sales) db.sales = [];
+  const code = voucherCode.toLowerCase();
+
+  // Eviter double enregistrement
+  const exists = db.sales.some(s =>
+    (s.voucher || '').toLowerCase() === code || (s.username || '').toLowerCase() === code
+  );
+  if (exists) return;
+
+  const amount = pendingEntry?.amount || parsedScript?.amount || 0;
+  const plan = pendingEntry?.plan || parsedScript?.plan || '24h';
+  const profile = pendingEntry?.profile || parsedScript?.profile || '';
+
+  const saleEntry = parsedScript || {
+    id: `watcher_${Date.now()}_${voucherCode}`,
+    username: voucherCode,
+    voucher: voucherCode,
+    amount,
+    plan,
+    profile,
+    mode: pendingEntry?.mode || 'Mobile Money',
+    phone: pendingEntry?.phone || '',
+    date: new Date().toISOString(),
+    source: pendingEntry?.source || source || 'router_script',
+    status: 'SUCCESS',
+    fedapayRef: pendingEntry?.fedapayRef || null
+  };
+
+  // Enrichir avec les métadonnées FedaPay si existantes
+  if (pendingEntry) {
+    saleEntry.source = pendingEntry.source || 'fedapay';
+    saleEntry.fedapayRef = pendingEntry.fedapayRef || saleEntry.fedapayRef;
+    saleEntry.mode = pendingEntry.mode || saleEntry.mode;
+    saleEntry.phone = pendingEntry.phone || saleEntry.phone;
+    if (pendingEntry.amount > 0) saleEntry.amount = pendingEntry.amount;
+  }
+
+  db.sales.unshift(saleEntry);
+
+  // Retirer de pendingFedaPay si applicable
+  if (pendingEntry && db.pendingFedaPay) {
+    db.pendingFedaPay = db.pendingFedaPay.filter(p =>
+      (p.voucher || '').toLowerCase() !== code &&
+      (p.id !== pendingEntry.id)
+    );
+  }
+
+  writeDb(db);
+
+  const totalRevenue = db.sales.reduce((sum, s) => sum + (parseInt(s.amount) || 0), 0);
+
+  // Notification Push immédiate avec le nouveau solde
+  sendSalePushNotification({
+    title: `🎉 Client connecté ! +${amount} FCFA`,
+    body: `Ticket ${voucherCode} activé (${plan}). Solde total : ${totalRevenue.toLocaleString()} FCFA`,
+    tag: `watcher_${voucherCode}`,
+    data: { url: '/#finances' }
+  }).catch(err => console.warn('[Watcher Push]:', err.message));
+
+  console.log(`[Watcher] ✅ Vente enregistrée automatiquement. Solde: ${totalRevenue} FCFA`);
+}
+
 // Helper for parsing and syncing router scripts
 // SOURCE DE VERITE UNIQUE: seuls les scripts /system/script du MikroTik comptent.
 // Les tickets générés (vouchers) et les paiements FedaPay ne sont comptabilisés
@@ -2726,6 +2924,23 @@ app.get('/api/push/status', requireAuth, (req, res) => {
     activeCount: count,
     publicKey: db.settings?.vapidKeys?.publicKey || vapidKeys.publicKey
   });
+});
+
+// Statut des watchers de connexion actifs
+app.get('/api/watchers/status', requireAuth, (req, res) => {
+  const now = Date.now();
+  const active = [];
+  for (const [code, w] of connectionWatchers.entries()) {
+    active.push({
+      voucher: code,
+      attempts: w.attempts,
+      elapsedSeconds: Math.round((now - w.createdAt) / 1000),
+      remainingSeconds: Math.max(0, Math.round((WATCHER_MAX_DURATION_MS - (now - w.createdAt)) / 1000)),
+      pendingAmount: w.pendingEntry?.amount || 0,
+      pendingPlan: w.pendingEntry?.plan || ''
+    });
+  }
+  return res.json({ active, count: active.length });
 });
 
 app.get('/api/settings', requireAuth, (req, res) => {
