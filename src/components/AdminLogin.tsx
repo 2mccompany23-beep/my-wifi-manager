@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { ShieldCheck, Lock, User, Eye, EyeOff, KeyRound, AlertCircle, ArrowRight, Sparkles } from 'lucide-react';
 
 interface AdminLoginProps {
-  onLoginSuccess: (token: string, username: string) => void;
+  onLoginSuccess: (token: string, username: string, rememberMe?: boolean) => void;
   onBack?: () => void;
 }
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBack }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,14 +23,14 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBack }
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password, rememberMe })
       });
 
       const data = await res.json();
       if (!res.ok || data.error) {
         setErrorMsg(data.error || 'Identifiants administrateur incorrects');
       } else if (data.token) {
-        onLoginSuccess(data.token, data.username || username);
+        onLoginSuccess(data.token, data.username || username, rememberMe);
       }
     } catch (err) {
       setErrorMsg('Erreur de connexion au serveur d\'authentification');
@@ -132,6 +133,19 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBack }
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+          </div>
+
+          {/* Case Se souvenir de moi (30 jours) */}
+          <div className="pt-1">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs text-slate-300 hover:text-white transition-colors">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-0 cursor-pointer accent-emerald-500"
+              />
+              <span>Se souvenir de moi sur ce téléphone <span className="text-emerald-400 font-mono font-bold">(30 jours)</span></span>
+            </label>
           </div>
 
           <button

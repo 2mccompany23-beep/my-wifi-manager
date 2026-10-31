@@ -13,8 +13,12 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { registerServiceWorker } from './utils/pushManager';
 
 export function App() {
-  const [authToken, setAuthToken] = useState<string | null>(() => sessionStorage.getItem('mikhmon_token'));
-  const [adminUser, setAdminUser] = useState<string | null>(() => sessionStorage.getItem('mikhmon_user'));
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    return localStorage.getItem('mikhmon_token') || sessionStorage.getItem('mikhmon_token');
+  });
+  const [adminUser, setAdminUser] = useState<string | null>(() => {
+    return localStorage.getItem('mikhmon_user') || sessionStorage.getItem('mikhmon_user');
+  });
   
   const [showAdminLogin, setShowAdminLogin] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -106,9 +110,18 @@ export function App() {
     }
   };
 
-  const handleLoginSuccess = (token: string, username: string) => {
+  const handleLoginSuccess = (token: string, username: string, rememberMe = false) => {
     sessionStorage.setItem('mikhmon_token', token);
     sessionStorage.setItem('mikhmon_user', username);
+    if (rememberMe) {
+      localStorage.setItem('mikhmon_token', token);
+      localStorage.setItem('mikhmon_user', username);
+      localStorage.setItem('mikhmon_remember', 'true');
+    } else {
+      localStorage.removeItem('mikhmon_token');
+      localStorage.removeItem('mikhmon_user');
+      localStorage.removeItem('mikhmon_remember');
+    }
     setAuthToken(token);
     setAdminUser(username);
   };
@@ -122,6 +135,9 @@ export function App() {
     }
     sessionStorage.removeItem('mikhmon_token');
     sessionStorage.removeItem('mikhmon_user');
+    localStorage.removeItem('mikhmon_token');
+    localStorage.removeItem('mikhmon_user');
+    localStorage.removeItem('mikhmon_remember');
     setAuthToken(null);
     setAdminUser(null);
   };
@@ -247,8 +263,8 @@ export function App() {
     if (showAdminLogin) {
       return (
         <AdminLogin
-          onLoginSuccess={(token, username) => {
-            handleLoginSuccess(token, username);
+          onLoginSuccess={(token, username, rememberMe) => {
+            handleLoginSuccess(token, username, rememberMe);
             setShowAdminLogin(false);
           }}
           onBack={() => {

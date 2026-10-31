@@ -236,26 +236,63 @@ const MOCK_DEMO_SETTINGS = {
   supportPhone: '+229 01 44 04 44 14'
 };
 
-// In-memory active auth tokens avec expiration (8h)
-const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 heures
-const activeSessionTokens = new Map(); // token -> { expiresAt, role, username }
+// In-memory active auth tokens avec expiration (8h standard ou 30 jours pour Se souvenir de moi)
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 heures par défaut
+const REMEMBER_ME_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 jours si "Se souvenir de moi" est coché
+const activeSessionTokens = new Map(); // token -> { expiresAt, role, username, rememberMe }
 
-function generateAuthToken(metadata = { role: 'admin', username: 'admin' }) {
+function generateAuthToken(metadata = { role: 'admin', username: 'admin', rememberMe: false }) {
   const token = 'mauth_' + crypto.randomBytes(32).toString('hex');
-  activeSessionTokens.set(token, {
-    expiresAt: Date.now() + SESSION_TTL_MS,
+  const ttl = metadata.rememberMe ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS;
+  const sessionData = {
+    expiresAt: Date.now() + ttl,
     role: metadata.role || 'admin',
-    username: metadata.username || 'admin'
-  });
+    username: metadata.username || 'admin',
+    rememberMe: !!metadata.rememberMe
+  };
+  activeSessionTokens.set(token, sessionData);
+
+  // Sauvegarder dans db.json pour survivre aux redémarrages AlwaysData si rememberMe est actif
+  if (metadata.rememberMe) {
+    try {
+      const db = readDb();
+      if (!db.rememberTokens) db.rememberTokens = {};
+      db.rememberTokens[token] = sessionData;
+      writeDb(db);
+    } catch (e) {
+      console.warn('[Auth] Erreur persistance token rememberMe:', e.message);
+    }
+  }
+
   return token;
 }
 
 function getSessionData(token) {
-  if (!token || !activeSessionTokens.has(token)) return null;
-  const session = activeSessionTokens.get(token);
+  if (!token) return null;
+  let session = activeSessionTokens.get(token);
+
+  // Si non trouvé en mémoire, vérifier si présent dans les tokens persistants (redémarrage serveur AlwaysData)
+  if (!session) {
+    try {
+      const db = readDb();
+      if (db.rememberTokens && db.rememberTokens[token]) {
+        session = db.rememberTokens[token];
+        activeSessionTokens.set(token, session);
+      }
+    } catch {}
+  }
+
+  if (!session) return null;
   const expiresAt = typeof session === 'number' ? session : session.expiresAt;
   if (Date.now() > expiresAt) {
     activeSessionTokens.delete(token); // Purge token expiré
+    try {
+      const db = readDb();
+      if (db.rememberTokens && db.rememberTokens[token]) {
+        delete db.rememberTokens[token];
+        writeDb(db);
+      }
+    } catch {}
     return null;
   }
   return typeof session === 'object' ? session : { expiresAt, role: 'admin', username: 'admin' };
@@ -1339,22 +1376,23 @@ function formatMikhmonComment(quantity = 1, tag = 'admin') {
 
 // Admin Login (protégé par rate-limit)
 app.post('/api/auth/login', loginLimiter, (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, rememberMe } = req.body;
   const db = readDb();
   const adminConfig = db.adminAuth || { username: 'admin', password: hashPassword('admin') };
 
   // 1. Compte Démo / Test Client (Accès sécurisé pour tester l'interface en direct)
   if (username === 'demo' && (password === 'demo' || password === 'demo2026')) {
-    const token = generateAuthToken({ role: 'demo', username: 'demo' });
+    const token = generateAuthToken({ role: 'demo', username: 'demo', rememberMe: false });
     console.log(`[Auth] Utilisateur Démo Invité connecté avec succès (IP: ${req.ip})`);
     return res.json({ success: true, token, username: 'demo', role: 'demo' });
   }
 
   // 2. Compte Administrateur Principal
   if (username === adminConfig.username && verifyPassword(password, adminConfig.password)) {
-    const token = generateAuthToken({ role: 'admin', username: adminConfig.username });
-    console.log(`[Auth] Admin connecté avec succès (IP: ${req.ip})`);
-    return res.json({ success: true, token, username: adminConfig.username, role: 'admin' });
+    const isRemember = !!rememberMe;
+    const token = generateAuthToken({ role: 'admin', username: adminConfig.username, rememberMe: isRemember });
+    console.log(`[Auth] Admin connecté avec succès (IP: ${req.ip}, Se souvenir de moi: ${isRemember ? '30 jours' : '8 heures'})`);
+    return res.json({ success: true, token, username: adminConfig.username, role: 'admin', rememberMe: isRemember });
   }
 
   console.warn(`[Auth] Échec de connexion (IP: ${req.ip})`);
@@ -1366,7 +1404,14 @@ app.post('/api/auth/logout', (req, res) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
   if (token) {
-    activeSessionTokens.delete(token); // Invalide immédiatement
+    activeSessionTokens.delete(token); // Invalide immédiatement en mémoire
+    try {
+      const db = readDb();
+      if (db.rememberTokens && db.rememberTokens[token]) {
+        delete db.rememberTokens[token];
+        writeDb(db);
+      }
+    } catch {}
   }
   res.json({ success: true });
 });
