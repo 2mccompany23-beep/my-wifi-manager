@@ -128,6 +128,99 @@ const defaultDb = {
   pendingFedaPay: []
 };
 
+// ============================================================
+// DONNÉES FACTICES DE DÉMONSTRATION SÉCURISÉES (POUR PROSPECTS/CLIENTS)
+// Aucune donnée réelle de vente, de client ou de routeur n'est exposée.
+// ============================================================
+const MOCK_DEMO_STATUS = {
+  online: true,
+  simulated: true,
+  boardName: 'MikroTik RB951Ui-2HnD',
+  version: '7.23.2 (stable)',
+  cpuLoad: 14,
+  freeMemory: 84,
+  totalMemory: 128,
+  uptime: '19d 08:42:15',
+  pollingActive: true,
+  lastRouterPollSecAgo: 3,
+  pendingCommandsCount: 0,
+  mode: 'polling'
+};
+
+const MOCK_DEMO_USERS = [
+  { '.id': '*D01', name: 'DEMO-7482', profile: '100-F-4h', uptime: '1h 22m', bytesIn: '14.2 MB', bytesOut: '112.5 MB', comment: 'm-demo' },
+  { '.id': '*D02', name: 'DEMO-9104', profile: '200-F-24h', uptime: '5h 40m', bytesIn: '84.1 MB', bytesOut: '620.0 MB', comment: 'm-demo' },
+  { '.id': '*D03', name: 'DEMO-3391', profile: '100-F-4h', uptime: '3h 10m', bytesIn: '32.6 MB', bytesOut: '245.8 MB', comment: 'm-demo' },
+  { '.id': '*D04', name: 'DEMO-8820', profile: '500-F-3j', uptime: '18h 05m', bytesIn: '210.4 MB', bytesOut: '1.4 GB', comment: 'm-demo' },
+  { '.id': '*D05', name: 'DEMO-1290', profile: '1000-F-7j', uptime: '2d 04h', bytesIn: '520.0 MB', bytesOut: '3.8 GB', comment: 'm-demo' },
+  { '.id': '*D06', name: 'DEMO-4412', profile: '100-F-4h', uptime: '45m', bytesIn: '8.4 MB', bytesOut: '65.2 MB', comment: 'm-demo' },
+  { '.id': '*D07', name: 'DEMO-6601', profile: '200-F-24h', uptime: '12h 15m', bytesIn: '140.2 MB', bytesOut: '890.0 MB', comment: 'm-demo' },
+  { '.id': '*D08', name: 'DEMO-5523', profile: '100-F-4h', uptime: '2h 50m', bytesIn: '24.1 MB', bytesOut: '180.4 MB', comment: 'm-demo' },
+  { '.id': '*D09', name: 'DEMO-7734', profile: '500-F-3j', uptime: '1d 08h', bytesIn: '340.5 MB', bytesOut: '2.1 GB', comment: 'm-demo' },
+  { '.id': '*D10', name: 'DEMO-2219', profile: '100-F-4h', uptime: '10m', bytesIn: '1.2 MB', bytesOut: '8.9 MB', comment: 'm-demo' }
+];
+
+const MOCK_DEMO_ACTIVE = [
+  { '.id': '*DA1', user: 'DEMO-7482', address: '10.0.0.15', mac: '48:D7:05:A1:B2:C3', uptime: '1h 22m', bytesIn: '14.2 MB', bytesOut: '112.5 MB', sessionTimeLeft: '2h 38m' },
+  { '.id': '*DA2', user: 'DEMO-9104', address: '10.0.0.24', mac: 'BC:D1:1F:44:E2:10', uptime: '5h 40m', bytesIn: '84.1 MB', bytesOut: '620.0 MB', sessionTimeLeft: '18h 20m' },
+  { '.id': '*DA3', user: 'DEMO-3391', address: '10.0.0.32', mac: 'A0:C5:89:12:34:56', uptime: '3h 10m', bytesIn: '32.6 MB', bytesOut: '245.8 MB', sessionTimeLeft: '50m' },
+  { '.id': '*DA4', user: 'DEMO-8820', address: '10.0.0.41', mac: '32:FA:4B:99:88:77', uptime: '18h 05m', bytesIn: '210.4 MB', bytesOut: '1.4 GB', sessionTimeLeft: '53h 55m' },
+  { '.id': '*DA5', user: 'DEMO-4412', address: '10.0.0.55', mac: '70:EE:50:33:22:11', uptime: '45m', bytesIn: '8.4 MB', bytesOut: '65.2 MB', sessionTimeLeft: '3h 15m' },
+  { '.id': '*DA6', user: 'DEMO-2219', address: '10.0.0.68', mac: '94:E9:79:AA:BB:CC', uptime: '10m', bytesIn: '1.2 MB', bytesOut: '8.9 MB', sessionTimeLeft: '3h 50m' }
+];
+
+function generateMockDemoSales() {
+  const modes = ['MTN MoMo', 'Moov Money', 'Celtiis Cash', 'Wave'];
+  const plans = [
+    { name: '100-F-4h', price: 100 },
+    { name: '200-F-24h', price: 200 },
+    { name: '500-F-3j', price: 500 },
+    { name: '1000-F-7j', price: 1000 }
+  ];
+  const sales = [];
+  const now = Date.now();
+
+  for (let i = 0; i < 40; i++) {
+    const plan = plans[i % plans.length];
+    const mode = modes[i % modes.length];
+    const code = `DEMO-${1000 + (i * 47) % 8900}`;
+    const date = new Date(now - i * (3.5 * 3600 * 1000)).toISOString();
+    sales.push({
+      id: `demo_sale_${i + 1}`,
+      reference: `FEDA-DEMO-${84920 + i}`,
+      amount: plan.price,
+      plan: plan.name,
+      profile: plan.name,
+      voucher: code,
+      mode,
+      phone: `+229 9${i % 9} •• •• ${10 + (i * 7) % 89}`,
+      date,
+      status: 'SUCCESS',
+      source: i % 3 === 0 ? 'router_script' : 'fedapay',
+      comment: 'm-demo'
+    });
+  }
+  return sales;
+}
+
+const MOCK_DEMO_SALES = generateMockDemoSales();
+const MOCK_DEMO_TOTAL_REVENUE = 142500; // Présentation valorisante pour prospect
+
+const MOCK_DEMO_SETTINGS = {
+  routerIp: '10.0.0.254',
+  routerPort: '80',
+  routerUser: 'admin',
+  routerPass: '••••••••••••',
+  fedapayPublicKey: 'pk_live_demo_example_key_2026',
+  fedapaySecretKey: '••••••••••••••••••••••••',
+  fedapayEnv: 'live',
+  dnsName: 'mcwifi.net',
+  connectionMode: 'polling',
+  isAlwaysData: true,
+  whatsappNumber: '+229 01 44 04 44 14',
+  supportPhone: '+229 01 44 04 44 14'
+};
+
 // In-memory active auth tokens avec expiration (8h)
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 heures
 const activeSessionTokens = new Map(); // token -> { expiresAt, role, username }
@@ -1313,6 +1406,33 @@ app.get('/api/sse/stream', (req, res, next) => {
   }
   return res.status(401).json({ error: 'Non autorisé. Veuillez vous connecter à l\'administration.' });
 }, (req, res) => {
+  const token = req.query.token || (req.headers['authorization']?.startsWith('Bearer ') ? req.headers['authorization'].substring(7) : null);
+  const session = getSessionData(token);
+
+  // Isolation totale pour le compte Démo : aucune vraie notification SSE de production
+  if (session && session.role === 'demo') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.write(`event: init\ndata: ${JSON.stringify({
+      status: 'connected',
+      clientId: 'sse_demo',
+      salesCount: MOCK_DEMO_SALES.length,
+      totalRevenue: MOCK_DEMO_TOTAL_REVENUE,
+      activeWatchers: 0,
+      timestamp: Date.now()
+    })}\n\n`);
+
+    const demoTimer = setInterval(() => {
+      try { res.write(':keepalive\n\n'); } catch { clearInterval(demoTimer); }
+    }, 20000);
+    req.on('close', () => clearInterval(demoTimer));
+    return;
+  }
   // Headers conformes pour streaming HTTP SSE + désactivation buffering Nginx AlwaysData
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -1372,6 +1492,9 @@ app.get('/api/sse/stream', (req, res, next) => {
 
 // Router Status & Resources
 app.get('/api/router/status', requireAuth, async (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.json(MOCK_DEMO_STATUS);
+  }
   const db = readDb();
   const { routerIp, routerPort, connectionMode } = db.settings;
   const result = await callRouterOS('/system/resource');
@@ -1442,6 +1565,9 @@ app.get('/api/poll/status', requireAuth, (req, res) => {
 
 // Get Hotspot Users (Direct Sync RouterOS + Base Locale)
 app.get('/api/router/users', requireAuth, async (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.json(MOCK_DEMO_USERS);
+  }
   const db = readDb();
   let localUsers = db.hotspotUsers || [];
   let activeSessions = db.activeSessions || [];
@@ -1638,6 +1764,9 @@ function normalizeActiveSession(s) {
 
 // Get Active Sessions (avec normalisation et fallbacks locaux)
 app.get('/api/router/active', requireAuth, async (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.json(MOCK_DEMO_ACTIVE);
+  }
   const db = readDb();
   let activeList = [];
 
@@ -2452,6 +2581,9 @@ async function handleFedaPayWebhook(req, res) {
 
 // Endpoint admin pour resynchroniser les paiements FedaPay approuvés manqués
 app.post('/api/fedapay/sync', requireAuth, async (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.json({ success: true, count: 0, message: 'Synchronisation simulée en Mode Démo' });
+  }
   const db = readDb();
   const secretKey = db.settings?.fedapaySecretKey;
   if (!secretKey) {
@@ -2610,6 +2742,17 @@ function clearScriptCache() {
 
 // Get Sales & Revenue (PROTECTED ADMIN - Stockage Local Instantané + Synchro Synchrone + Filtre Dates)
 app.get('/api/sales', requireAuth, async (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.json({
+      sales: MOCK_DEMO_SALES,
+      totalRevenue: MOCK_DEMO_TOTAL_REVENUE,
+      totalCount: MOCK_DEMO_SALES.length,
+      periodRevenue: MOCK_DEMO_TOTAL_REVENUE,
+      periodCount: MOCK_DEMO_SALES.length,
+      startDate: null,
+      endDate: null
+    });
+  }
   const isForce = req.query.force === 'true' || req.query.refresh === 'true' || req.query.sync === 'true';
   const { startDate, endDate } = req.query;
 
@@ -3094,6 +3237,9 @@ app.get('/api/router/mikhmon-scripts', requireAuth, async (req, res) => {
 
 // Explicit Sync endpoint for router sales data
 app.post('/api/router/mikhmon-scripts/sync', requireAuth, async (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.json({ success: true, count: 0, message: 'Synchronisation simulée en Mode Démo' });
+  }
   try {
     const data = await fetchAndSyncRouterScripts(true);
     return res.json({ success: true, message: 'Synchronisation effectuée avec succès', ...data });
@@ -3260,6 +3406,9 @@ app.get('/api/watchers/status', requireAuth, (req, res) => {
 });
 
 app.get('/api/settings', requireAuth, (req, res) => {
+  if (req.user && req.user.role === 'demo') {
+    return res.json(MOCK_DEMO_SETTINGS);
+  }
   const db = readDb();
   const isAlwaysData = isAlwaysDataEnvironment();
   const connectionMode = isAlwaysData ? 'polling' : 'direct';
