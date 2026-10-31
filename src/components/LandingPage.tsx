@@ -23,7 +23,15 @@ import {
   Award,
   HelpCircle,
   ExternalLink,
-  ChevronDown
+  ChevronDown,
+  RotateCcw,
+  Radio,
+  Cpu,
+  Network,
+  Check,
+  Sparkles,
+  Sliders,
+  Power
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -31,17 +39,7 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
-  // Simulateur de gains interactif
-  const [dailyUsers, setDailyUsers] = useState<number>(35);
-  const [avgTicketPrice, setAvgTicketPrice] = useState<number>(200);
-
-  const monthlyRevenue = dailyUsers * avgTicketPrice * 30;
-  const yearlyRevenue = monthlyRevenue * 12;
-
-  // État accordéon FAQ
-  const [openFaq, setOpenFaq] = useState<number | null>(0);
-
-  // Numéro WhatsApp de contact commercial
+  // Contact commercial WhatsApp
   const WHATSAPP_CONTACT = '2290144044414';
   const WHATSAPP_DISPLAY = '+229 01 44 04 44 14';
 
@@ -49,60 +47,109 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
     return `https://wa.me/${WHATSAPP_CONTACT}?text=${encodeURIComponent(message)}`;
   };
 
+  // ========================================================
+  // SIMULATEUR INTERACTIF EN DIRECT (EXPÉRIENCE CLIENT & ADMIN)
+  // ========================================================
+  const [simPlan, setSimPlan] = useState<'100' | '200' | '500'>('200');
+  const [simOperator, setSimOperator] = useState<'mtn' | 'moov' | 'celtiis'>('mtn');
+  const [simStep, setSimStep] = useState<'select' | 'ussd' | 'success'>('select');
+  const [simVoucherCode, setSimVoucherCode] = useState<string>('V-8392');
+  const [simAdminAlert, setSimAdminAlert] = useState(false);
+  const [simTodayRevenue, setSimTodayRevenue] = useState(24600);
+
+  const handleSimulatePayment = () => {
+    setSimStep('ussd');
+    setTimeout(() => {
+      const generatedCode = 'V-' + Math.floor(1000 + Math.random() * 9000);
+      setSimVoucherCode(generatedCode);
+      setSimStep('success');
+      setSimAdminAlert(true);
+      setSimTodayRevenue(prev => prev + parseInt(simPlan));
+      setTimeout(() => setSimAdminAlert(false), 8000);
+    }, 1800);
+  };
+
+  const handleResetSim = () => {
+    setSimStep('select');
+  };
+
+  // ========================================================
+  // CALCULATEUR DE RENTABILITÉ DE TERRAIN
+  // ========================================================
+  const [dailyUsers, setDailyUsers] = useState<number>(45);
+  const [avgTicketPrice, setAvgTicketPrice] = useState<number>(200);
+
+  const monthlyGross = dailyUsers * avgTicketPrice * 30;
+  const yearlyGross = monthlyGross * 12;
+  const internetCostMonthly = 25000; // estimation fibre/starlink
+  const netMonthlyProfit = Math.max(0, monthlyGross - internetCostMonthly);
+
+  // FAQ Accordion State
+  const [activeFaq, setActiveFaq] = useState<number | null>(0);
+
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 selection:bg-indigo-600 selection:text-white font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-[#080c14] text-slate-100 font-sans selection:bg-emerald-500 selection:text-black overflow-x-hidden">
       
+      {/* Texture de fond technique discrète (grille réseau) */}
+      <div 
+        className="fixed inset-0 pointer-events-none opacity-[0.035] z-0"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, #ffffff 1px, transparent 0)`,
+          backgroundSize: '32px 32px'
+        }}
+      ></div>
+
       {/* ========================================================
           1. HEADER / NAVIGATION BAR
       ======================================================== */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#070b14]/85 border-b border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#080c14]/90 border-b border-slate-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between relative z-10">
           
-          {/* Logo & Brand Identity */}
+          {/* Brand & Hardware Tag */}
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-emerald-400 p-0.5 shadow-lg shadow-indigo-500/20">
-              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                <Wifi className="w-6 h-6 text-indigo-400" />
-              </div>
+            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-emerald-500/40 p-2 flex items-center justify-center shadow-lg shadow-emerald-500/10">
+              <Network className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xl font-black tracking-tight text-white">2MC SpotCloud</span>
-                <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
-                  v2.0 PRO
+                <span className="text-lg font-black tracking-tight text-white">2MC SpotCloud</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  ROUTEROS v7
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block">Automate Wi-Fi Zone MikroTik & Mobile Money</p>
+              <p className="text-[11px] font-mono text-slate-400 hidden sm:block">Automate Wi-Fi Zone & Passerelle Mobile Money</p>
             </div>
           </div>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-300">
-            <a href="#solution" className="hover:text-indigo-400 transition-colors">La Solution</a>
-            <a href="#features" className="hover:text-indigo-400 transition-colors">Fonctionnalités</a>
-            <a href="#simulator" className="hover:text-indigo-400 transition-colors">Simulateur de Gains</a>
-            <a href="#pricing" className="hover:text-indigo-400 transition-colors">Tarifs</a>
-            <a href="#faq" className="hover:text-indigo-400 transition-colors">FAQ</a>
+          {/* Desktop Nav Items */}
+          <nav className="hidden lg:flex items-center gap-7 text-xs font-semibold text-slate-300 uppercase tracking-wider">
+            <a href="#demo-live" className="hover:text-emerald-400 transition-colors">Démo Interactive</a>
+            <a href="#architecture" className="hover:text-emerald-400 transition-colors">Architecture Réseau</a>
+            <a href="#terrains" className="hover:text-emerald-400 transition-colors">Cas d'Usage</a>
+            <a href="#simulateur" className="hover:text-emerald-400 transition-colors">Rentabilité</a>
+            <a href="#tarifs" className="hover:text-emerald-400 transition-colors">Packs Matériel</a>
+            <a href="#faq" className="hover:text-emerald-400 transition-colors">FAQ</a>
           </nav>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
+          {/* Action CTAs */}
+          <div className="flex items-center gap-2.5">
             <button
               onClick={onOpenLogin}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all hover:border-slate-600"
+              className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-2 transition-all hover:border-slate-500 cursor-pointer"
             >
-              <Lock className="w-3.5 h-3.5 text-indigo-400" />
+              <Lock className="w-3.5 h-3.5 text-emerald-400" />
               <span>Espace Admin</span>
             </button>
 
             <a
-              href={getWhatsAppLink("Bonjour 2MC, je souhaite commander ou tester la solution 2MC SpotCloud pour mon Wi-Fi Zone.")}
+              href={getWhatsAppLink("Bonjour, je souhaite commander un pack MikroTik 2MC SpotCloud prêt à l'emploi.")}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
             >
               <MessageCircle className="w-4 h-4 fill-slate-950" />
-              <span>Commander / WhatsApp</span>
+              <span className="hidden sm:inline">WhatsApp Commercial</span>
+              <span className="sm:hidden">WhatsApp</span>
             </a>
           </div>
 
@@ -110,145 +157,424 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       </header>
 
       {/* ========================================================
-          2. HERO SECTION — VENTE & PROPOSITION DE VALEUR
+          2. HERO SECTION — VENTE DIRECTE SANS LANGUE DE BOIS
       ======================================================== */}
-      <section className="relative pt-12 pb-20 md:pt-20 md:pb-32 overflow-hidden">
-        
-        {/* Glow ambient background */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-indigo-600/20 via-purple-600/20 to-emerald-500/10 rounded-full blur-[120px] pointer-events-none"></div>
-
+      <section className="relative pt-12 pb-16 lg:pt-20 lg:pb-24 border-b border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           
-          <div className="text-center max-w-4xl mx-auto space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             
-            {/* Pill Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-indigo-500/30 text-indigo-300 text-xs sm:text-sm font-semibold shadow-inner">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Solution #1 d'Automatisation Wi-Fi Zone en Afrique de l'Ouest</span>
+            {/* Colonne Gauche : Pitch & Preuves de confiance */}
+            <div className="lg:col-span-7 space-y-6 text-left">
+              
+              {/* Badge Opérateurs Compatibles */}
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-xs font-mono">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>MTN MoMo • Moov Money • Celtiis Cash • Wave</span>
+              </div>
+
+              {/* Titre Principal percutant */}
+              <h1 className="text-3xl sm:text-5xl lg:text-5xl font-black text-white tracking-tight leading-[1.18]">
+                Arrêtez de vendre des tickets Wi-Fi en papier. <br className="hidden sm:inline" />
+                <span className="text-emerald-400 underline decoration-emerald-500/50 underline-offset-8">
+                  Encaissez automatiquement par Mobile Money 24h/24.
+                </span>
+              </h1>
+
+              {/* Explication concrète du problème / solution */}
+              <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl">
+                Vos clients se connectent au Wi-Fi, choisissent leur forfait (100F, 200F, 500F), valident leur code secret MoMo sur leur propre téléphone et sont connectés en <strong>3 secondes</strong>.
+                <span className="block mt-2 text-slate-400 text-sm">
+                  Zéro présence physique requise. L'argent arrive directement sur votre compte. Votre routeur MikroTik gère tout en autonomie totale, même la nuit.
+                </span>
+              </p>
+
+              {/* Badges de Réassurance Concrets */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 text-xs font-mono text-slate-300">
+                <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1">
+                  <div className="text-emerald-400 font-bold flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" /> 100% Autonome
+                  </div>
+                  <p className="text-[11px] text-slate-400">Pas besoin d'ordinateur allumé</p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1">
+                  <div className="text-emerald-400 font-bold flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" /> Tout Fournisseur
+                  </div>
+                  <p className="text-[11px] text-slate-400">Starlink, Fibre, Box 4G/5G</p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 col-span-2 sm:col-span-1">
+                  <div className="text-emerald-400 font-bold flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" /> Zéro Fraude
+                  </div>
+                  <p className="text-[11px] text-slate-400">Fini les vols de caisse gérants</p>
+                </div>
+              </div>
+
+              {/* Boutons d'Action Directe */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+                <a
+                  href="#tarifs"
+                  className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+                >
+                  <span>Commander un Routeur Clé en Main</span>
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+
+                <a
+                  href="#demo-live"
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" />
+                  <span>Tester le Parcours Client ci-dessous</span>
+                </a>
+              </div>
+
             </div>
 
-            {/* Main Headline */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15]">
-              Transformez votre routeur <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-indigo-400">MikroTik</span> en une machine à billets <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">24h/24 par Mobile Money</span>.
-            </h1>
+            {/* Colonne Droite : Fiche Technique Matériel MikroTik Réel */}
+            <div className="lg:col-span-5">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-2xl space-y-4">
+                
+                {/* Header Matériel */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2 font-mono text-xs text-slate-300">
+                    <Server className="w-4 h-4 text-emerald-400" />
+                    <span>MikroTik RouterBOARD RB951Ui-2HnD</span>
+                  </div>
+                  <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    ONLINE 24/7
+                  </span>
+                </div>
 
-            {/* Sub-headline */}
-            <p className="text-base sm:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
-              Fini l'impression de tickets en carton et les vols de caisse. Vos clients se connectent, paient par <strong>MTN MoMo, Moov, Wave ou Orange</strong>, et sont connectés en <strong>3 secondes</strong>. Vous recevez l'argent directement sur votre téléphone.
-            </p>
+                {/* Ports physiques simulés */}
+                <div className="space-y-2">
+                  <div className="text-[11px] font-mono text-slate-400 uppercase">État des Interfaces Ethernet :</div>
+                  <div className="grid grid-cols-5 gap-1.5 font-mono text-[10px] text-center">
+                    <div className="p-2 rounded bg-slate-950 border border-emerald-500/40 text-emerald-400">
+                      <div className="font-bold">E1 (WAN)</div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">Starlink/Box</div>
+                    </div>
+                    <div className="p-2 rounded bg-slate-950 border border-emerald-500/40 text-emerald-400">
+                      <div className="font-bold">E2 (LAN)</div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">Antenne CPE</div>
+                    </div>
+                    <div className="p-2 rounded bg-slate-950 border border-slate-800 text-slate-500">
+                      <div className="font-bold">E3</div>
+                      <div className="text-[9px] text-slate-600 mt-0.5">Libre</div>
+                    </div>
+                    <div className="p-2 rounded bg-slate-950 border border-slate-800 text-slate-500">
+                      <div className="font-bold">E4</div>
+                      <div className="text-[9px] text-slate-600 mt-0.5">Libre</div>
+                    </div>
+                    <div className="p-2 rounded bg-slate-950 border border-slate-800 text-slate-500">
+                      <div className="font-bold">E5 (PoE)</div>
+                      <div className="text-[9px] text-slate-600 mt-0.5">Libre</div>
+                    </div>
+                  </div>
+                </div>
 
-            {/* CTAs */}
-            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a
-                href={getWhatsAppLink("Bonjour, je souhaite équiper ma Wi-Fi Zone avec 2MC SpotCloud. Pouvez-vous me guider ?")}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-base shadow-xl shadow-indigo-600/30 flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <span>Obtenir Mon Pack Wi-Fi Automatisé</span>
-                <ArrowRight className="w-5 h-5" />
-              </a>
+                {/* Métriques Live réelles */}
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
+                  <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80">
+                    <div className="text-slate-500 text-[10px]">Consommation électrique</div>
+                    <div className="text-white font-bold text-sm mt-0.5">~3.5 Watts (0.3 A)</div>
+                    <div className="text-[10px] text-emerald-400">Moins qu'une ampoule LED</div>
+                  </div>
 
-              <button
-                onClick={onOpenLogin}
-                className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600 font-bold text-base flex items-center justify-center gap-2 transition-all"
-              >
-                <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" />
-                <span>Tester la Démo Dashboard</span>
-              </button>
-            </div>
+                  <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80">
+                    <div className="text-slate-500 text-[10px]">Autonomie après coupure</div>
+                    <div className="text-white font-bold text-sm mt-0.5">Redémarrage 15s</div>
+                    <div className="text-[10px] text-emerald-400">Zéro perte de données</div>
+                  </div>
+                </div>
 
-            {/* Micro-assurances */}
-            <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400 font-medium">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Sans abonnement obligatoire</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Compatible Starlink & Box 4G</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Installation en 30 minutes</span>
+                {/* Callout Commercial */}
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 flex items-center gap-3">
+                  <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-400" />
+                  <span>
+                    Vous n'avez aucune configuration à faire. Nous vous expédions le boîtier <strong>100% prêt à brancher</strong>.
+                  </span>
+                </div>
+
               </div>
             </div>
 
           </div>
 
-          {/* ========================================================
-              DASHBOARD & MOBILE DUAL PREVIEW MOCKUP
-          ======================================================== */}
-          <div className="mt-14 lg:mt-20 relative max-w-5xl mx-auto">
+        </div>
+      </section>
+
+      {/* ========================================================
+          3. DÉMONSTRATION INTERACTIVE : VIVEZ L'EXPÉRIENCE EN DIRECT
+      ======================================================== */}
+      <section id="demo-live" className="py-20 bg-slate-950 border-b border-slate-800/80 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          <div className="text-center max-w-3xl mx-auto mb-14 space-y-2">
+            <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              Expérience Interactive en Direct
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-black text-white">
+              Testez le parcours exact de vos clients et de votre cockpit
+            </h2>
+            <p className="text-sm text-slate-400">
+              Cliquez ci-dessous pour simuler un achat de ticket en 3 étapes et observez la réaction immédiate du dashboard.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start max-w-6xl mx-auto">
             
-            <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-3 sm:p-5 shadow-2xl shadow-indigo-500/10 backdrop-blur-xl">
+            {/* Écran 1 : Le Smartphone du Client sur le Portail (mcwifi.net) */}
+            <div className="lg:col-span-5 bg-slate-900 border-2 border-slate-700 rounded-3xl p-4 shadow-2xl relative">
               
-              {/* Window controls header */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4 px-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-rose-500/80"></div>
-                  <div className="w-3 h-3 rounded-full bg-amber-500/80"></div>
-                  <div className="w-3 h-3 rounded-full bg-emerald-500/80"></div>
-                  <span className="text-xs font-mono text-slate-500 ml-2">2mc.alwaysdata.net/dashboard</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                  <span>Connecté en Direct • RouterOS v7</span>
-                </div>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs font-mono text-slate-400 mb-4 px-1">
+                <span className="flex items-center gap-1.5 text-white">
+                  <Smartphone className="w-4 h-4 text-emerald-400" /> Smartphone Client
+                </span>
+                <span className="text-[11px] text-emerald-400">http://mcwifi.net</span>
               </div>
 
-              {/* Inside Dashboard Teaser Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Étape 1 : Choix du forfait */}
+              {simStep === 'select' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="text-center py-2">
+                    <h3 className="font-bold text-white text-base">Bienvenue sur le Wi-Fi</h3>
+                    <p className="text-xs text-slate-400">Choisissez votre forfait pour naviguer :</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setSimPlan('100')}
+                      className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                        simPlan === '100' ? 'bg-emerald-500/15 border-emerald-500 text-white font-bold' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="text-left">
+                        <div className="text-xs">Pass Rapide • 2 Heures</div>
+                        <div className="text-[10px] text-slate-400">Vitesse : 5 Mbps</div>
+                      </div>
+                      <div className="text-sm font-mono text-emerald-400 font-bold">100 FCFA</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSimPlan('200')}
+                      className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                        simPlan === '200' ? 'bg-emerald-500/15 border-emerald-500 text-white font-bold' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="text-left">
+                        <div className="text-xs">Pass Journée • 24 Heures</div>
+                        <div className="text-[10px] text-emerald-400 font-semibold">Le Plus Populaire</div>
+                      </div>
+                      <div className="text-sm font-mono text-emerald-400 font-bold">200 FCFA</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSimPlan('500')}
+                      className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                        simPlan === '500' ? 'bg-emerald-500/15 border-emerald-500 text-white font-bold' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="text-left">
+                        <div className="text-xs">Pass Illimité • 3 Jours</div>
+                        <div className="text-[10px] text-slate-400">Streaming HD & Téléchargement</div>
+                      </div>
+                      <div className="text-sm font-mono text-emerald-400 font-bold">500 FCFA</div>
+                    </button>
+                  </div>
+
+                  {/* Choix de l'opérateur */}
+                  <div className="pt-2">
+                    <label className="text-[11px] font-mono text-slate-400 block mb-1.5">Payer avec :</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSimOperator('mtn')}
+                        className={`p-2 rounded-lg border text-center text-xs font-bold transition-all cursor-pointer ${
+                          simOperator === 'mtn' ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-slate-950 border-slate-800 text-slate-400'
+                        }`}
+                      >
+                        MTN MoMo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSimOperator('moov')}
+                        className={`p-2 rounded-lg border text-center text-xs font-bold transition-all cursor-pointer ${
+                          simOperator === 'moov' ? 'bg-blue-500/20 border-blue-500 text-blue-300' : 'bg-slate-950 border-slate-800 text-slate-400'
+                        }`}
+                      >
+                        Moov Money
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSimOperator('celtiis')}
+                        className={`p-2 rounded-lg border text-center text-xs font-bold transition-all cursor-pointer ${
+                          simOperator === 'celtiis' ? 'bg-purple-500/20 border-purple-500 text-purple-300' : 'bg-slate-950 border-slate-800 text-slate-400'
+                        }`}
+                      >
+                        Celtiis Cash
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Bouton de déclenchement */}
+                  <button
+                    type="button"
+                    onClick={handleSimulatePayment}
+                    className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer mt-2"
+                  >
+                    <span>Valider et Payer {simPlan} FCFA</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Étape 2 : Invite USSD sur le téléphone */}
+              {simStep === 'ussd' && (
+                <div className="py-8 text-center space-y-4 animate-in zoom-in-95 duration-200">
+                  <div className="w-14 h-14 rounded-full bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center animate-pulse">
+                    <Smartphone className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-white text-base">Invite USSD Envoyée</h4>
+                    <p className="text-xs text-amber-300 font-mono">
+                      « Paiement de {simPlan} FCFA pour 2MC SpotCloud. Tapez votre code secret. »
+                    </p>
+                  </div>
+                  <div className="inline-block px-3 py-1 rounded bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400 animate-pulse">
+                    En attente de validation opérateur...
+                  </div>
+                </div>
+              )}
+
+              {/* Étape 3 : Paiement validé & Connexion Immédiate */}
+              {simStep === 'success' && (
+                <div className="py-4 text-center space-y-4 animate-in zoom-in-95 duration-200">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center">
+                    <CheckCircle2 className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-extrabold text-white text-base">Paiement Confirmé !</h4>
+                    <p className="text-xs text-slate-300">Votre routeur MikroTik vous a connecté automatiquement :</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-emerald-500/40 space-y-1">
+                    <div className="text-[10px] font-mono text-slate-400 uppercase">Votre Code Voucher Attribué</div>
+                    <div className="text-xl font-mono font-black text-emerald-400 tracking-wider">{simVoucherCode}</div>
+                    <div className="text-[11px] text-slate-400">Statut : <span className="text-emerald-400 font-bold">Actif • Session démarrée</span></div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleResetSim}
+                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Recommencer la simulation client</span>
+                  </button>
+                </div>
+              )}
+
+            </div>
+
+            {/* Écran 2 : Ce que le Propriétaire voit en direct sur son Dashboard */}
+            <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4">
+              
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs font-mono text-slate-400">
+                <span className="flex items-center gap-2 text-white font-bold">
+                  <Cpu className="w-4 h-4 text-indigo-400" /> Cockpit Administrateur 2MC SpotCloud (Votre Téléphone)
+                </span>
+                <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  SYNCHRONISÉ EN TEMPS RÉEL
+                </span>
+              </div>
+
+              {/* Notification Flash dès qu'une vente passe */}
+              {simAdminAlert && (
+                <div className="p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-500 text-emerald-300 text-xs flex items-center justify-between animate-in slide-in-from-top duration-300 shadow-lg">
+                  <div className="flex items-center gap-2.5">
+                    <Bell className="w-4 h-4 text-emerald-400 shrink-0 animate-bounce" />
+                    <div>
+                      <strong>NOUVEL ENCAISSEMENT : +{simPlan} FCFA !</strong>
+                      <div className="text-[11px] text-slate-300">
+                        Opérateur : {simOperator.toUpperCase()} • Code ticket {simVoucherCode} activé sur le routeur
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase">À l'instant</span>
+                </div>
+              )}
+
+              {/* Métriques du Dashboard */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono">
                 
-                {/* Metric 1 */}
-                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-1">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-                    <span>Revenus Aujourd'hui (MoMo)</span>
-                    <DollarSign className="w-4 h-4 text-emerald-400" />
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                  <div className="text-slate-500 text-[10px] uppercase">Revenus Aujourd'hui</div>
+                  <div className="text-2xl font-black text-emerald-400 mt-1">
+                    {simTodayRevenue.toLocaleString('fr-FR')} <span className="text-xs font-normal text-slate-400">F</span>
                   </div>
-                  <div className="text-2xl font-black text-white font-mono">18 500 <span className="text-xs font-normal text-slate-400">FCFA</span></div>
-                  <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" /> +34% par rapport à hier
-                  </p>
+                  <div className="text-[10px] text-emerald-400 mt-0.5">Encaissement automatique</div>
                 </div>
 
-                {/* Metric 2 */}
-                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-1">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-                    <span>Clients Connectés en Direct</span>
-                    <Users className="w-4 h-4 text-indigo-400" />
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                  <div className="text-slate-500 text-[10px] uppercase">Sessions Actives</div>
+                  <div className="text-2xl font-black text-white mt-1">
+                    {simStep === 'success' ? '17' : '16'} <span className="text-xs font-normal text-slate-400">users</span>
                   </div>
-                  <div className="text-2xl font-black text-white font-mono">28 <span className="text-xs font-normal text-slate-400">utilisateurs</span></div>
-                  <p className="text-[11px] text-slate-400">Bande passante : 42.8 Mbps / 50 Mbps</p>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Contrôle bande passante</div>
                 </div>
 
-                {/* Metric 3 */}
-                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-1">
-                  <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-                    <span>Dernière Vente Automatique</span>
-                    <Bell className="w-4 h-4 text-purple-400" />
-                  </div>
-                  <div className="text-sm font-bold text-white font-mono truncate">Code: wzdz3nfh (Forfait 4h)</div>
-                  <p className="text-[11px] text-emerald-400 font-medium">Payé via MTN Mobile Money (il y a 2 min)</p>
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                  <div className="text-slate-500 text-[10px] uppercase">Routeur MikroTik</div>
+                  <div className="text-sm font-bold text-white mt-2 truncate">RB951Ui • 7.23.2</div>
+                  <div className="text-[10px] text-emerald-400 mt-1 font-bold">Signal Polling : 2s</div>
                 </div>
 
               </div>
 
-              {/* Banner notification showcase */}
-              <div className="mt-4 p-3 rounded-xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-indigo-950/40 border border-emerald-500/30 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-                    📲
+              {/* Journal des dernières ventes en direct */}
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="text-[11px] font-mono text-slate-400 uppercase font-semibold">
+                  Dernières Transactions Enregistrées :
+                </div>
+
+                <div className="space-y-1.5 font-mono text-xs">
+                  {simStep === 'success' && (
+                    <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-emerald-300 animate-in fade-in">
+                      <span>{simVoucherCode} • {simPlan} FCFA ({simOperator.toUpperCase()})</span>
+                      <span className="text-[10px] text-emerald-400 font-bold">EN LIGNE MAINTENANT</span>
+                    </div>
+                  )}
+
+                  <div className="p-2 rounded bg-slate-900 border border-slate-800/80 flex items-center justify-between text-slate-300">
+                    <span>V-4821 • 200 FCFA (MTN MoMo)</span>
+                    <span className="text-[10px] text-slate-500">Il y a 14 min</span>
                   </div>
-                  <div className="text-xs">
-                    <strong className="text-white">Notification Push Directe :</strong> <span className="text-slate-300">Vous recevez une alerte sur votre téléphone dès qu'un ticket est acheté, même si vous dormez.</span>
+
+                  <div className="p-2 rounded bg-slate-900 border border-slate-800/80 flex items-center justify-between text-slate-300">
+                    <span>V-1092 • 100 FCFA (Moov Money)</span>
+                    <span className="text-[10px] text-slate-500">Il y a 32 min</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Bouton pour ouvrir la vraie interface */}
+              <div className="pt-2 text-center">
                 <button
+                  type="button"
                   onClick={onOpenLogin}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs whitespace-nowrap transition-colors"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs transition-colors cursor-pointer"
                 >
-                  Voir en direct
+                  <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Tester le vrai dashboard avec le compte Démo Invité</span>
                 </button>
               </div>
 
@@ -260,85 +586,163 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       </section>
 
       {/* ========================================================
-          3. LE PROBLÈME VS LA SOLUTION (AGITATION & TRANSFORMATION)
+          4. ARCHITECTURE RÉSEAU CONCRÈTE ("COMMENT ÇA SE BRANCHE ?")
       ======================================================== */}
-      <section id="solution" className="py-20 bg-slate-950/60 border-y border-slate-900 relative">
+      <section id="architecture" className="py-20 border-b border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Le Constat Cruel</h2>
-            <p className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-              Combien d'argent perdez-vous chaque jour avec l'ancienne méthode ?
+          <div className="text-center max-w-3xl mx-auto mb-16 space-y-2">
+            <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
+              Installation Plug & Play
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-black text-white">
+              Comment le système se branche chez vous en 5 minutes
+            </h2>
+            <p className="text-sm text-slate-400">
+              Vous n'avez pas besoin d'être ingénieur télécom. Le routeur arrive déjà configuré et prêt à l'emploi.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch relative">
             
-            {/* Colonne 1 : La méthode traditionnelle (douloureuse) */}
-            <div className="rounded-3xl border border-rose-900/30 bg-rose-950/10 p-6 sm:p-8 space-y-6 flex flex-col justify-between">
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs font-bold uppercase">
-                  <XCircle className="w-4 h-4" /> La Méthode Ancienne (Mikhmon Papier)
-                </div>
-                <h3 className="text-xl font-bold text-white">Lente, risquée et dépendante d'un être humain</h3>
-                
-                <ul className="space-y-3 text-sm text-slate-300">
-                  <li className="flex items-start gap-3">
-                    <span className="text-rose-400 font-bold text-lg leading-none">✕</span>
-                    <span><strong>Pertes de clients la nuit</strong> : Le gérant dort ou est absent, les clients ne peuvent pas acheter de tickets et repartent.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="text-rose-400 font-bold text-lg leading-none">✕</span>
-                    <span><strong>Vols de caisse & triche</strong> : Difficile de savoir si tous les tickets vendus ont réellement été enregistrés et payés.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="text-rose-400 font-bold text-lg leading-none">✕</span>
-                    <span><strong>Coûts d'impression & d'encres</strong> : Des ramettes de papier, des imprimantes qui tombent en panne, des tickets perdus ou mouillés.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="text-rose-400 font-bold text-lg leading-none">✕</span>
-                    <span><strong>Dépendance totale</strong> : Si vous voyagez ou êtes malade, votre business Wi-Fi s'arrête net.</span>
-                  </li>
-                </ul>
+            {/* Étape 1 */}
+            <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 relative">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-mono font-black flex items-center justify-center text-sm">
+                01
               </div>
+              <h3 className="font-bold text-white text-base">Votre Box Internet</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                N'importe quelle connexion : <strong>Starlink</strong>, <strong>Box Fibre</strong> (Canalbox, Moov, MTN), ou <strong>Modem 4G/5G</strong>.
+              </p>
+              <div className="text-[11px] font-mono text-emerald-400">Sortie : Câble Ethernet RJ45</div>
+            </div>
 
-              <div className="p-4 rounded-2xl bg-rose-950/30 border border-rose-900/50 text-xs text-rose-300">
-                ⚠️ Résultat : Vous perdez en moyenne <strong>30% à 50% de chiffre d'affaires</strong> chaque mois.
+            {/* Étape 2 */}
+            <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 relative">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-mono font-black flex items-center justify-center text-sm">
+                02
+              </div>
+              <h3 className="font-bold text-white text-base">Routeur MikroTik 2MC</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Vous branchez le câble sur le <strong>Port 1</strong>. Le routeur prend le contrôle du trafic, gère le portail captif et filtre les accès.
+              </p>
+              <div className="text-[11px] font-mono text-emerald-400">Totalement autonome (3 Watts)</div>
+            </div>
+
+            {/* Étape 3 */}
+            <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 relative">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-mono font-black flex items-center justify-center text-sm">
+                03
+              </div>
+              <h3 className="font-bold text-white text-base">Diffusion Wi-Fi</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Le Wi-Fi intégré diffuse dans votre local (restaurant/bar), ou vous branchez une <strong>antenne extérieure longue portée</strong> (TP-Link CPE, Ubiquiti) sur le Port 2.
+              </p>
+              <div className="text-[11px] font-mono text-emerald-400">Portée : 50m à 500m selon antenne</div>
+            </div>
+
+            {/* Étape 4 */}
+            <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 relative">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-mono font-black flex items-center justify-center text-sm">
+                04
+              </div>
+              <h3 className="font-bold text-white text-base">Vos Sous sur votre Mobile</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Chaque fois qu'un client paie, les fonds sont crédités sur votre compte FedaPay / MoMo. Vous recevez un virement direct.
+              </p>
+              <div className="text-[11px] font-mono text-emerald-400">Zéro intermédiaire • Zéro perte</div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ========================================================
+          5. 4 CAS D'USAGE RÉELS DU TERRAIN (AFRIQUE DE L'OUEST)
+      ======================================================== */}
+      <section id="terrains" className="py-20 bg-slate-950 border-b border-slate-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          <div className="text-center max-w-3xl mx-auto mb-16 space-y-2">
+            <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              Applications Pratiques
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-black text-white">
+              Déjà rentabilisé dans 4 types d'établissements
+            </h2>
+            <p className="text-sm text-slate-400">
+              Découvrez comment nos clients utilisent 2MC SpotCloud au quotidien :
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Cas 1 : Wi-Fi Zone de Quartier */}
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-1 rounded bg-slate-800 text-[11px] font-mono text-emerald-400 font-bold uppercase">
+                  Quartier Résidentiel / Carrefour
+                </span>
+                <span className="text-xs font-mono text-slate-500">60 à 150 clients/jour</span>
+              </div>
+              <h3 className="text-lg font-bold text-white">La Wi-Fi Zone de Quartier Automatisée</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Vous installez une antenne extérieure sur votre toit. Les jeunes et étudiants du quartier achètent leurs forfaits de 100 F ou 200 F depuis leur lit.
+              </p>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 text-xs font-mono text-slate-300">
+                <strong className="text-emerald-400">Gain terrain :</strong> Plus besoin de rester assis sous un parasol à vendre des tickets papier. Les ventes continuent à minuit et 3h du matin.
               </div>
             </div>
 
-            {/* Colonne 2 : Avec 2MC SpotCloud (Automatisé) */}
-            <div className="rounded-3xl border border-emerald-500/40 bg-emerald-950/10 p-6 sm:p-8 space-y-6 flex flex-col justify-between relative overflow-hidden shadow-xl shadow-emerald-500/5">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-              <div className="space-y-4 relative z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 text-xs font-bold uppercase">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Avec 2MC SpotCloud 2.0
-                </div>
-                <h3 className="text-xl font-bold text-white">Un robot qui encaisse et connecte vos clients 24h/24</h3>
-
-                <ul className="space-y-3 text-sm text-slate-200">
-                  <li className="flex items-start gap-3">
-                    <span className="text-emerald-400 font-bold text-lg leading-none">✓</span>
-                    <span><strong>Encaissement 100% Automatique</strong> : Le client clique sur son forfait, valide son code Mobile Money et accède à Internet instantanément.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="text-emerald-400 font-bold text-lg leading-none">✓</span>
-                    <span><strong>Zéro vol possible</strong> : L'argent arrive directement sur votre compte FedaPay / MoMo sans intermédiaire.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="text-emerald-400 font-bold text-lg leading-none">✓</span>
-                    <span><strong>Votre Wi-Fi vend pendant que vous dormez</strong> : Ouvert 24h/24, 7j/7, même à 3h du matin sous la pluie.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="text-emerald-400 font-bold text-lg leading-none">✓</span>
-                    <span><strong>Pilotage depuis votre téléphone</strong> : Consultez vos ventes en temps réel, coupez des sessions abusives et recevez vos alertes.</span>
-                  </li>
-                </ul>
+            {/* Cas 2 : Restaurant, Maquis & Lounge Bar */}
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-1 rounded bg-slate-800 text-[11px] font-mono text-emerald-400 font-bold uppercase">
+                  Lounge, Bar & Restauration
+                </span>
+                <span className="text-xs font-mono text-slate-500">Fini les squatteurs</span>
               </div>
+              <h3 className="text-lg font-bold text-white">Restaurants, Maquis & Cafés</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Fini les clients qui s'assoient, commandent une eau minérale et monopolisent le mot de passe Wi-Fi pour toute leur bande d'amis.
+              </p>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 text-xs font-mono text-slate-300">
+                <strong className="text-emerald-400">Gain terrain :</strong> Chaque client paie 100 F pour 2h ou reçoit un code temporisé. Le Wi-Fi rembourse entièrement votre facture fibre chaque mois.
+              </div>
+            </div>
 
-              <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 relative z-10">
-                🚀 Résultat : <strong>Revenus maximisés, zéro fatigue, liberté totale.</strong>
+            {/* Cas 3 : Hôtels, Auberges & Résidences Meublées */}
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-1 rounded bg-slate-800 text-[11px] font-mono text-emerald-400 font-bold uppercase">
+                  Hôtellerie & Airbnb
+                </span>
+                <span className="text-xs font-mono text-slate-500">Connexion Pro & Bridée</span>
+              </div>
+              <h3 className="text-lg font-bold text-white">Hôtels & Résidences Meublées</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Quand vous donnez le mot de passe de la box, un seul client téléchargeant un gros fichier sature la connexion de tout l'établissement.
+              </p>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 text-xs font-mono text-slate-300">
+                <strong className="text-emerald-400">Gain terrain :</strong> 2MC SpotCloud bride le débit par appareil (ex: 5 Mbps max par client) : tout le monde a un streaming fluide sans ralentissement.
+              </div>
+            </div>
+
+            {/* Cas 4 : Cybercafés & Espaces de Coworking */}
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-1 rounded bg-slate-800 text-[11px] font-mono text-emerald-400 font-bold uppercase">
+                  Bureaux & Cybercafé
+                </span>
+                <span className="text-xs font-mono text-slate-500">Zéro Litige</span>
+              </div>
+              <h3 className="text-lg font-bold text-white">Espaces Coworking & Bureaux</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Comptabilisation du temps à la seconde près. Le chronomètre ne démarre que quand le client se connecte réellement pour la première fois.
+              </p>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 text-xs font-mono text-slate-300">
+                <strong className="text-emerald-400">Gain terrain :</strong> Zéro contestation d'heures ou de minutes. Déconnexion automatique dès que le forfait expire.
               </div>
             </div>
 
@@ -348,108 +752,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       </section>
 
       {/* ========================================================
-          4. FONCTIONNALITÉS CLÉS — CE QUE VOUS OBTENEZ
+          6. CALCULATEUR DE RENTABILITÉ RÉALISTE
       ======================================================== */}
-      <section id="features" className="py-24 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Technologies & Fonctionnalités</h2>
-            <p className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              Tout ce dont vous avez besoin pour dominer votre marché local
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            
-            {/* Feature 1 */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 hover:border-indigo-500/50 transition-all hover:bg-slate-900/80 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
-                <Smartphone className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-white">Portail Captif Hybride & Rapide</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Page de login moderne, hébergée sur votre routeur MikroTik pour 0 ms de latence, avec ouverture automatique sur tous les smartphones (Android, iPhone).
-              </p>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 hover:border-emerald-500/50 transition-all hover:bg-slate-900/80 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-                <CreditCard className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-white">Passerelle Mobile Money FedaPay</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Acceptez MTN MoMo, Moov Money, Orange, Wave et Celtiis en direct. Les fonds sont versés immédiatement sur votre portefeuille sans blocage.
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 hover:border-purple-500/50 transition-all hover:bg-slate-900/80 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20">
-                <Server className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-white">Technologie Polling Inverse Cloud</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Fonctionne sur n'importe quel modem (4G, Starlink, Fibre) SANS adresse IP publique fixe ni configuration compliquée de box opérateur.
-              </p>
-            </div>
-
-            {/* Feature 4 */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 hover:border-amber-500/50 transition-all hover:bg-slate-900/80 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
-                <Bell className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-white">Notifications Push Web Temps Réel</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Recevez un carillon et une notification sur votre smartphone dès qu'un paiement passe avec le montant et le forfait acheté.
-              </p>
-            </div>
-
-            {/* Feature 5 */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 hover:border-sky-500/50 transition-all hover:bg-slate-900/80 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
-                <MessageCircle className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-white">WhatsApp Support Dynamique</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Changez votre numéro de contact en 3 secondes dans le Dashboard : il s'actualise automatiquement sur le portail de tous vos clients.
-              </p>
-            </div>
-
-            {/* Feature 6 */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 hover:border-rose-500/50 transition-all hover:bg-slate-900/80 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-white">Sécurité Anti-Fraude & Audit MikroTik</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Comptabilisation infalsifiable croisée entre les scripts MikroTik et les transactions financières. Zéro discordance de caisse.
-              </p>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ========================================================
-          5. SIMULATEUR DE REVENUS INTERACTIF
-      ======================================================== */}
-      <section id="simulator" className="py-20 bg-gradient-to-b from-[#070b14] via-slate-950 to-[#070b14] border-t border-slate-900">
+      <section id="simulateur" className="py-20 border-b border-slate-800/80">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="rounded-3xl border border-indigo-500/30 bg-gradient-to-b from-slate-900/90 to-slate-950 p-6 sm:p-10 shadow-2xl space-y-8">
+          <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 sm:p-10 shadow-2xl space-y-8">
             
             <div className="text-center space-y-2">
-              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                Simulateur de Rentabilité
+              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                Calculateur Financier Réaliste
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-white">
-                Combien votre Wi-Fi Zone peut vous rapporter ?
+                Simulez vos revenus mensuels nets
               </h2>
               <p className="text-xs sm:text-sm text-slate-400">
-                Ajustez les curseurs selon la fréquentation de votre quartier ou commerce :
+                Ajustez selon le nombre de clients quotidiens dans votre zone :
               </p>
             </div>
 
@@ -458,30 +776,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               {/* Sliders */}
               <div className="space-y-6">
                 <div>
-                  <div className="flex justify-between text-xs font-bold mb-2">
-                    <span className="text-slate-300">Clients / Ventes par jour :</span>
-                    <span className="text-indigo-400 font-mono text-base">{dailyUsers} clients</span>
+                  <div className="flex justify-between text-xs font-mono mb-2">
+                    <span className="text-slate-300">Clients / Tickets par jour :</span>
+                    <span className="text-emerald-400 font-bold text-base">{dailyUsers} clients</span>
                   </div>
                   <input
                     type="range"
-                    min="5"
-                    max="150"
+                    min="10"
+                    max="200"
                     step="5"
                     value={dailyUsers}
                     onChange={(e) => setDailyUsers(parseInt(e.target.value))}
-                    className="w-full accent-indigo-500 cursor-pointer"
+                    className="w-full accent-emerald-500 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[10px] text-slate-500 mt-1">
-                    <span>5 clients</span>
-                    <span>75 clients</span>
-                    <span>150 clients</span>
+                  <div className="flex justify-between text-[10px] font-mono text-slate-500 mt-1">
+                    <span>10/jour</span>
+                    <span>100/jour</span>
+                    <span>200/jour</span>
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs font-bold mb-2">
-                    <span className="text-slate-300">Prix moyen d'un forfait :</span>
-                    <span className="text-emerald-400 font-mono text-base">{avgTicketPrice} FCFA</span>
+                  <div className="flex justify-between text-xs font-mono mb-2">
+                    <span className="text-slate-300">Prix moyen du ticket :</span>
+                    <span className="text-emerald-400 font-bold text-base">{avgTicketPrice} FCFA</span>
                   </div>
                   <input
                     type="range"
@@ -492,38 +810,42 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                     onChange={(e) => setAvgTicketPrice(parseInt(e.target.value))}
                     className="w-full accent-emerald-500 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                  <div className="flex justify-between text-[10px] font-mono text-slate-500 mt-1">
                     <span>100 F</span>
                     <span>500 F</span>
                     <span>1 000 F</span>
                   </div>
                 </div>
+
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400">
+                  💡 Déduction estimée de l'abonnement internet (Fibre/Starlink) : <span className="text-slate-200">25 000 FCFA / mois</span>
+                </div>
               </div>
 
               {/* Résultat Calculé */}
-              <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 text-center space-y-4">
+              <div className="bg-slate-950 p-6 rounded-2xl border border-emerald-500/30 text-center space-y-4">
                 <div>
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Revenu Net Estimé par Mois</span>
-                  <div className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 font-mono mt-1">
-                    {monthlyRevenue.toLocaleString('fr-FR')} <span className="text-sm font-bold text-slate-400">FCFA</span>
+                  <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block">Chiffre d'Affaires Brut Mensuel</span>
+                  <div className="text-3xl font-mono font-black text-white mt-1">
+                    {monthlyGross.toLocaleString('fr-FR')} <span className="text-xs font-normal text-slate-400">FCFA</span>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-800/80">
-                  <span className="text-[11px] text-slate-400 block">Sur une année complète :</span>
-                  <span className="text-base font-extrabold text-indigo-300 font-mono">
-                    {yearlyRevenue.toLocaleString('fr-FR')} FCFA / an
-                  </span>
+                <div className="pt-3 border-t border-slate-800">
+                  <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-wider block font-bold">Bénéfice Net dans votre poche / mois</span>
+                  <div className="text-3xl font-mono font-black text-emerald-400 mt-1">
+                    +{netMonthlyProfit.toLocaleString('fr-FR')} <span className="text-xs font-normal text-slate-400">FCFA</span>
+                  </div>
                 </div>
 
                 <a
-                  href={getWhatsAppLink(`Bonjour, d'après le simulateur je peux faire ${monthlyRevenue.toLocaleString('fr-FR')} FCFA/mois. Je souhaite démarrer mon installation.`)}
+                  href={getWhatsAppLink(`Bonjour 2MC, d'après mon calcul je peux générer environ ${monthlyGross.toLocaleString('fr-FR')} FCFA par mois. Je souhaite commander mon équipement.`)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
+                  className="w-full py-3.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-500/20"
                 >
-                  <Zap className="w-4 h-4 fill-slate-950" />
-                  <span>Activer mes revenus maintenant</span>
+                  <MessageCircle className="w-4 h-4 fill-slate-950" />
+                  <span>Démarrer avec ce potentiel</span>
                 </a>
               </div>
 
@@ -535,98 +857,100 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       </section>
 
       {/* ========================================================
-          6. GRILLE TARIFAIRE & PACKS DE DÉPLOIEMENT
+          7. GRILLE TARIFAIRE & PACKS DE DÉPLOIEMENT
       ======================================================== */}
-      <section id="pricing" className="py-24 relative">
+      <section id="tarifs" className="py-20 bg-slate-950 border-b border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Offres & Déploiement</h2>
-            <p className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              Choisissez la formule qui correspond à votre projet
-            </p>
+          <div className="text-center max-w-3xl mx-auto mb-16 space-y-2">
+            <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
+              Investissement Transparent
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-black text-white">
+              Nos Formules Prêtes à l'Emploi
+            </h2>
             <p className="text-sm text-slate-400">
-              Déploiement rapide en 24h à distance ou livraison du routeur prêt à brancher.
+              Sans abonnement mensuel obligatoire. Vous achetez votre matériel et vous êtes propriétaire à 100%.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch max-w-6xl mx-auto">
             
-            {/* Pack 1 */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-8 flex flex-col justify-between space-y-6">
+            {/* Formule 1 : Licence Seule */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-7 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
-                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-300 uppercase">
+                <span className="px-2.5 py-1 rounded bg-slate-800 text-[10px] font-mono text-slate-300 uppercase font-bold">
                   Vous avez déjà un MikroTik
                 </span>
-                <h3 className="text-xl font-bold text-white">Pack Installation & Licence</h3>
-                <div className="text-3xl font-black text-white font-mono">25 000 <span className="text-xs font-normal text-slate-400">FCFA (1 fois)</span></div>
+                <h3 className="text-lg font-bold text-white">Pack Configuration & Licence</h3>
+                <div className="text-2xl font-black text-white font-mono">25 000 <span className="text-xs font-normal text-slate-400">FCFA (1 fois)</span></div>
                 <p className="text-xs text-slate-400">
-                  Nous configurons votre propre routeur MikroTik à distance et activons le système complet.
+                  Nous prenons le contrôle de votre routeur MikroTik existant à distance pour installer et activer 2MC SpotCloud.
                 </p>
 
-                <ul className="space-y-2.5 text-xs text-slate-300 pt-2">
+                <ul className="space-y-2 text-xs text-slate-300 pt-2 font-mono">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Configuration complète de votre routeur</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Configuration RouterOS complète</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Portail captif personnalisé à vos couleurs</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Portail captif mcwifi.net personnalisé</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Intégration Mobile Money FedaPay</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Passerelle FedaPay intégrée</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span>Accès Dashboard Cloud sécurisé</span>
                   </li>
                 </ul>
               </div>
 
               <a
-                href={getWhatsAppLink("Bonjour, j'ai déjà un routeur MikroTik et je souhaite commander le Pack Installation à 25 000 FCFA.")}
+                href={getWhatsAppLink("Bonjour, j'ai déjà un routeur MikroTik et je souhaite commander le Pack Configuration à 25 000 FCFA.")}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-slate-700"
+                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-slate-700 cursor-pointer"
               >
                 <span>Commander ce pack</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
             </div>
 
-            {/* Pack 2 : Recommandé Clé en Main */}
-            <div className="bg-gradient-to-b from-indigo-950/40 via-slate-900 to-slate-900 border-2 border-indigo-500 rounded-3xl p-6 sm:p-8 flex flex-col justify-between space-y-6 relative shadow-2xl shadow-indigo-500/10">
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[11px] font-black uppercase tracking-wider shadow-md">
-                Pack Clé en Main Recommandé
+            {/* Formule 2 : Routeur Clé en Main Recommandé */}
+            <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl p-6 sm:p-7 flex flex-col justify-between space-y-6 relative shadow-2xl shadow-emerald-500/10">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-mono font-black uppercase tracking-wider">
+                PACK CLÉ EN MAIN LE PLUS VENDU
               </div>
 
-              <div className="space-y-4 pt-2">
-                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-indigo-500/20 text-indigo-300 uppercase">
-                  Matériel + Logiciel Inclus
+              <div className="space-y-4 pt-1">
+                <span className="px-2.5 py-1 rounded bg-emerald-500/15 text-[10px] font-mono text-emerald-400 uppercase font-bold">
+                  Matériel Physique + Système Inclus
                 </span>
-                <h3 className="text-xl font-bold text-white">Routeur MikroTik Prêt à Brancher</h3>
+                <h3 className="text-lg font-bold text-white">Routeur MikroTik Prêt à Brancher</h3>
                 <div className="text-3xl font-black text-emerald-400 font-mono">55 000 <span className="text-xs font-normal text-slate-400">FCFA</span></div>
                 <p className="text-xs text-slate-300">
-                  Vous recevez un routeur MikroTik hEX / RB951 déjà entièrement flashé et configuré. Vous branchez sur votre box et vous commencez à encaisser.
+                  Vous recevez un routeur MikroTik configuré, testé et scellé. Vous le branchez sur votre box et vous commencez à encaisser le jour même.
                 </p>
 
-                <ul className="space-y-2.5 text-xs text-slate-200 pt-2">
+                <ul className="space-y-2 text-xs text-slate-200 pt-2 font-mono">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span><strong>Routeur MikroTik physique inclus & garanti</strong></span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span><strong>Boîtier MikroTik physique inclus & garanti</strong></span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span>Système 2MC SpotCloud pré-installé</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Plug & Play : vous branchez, ça fonctionne</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Plug & Play : 0 compétence technique requise</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Support VIP & Assistance WhatsApp dédiée</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Assistance WhatsApp directe 7j/7</span>
                   </li>
                 </ul>
               </div>
@@ -635,46 +959,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 href={getWhatsAppLink("Bonjour, je souhaite commander le Pack Routeur MikroTik Prêt à Brancher à 55 000 FCFA.")}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 transition-all hover:scale-[1.02]"
+                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all hover:scale-[1.01] cursor-pointer"
               >
-                <span>Commander Mon Routeur Clé en Main</span>
+                <span>Commander Mon Routeur Prêt à Brancher</span>
                 <ArrowRight className="w-4 h-4" />
               </a>
             </div>
 
-            {/* Pack 3 : Multi-Sites / Entreprise */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-8 flex flex-col justify-between space-y-6">
+            {/* Formule 3 : Multi-Sites / Entreprise */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-7 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
-                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-300 uppercase">
-                  Hôtels, Campus, Réseaux
+                <span className="px-2.5 py-1 rounded bg-slate-800 text-[10px] font-mono text-slate-300 uppercase font-bold">
+                  Hôtels & Complexes
                 </span>
-                <h3 className="text-xl font-bold text-white">Solution Multi-Sites Sur-Mesure</h3>
-                <div className="text-3xl font-black text-white font-mono">Sur Devis</div>
+                <h3 className="text-lg font-bold text-white">Installation Multi-Antennes</h3>
+                <div className="text-2xl font-black text-white font-mono">Sur Devis</div>
                 <p className="text-xs text-slate-400">
-                  Déploiement pour plusieurs points d'accès, antennes longue portée (Ubiquiti / TP-Link Omada), résidences ou complexes hôteliers.
+                  Déploiement avec antennes extérieures longue portée (Ubiquiti UniFi, TP-Link CPE210/510), couverture de quartier entier ou hôtels.
                 </p>
 
-                <ul className="space-y-2.5 text-xs text-slate-300 pt-2">
+                <ul className="space-y-2 text-xs text-slate-300 pt-2 font-mono">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Gestion centralisée multi-routeurs</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Audit de couverture et positionnement</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Audit de couverture Wi-Fi & antennes</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Plusieurs points d'accès unifiés</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Accompagnement & SLA garanti</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Support dédié et maintenance prioritaire</span>
                   </li>
                 </ul>
               </div>
 
               <a
-                href={getWhatsAppLink("Bonjour, je souhaite un devis personnalisé pour un projet Wi-Fi multi-sites (Hôtel / Résidence / Réseau).")}
+                href={getWhatsAppLink("Bonjour, je souhaite un devis personnalisé pour un projet Wi-Fi multi-antennes / hôtel.")}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-slate-700"
+                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-slate-700 cursor-pointer"
               >
                 <span>Demander un Devis WhatsApp</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -687,56 +1011,59 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       </section>
 
       {/* ========================================================
-          7. FOIRE AUX QUESTIONS (FAQ ANTI-OBJECTIONS)
+          8. FOIRE AUX QUESTIONS DIRECTE (ANTI-OBJECTIONS)
       ======================================================== */}
-      <section id="faq" className="py-20 bg-slate-950/60 border-t border-slate-900">
+      <section id="faq" className="py-20 border-b border-slate-800/80">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Des Réponses Claires</h2>
-            <p className="text-3xl font-extrabold text-white tracking-tight">
-              Questions Fréquentes
-            </p>
+          <div className="text-center max-w-3xl mx-auto mb-14 space-y-2">
+            <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
+              Questions Directes
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-white">
+              Tout ce que vous devez savoir avant de commander
+            </h2>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             
             {[
               {
-                q: "Ai-je besoin d'une adresse IP publique fixe pour faire fonctionner le système ?",
-                a: "NON ! Grâce à notre technologie exclusive de Polling Inverse Cloud, votre routeur MikroTik se connecte automatiquement à notre plateforme en arrière-plan. Cela fonctionne parfaitement avec n'importe quelle box opérateur (MTN, Moov, Orange, Starlink, Box 4G) même derrière un routeur NAT/CGNAT."
+                q: "Est-ce que je dois laisser un ordinateur allumé chez moi pour que ça marche ?",
+                a: "Absolument PAS. Le routeur MikroTik est un mini-ordinateur autonome de qualité industrielle. Il gère le portail captif, la coupure des sessions et les paiements tout seul. Il consomme seulement 3.5 Watts (moins qu'une ampoule) et fonctionne 24h/24 sans écran ni clavier."
               },
               {
-                q: "Comment et quand est-ce que je reçois l'argent de mes clients ?",
-                a: "L'argent est crédité instantanément sur votre compte marchand FedaPay. Vous pouvez configurer des virements automatiques quotidiens ou retirer votre argent à tout moment directement vers votre numéro MTN Mobile Money, Moov Money ou votre compte bancaire."
+                q: "Que se passe-t-il en cas de coupure d'électricité (délestage) ?",
+                a: "Dès que le courant revient, le routeur redémarre tout seul en 15 secondes. Toutes les sessions, les tickets vendus et l'argent restent intacts. Vous pouvez également brancher le MikroTik sur un mini-onduleur 12V (routeur UPS) pour qu'il reste allumé 6 à 8 heures sans courant !"
               },
               {
-                q: "Quels modèles de routeurs MikroTik sont compatibles ?",
-                a: "Tous les modèles MikroTik RouterOS sont supportés (v6 et v7), du petit hAP mini / hEX (à partir de 20 000 FCFA) jusqu'aux gros CCR industriels. Si vous n'avez pas encore de routeur, nous pouvons vous fournir un pack complet prêt à l'emploi."
+                q: "Comment et quand est-ce que je reçois mon argent ?",
+                a: "Les paiements passent par la passerelle agréée FedaPay. Chaque paiement validé est crédité directement sur votre solde. Vous pouvez transférer votre argent vers votre propre compte MTN MoMo, Moov Money ou compte bancaire à tout moment."
               },
               {
-                q: "Puis-je quand même continuer à vendre des tickets papier en physique si je le souhaite ?",
-                a: "Absolument ! Notre générateur de vouchers intégré vous permet d'imprimer ou de générer des tickets en lots quand vous le souhaitez. Vos clients physiques peuvent taper leur code ou scanner le QR code avec la caméra de leur smartphone."
+                q: "Est-ce compatible avec ma connexion Starlink ou ma box 4G ?",
+                a: "Oui, à 100%. Grâce à notre technologie de Polling Cloud, le système fonctionne sur n'importe quel fournisseur d'accès (Starlink, CanalBox, Moov Fibre, MTN, modem 4G) sans avoir besoin d'adresse IP publique fixe ni d'ouverture de ports compliquée."
               },
               {
-                q: "Que se passe-t-il en cas de coupure Internet du quartier ?",
-                a: "La page de connexion est hébergée en local sur votre routeur MikroTik. Dès que la connexion revient, les sessions reprennent automatiquement. Les clients ne subissent aucun bug d'écran blanc."
+                q: "Comment puis-je modifier les prix des forfaits ou mon numéro WhatsApp ?",
+                a: "Directement depuis votre téléphone sur votre tableau de bord sécurisé 2MC SpotCloud. Vous pouvez changer vos prix, vos profils de vitesse ou votre numéro WhatsApp d'un simple clic."
               }
-            ].map((item, idx) => (
+            ].map((faq, idx) => (
               <div 
                 key={idx}
-                className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden transition-all"
+                className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden"
               >
                 <button
-                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                  className="w-full p-5 text-left font-bold text-sm sm:text-base text-white flex items-center justify-between gap-4"
+                  type="button"
+                  onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
+                  className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 font-bold text-sm sm:text-base text-white hover:text-emerald-400 transition-colors cursor-pointer"
                 >
-                  <span>{item.q}</span>
-                  <ChevronDown className={`w-4 h-4 text-indigo-400 transition-transform ${openFaq === idx ? 'rotate-180' : ''}`} />
+                  <span>{faq.q}</span>
+                  <ChevronDown className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${activeFaq === idx ? 'rotate-180 text-emerald-400' : ''}`} />
                 </button>
-                {openFaq === idx && (
-                  <div className="px-5 pb-5 text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-slate-800/60 pt-3">
-                    {item.a}
+                {activeFaq === idx && (
+                  <div className="px-4 pb-5 sm:px-5 sm:pb-5 text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-slate-800/60 pt-3">
+                    {faq.a}
                   </div>
                 )}
               </div>
@@ -748,71 +1075,42 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       </section>
 
       {/* ========================================================
-          8. BANNIÈRE FINALE / CALL TO ACTION
+          9. FOOTER & CONTACT ENTREPRISE
       ======================================================== */}
-      <section className="py-20 relative overflow-hidden">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-6">
+      <footer className="py-12 bg-[#060910] text-slate-400 text-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           
-          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 to-indigo-600 mx-auto flex items-center justify-center shadow-xl shadow-emerald-500/20 text-white">
-            <Zap className="w-8 h-8 fill-white" />
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-slate-900">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-emerald-500/40 flex items-center justify-center">
+                <Network className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div>
+                <div className="text-white font-bold text-sm">2MC SpotCloud 2.0</div>
+                <div className="text-[11px] font-mono text-slate-500">Solutions Hotspot MikroTik & Mobile Money en Afrique</div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-6 font-mono text-xs">
+              <a href="#demo-live" className="hover:text-emerald-400 transition-colors">Démo Interactive</a>
+              <a href="#tarifs" className="hover:text-emerald-400 transition-colors">Commander un Routeur</a>
+              <button onClick={onOpenLogin} className="hover:text-emerald-400 transition-colors cursor-pointer">
+                Connexion Administrateur
+              </button>
+              <a 
+                href={getWhatsAppLink("Bonjour 2MC, je souhaite échanger avec votre support.")} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="text-emerald-400 font-bold hover:underline"
+              >
+                WhatsApp : {WHATSAPP_DISPLAY}
+              </a>
+            </div>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
-            Prêt à faire passer votre Wi-Fi Zone au niveau supérieur ?
-          </h2>
-
-          <p className="text-sm sm:text-base text-slate-300 max-w-xl mx-auto">
-            Discutez avec notre équipe technique sur WhatsApp. Nous répondons en 5 minutes pour analyser votre installation et lancer votre automatisation.
-          </p>
-
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a
-              href={getWhatsAppLink("Bonjour 2MC, je veux démarrer mon installation Wi-Fi Automatisée aujourd'hui.")}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/25 transition-all hover:scale-[1.02]"
-            >
-              <MessageCircle className="w-5 h-5 fill-slate-950" />
-              <span>Contacter un Conseiller WhatsApp</span>
-            </a>
-
-            <button
-              onClick={onOpenLogin}
-              className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-sm flex items-center justify-center gap-2"
-            >
-              <Lock className="w-4 h-4 text-indigo-400" />
-              <span>Accéder à l'Administration</span>
-            </button>
-          </div>
-
-          <div className="pt-6 text-xs text-slate-400">
-            <span>Téléphone direct : </span>
-            <a href={`tel:${WHATSAPP_DISPLAY}`} className="text-emerald-400 font-bold hover:underline">
-              {WHATSAPP_DISPLAY}
-            </a>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ========================================================
-          9. FOOTER
-      ======================================================== */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-10 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-          
-          <div>
-            <p className="font-semibold text-slate-400">© 2026 2MC COMPANY ETS. Tous droits réservés.</p>
-            <p className="text-[11px] text-slate-600 mt-1">Spécialiste de la monétisation Wi-Fi MikroTik & Solutions Telecom en Afrique.</p>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <button onClick={onOpenLogin} className="hover:text-indigo-400 font-semibold transition-colors">
-              Connexion Admin
-            </button>
-            <a href={getWhatsAppLink("Assistance 2MC SpotCloud")} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 font-semibold transition-colors">
-              Support Client
-            </a>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-600">
+            <p>© 2026 2MC COMPANY ETS. Tous droits réservés.</p>
+            <p className="font-mono">RouteurOS v7.23.2 • FedaPay Live Gateway • mcwifi.net</p>
           </div>
 
         </div>
@@ -821,4 +1119,3 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
     </div>
   );
 };
-
