@@ -29,19 +29,19 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
         
         {/* Brand & Identity */}
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-bold shrink-0">
-            <Wifi className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-center shadow-md shadow-indigo-600/20 text-white font-bold shrink-0">
+            <Wifi className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-base sm:text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-indigo-200 to-purple-300 bg-clip-text text-transparent">
-                2MC SpotCloud <span className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-semibold">v2.0</span>
+              <h1 className="text-base sm:text-xl font-extrabold tracking-tight text-white">
+                2MC SpotCloud <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 font-semibold tracking-normal">v2.0</span>
               </h1>
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-400 flex items-center gap-1">
+            <p className="text-[11px] sm:text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
               <span>Gestion Hotspot MikroTik</span>
               <span className="text-slate-600">•</span>
-              <span className="text-emerald-400 font-medium">mcwifi.net</span>
+              <span className="text-emerald-400 font-semibold">mcwifi.net</span>
             </p>
           </div>
         </div>
@@ -66,17 +66,17 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
 
           {routerStatus?.pollingActive ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold" title="Le routeur MikroTik interroge AlwaysData en direct">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
               <span>Polling Actif ({routerStatus.lastRouterPollSecAgo !== null && routerStatus.lastRouterPollSecAgo !== undefined ? `Signal ${routerStatus.lastRouterPollSecAgo}s` : 'En ligne'})</span>
             </div>
           ) : routerStatus?.online ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
               <span>MikroTik Connecté</span>
             </div>
           ) : (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-medium" title="En attente de la première interrogation du script RouterOS">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
               <span>Polling Inactif (En attente routeur)</span>
             </div>
           )}
@@ -210,7 +210,7 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
       </div>
     </header>
 
-    {/* Mobile Fixed Bottom Navigation Bar (Barre fixe en bas de l'écran sur mobile - Toujours visible quel que soit le scroll) */}
+    {/* Mobile Fixed Bottom Navigation Bar (Opaque haute performance, sans backdrop-blur GPU) */}
     <nav
       style={{
         position: 'fixed',
@@ -219,7 +219,7 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
         right: 0,
         zIndex: 99999
       }}
-      className="lg:hidden bg-slate-950/95 backdrop-blur-2xl border-t border-slate-800/90 px-2 py-2 flex items-center justify-around shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.8)] pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
+      className="lg:hidden bg-[#0f172a] border-t border-slate-800 px-2 py-2 flex items-center justify-around shadow-2xl pb-[calc(0.5rem+env(safe-area-inset-bottom))] select-none"
     >
       {navItems.map((tab) => {
         const Icon = tab.icon;
@@ -231,14 +231,14 @@ export const Header: React.FC<HeaderProps> = ({ routerStatus, activeTab, setActi
               setActiveTab(tab.id);
               setMobileMenuOpen(false);
             }}
-            className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all min-w-[48px] ${
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all duration-100 min-w-[52px] touch-target active:scale-95 ${
               isActive
-                ? 'text-indigo-400 font-bold bg-indigo-500/15 border border-indigo-500/30 scale-105 shadow-sm shadow-indigo-500/20'
+                ? 'text-indigo-400 font-bold bg-indigo-500/15 border border-indigo-500/30'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
-            <span className="text-[10px] mt-0.5 font-medium tracking-tight truncate max-w-[54px]">{tab.shortLabel}</span>
+            <span className="text-[10px] mt-0.5 font-medium tracking-tight truncate max-w-[56px]">{tab.shortLabel}</span>
           </button>
         );
       })}

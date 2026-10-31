@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Cpu, HardDrive, Clock, Users, Zap, TrendingUp, ShoppingCart, ArrowUpRight, ChevronRight, Banknote, WifiOff, KeyRound, Copy, Check, Share2, Printer, X, Sparkles } from 'lucide-react';
 import QRCode from 'qrcode';
 import { RouterStatus, HotspotUser, ActiveSession, SaleTransaction, VoucherItem } from '../types';
@@ -96,7 +96,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
       {/* Modal Ticket Express Généré */}
       {generatedTicket && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-3xl p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in duration-200 text-slate-100">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
@@ -187,11 +187,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           onClick={() => onNavigate('sales')}
           className="glass-card p-5 rounded-2xl border border-indigo-500/20 relative overflow-hidden group text-left hover:border-indigo-500/40 transition-all hover:-translate-y-0.5"
         >
-          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition-all" />
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/10 rounded-full pointer-events-none" />
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-400">Recettes Globales</p>
-              <h3 className="text-2xl font-black text-white mt-1">
+              <h3 className="text-2xl font-black text-white mt-1 tabular-nums font-mono">
                 {totalRevenue.toLocaleString('fr-FR')} <span className="text-sm font-normal text-indigo-400">FCFA</span>
               </h3>
             </div>
@@ -208,14 +208,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         {/* Users → users */}
         <button
           onClick={() => onNavigate('users')}
-          className="glass-card p-5 rounded-2xl border border-purple-500/20 relative overflow-hidden group text-left hover:border-purple-500/40 transition-all hover:-translate-y-0.5"
+          className="glass-card p-5 rounded-2xl border border-slate-800 relative overflow-hidden group text-left hover:border-purple-500/40 transition-all hover:-translate-y-0.5"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-400">Utilisateurs</p>
-              <h3 className="text-2xl font-black text-white mt-1">{users.length}</h3>
+              <h3 className="text-2xl font-black text-white mt-1 tabular-nums font-mono">{users.length}</h3>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-500/30 group-hover:scale-110 transition-transform">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-purple-500/30 group-hover:scale-110 transition-transform">
               <Users className="w-6 h-6" />
             </div>
           </div>
@@ -233,14 +233,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-400">Sessions</p>
-              <h3 className="text-2xl font-black text-emerald-400 mt-1">{activeSessions.length}</h3>
+              <h3 className="text-2xl font-black text-emerald-400 mt-1 tabular-nums font-mono">{activeSessions.length}</h3>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 group-hover:scale-110 transition-transform">
-              <Zap className="w-6 h-6 animate-pulse" />
+              <Zap className="w-6 h-6 text-emerald-400" />
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs">
-            <span className="text-emerald-400 font-medium flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />En ligne</span>
+            <span className="text-emerald-400 font-medium flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />En ligne</span>
             <span className="text-emerald-400/60 flex items-center gap-0.5">Voir <ChevronRight className="w-3 h-3" /></span>
           </div>
         </button>
@@ -248,14 +248,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         {/* Transactions → sales */}
         <button
           onClick={() => onNavigate('sales')}
-          className="glass-card p-5 rounded-2xl border border-pink-500/20 relative overflow-hidden group text-left hover:border-pink-500/40 transition-all hover:-translate-y-0.5"
+          className="glass-card p-5 rounded-2xl border border-slate-800 relative overflow-hidden group text-left hover:border-pink-500/40 transition-all hover:-translate-y-0.5"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-slate-400">Transactions</p>
-              <h3 className="text-2xl font-black text-white mt-1">{sales.length}</h3>
+              <h3 className="text-2xl font-black text-white mt-1 tabular-nums font-mono">{sales.length}</h3>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-pink-500/20 text-pink-400 flex items-center justify-center border border-pink-500/30 group-hover:scale-110 transition-transform">
+            <div className="w-12 h-12 rounded-2xl bg-slate-800 text-slate-300 flex items-center justify-center border border-pink-500/30 group-hover:scale-110 transition-transform">
               <ShoppingCart className="w-6 h-6" />
             </div>
           </div>
@@ -272,7 +272,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <div className="flex items-center justify-between border-b border-indigo-500/20 pb-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30 shadow-inner">
-              <Sparkles className="w-5 h-5 animate-pulse" />
+              <Sparkles className="w-5 h-5 text-indigo-400" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">

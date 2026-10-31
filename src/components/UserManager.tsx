@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useCallback } from 'react';
+﻿import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Search, Plus, Trash2, Edit3, Lock, Unlock, RotateCcw, Filter, RefreshCw,
   KeyRound, CheckSquare, Square, Eye, Clock, ShieldAlert, CheckCircle2,
-  XCircle, SlidersHorizontal, X, Activity, Zap, Loader2
+  XCircle, SlidersHorizontal, X, Activity, Zap, Loader2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { ConfirmModal } from './ConfirmModal';
 import { ToastContainer, useToast } from './Toast';
@@ -16,10 +16,24 @@ interface UserManagerProps {
 
 export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 25;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   const [selectedProfile, setSelectedProfile] = useState('ALL');
   const [uptimeFilter, setUptimeFilter] = useState<'ALL' | 'USED' | 'UNUSED'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRED'>('ALL');
   const [quickTab, setQuickTab] = useState<'ALL' | 'ACTIVE' | 'USED' | 'UNUSED' | 'EXPIRED'>('ALL');
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, selectedProfile, uptimeFilter, statusFilter, quickTab]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
@@ -297,7 +311,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
       const userHasUptime = cached.hasUptime;
       const userIsExpired = cached.isExpired;
 
-      const matchesSearch = userName.toLowerCase().includes(searchTerm.toLowerCase()) || userComment.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = userName.toLowerCase().includes(debouncedSearch.toLowerCase()) || userComment.toLowerCase().includes(debouncedSearch.toLowerCase());
       const matchesProfile = selectedProfile === 'ALL' || userProfile === selectedProfile;
       let matchesQuick = true;
       if (quickTab === 'ACTIVE') matchesQuick = !userIsExpired;
@@ -309,7 +323,13 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
 
       return matchesSearch && matchesProfile && matchesQuick && matchesUptime && matchesStatus;
     });
-  }, [safeUsers, searchTerm, selectedProfile, quickTab, uptimeFilter, statusFilter, userStatusCache]);
+  }, [safeUsers, debouncedSearch, selectedProfile, quickTab, uptimeFilter, statusFilter, userStatusCache]);
+
+  const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [filteredUsers, currentPage, pageSize]);
 
   const hasActiveFilters = searchTerm !== '' || selectedProfile !== 'ALL' || uptimeFilter !== 'ALL' || statusFilter !== 'ALL' || quickTab !== 'ALL';
 
@@ -575,7 +595,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
               <KeyRound className="w-8 h-8 text-slate-600 mx-auto mb-2" />
               <p className="font-bold text-xs text-white">Aucun utilisateur ne correspond aux filtres</p>
             </div>
-          ) : filteredUsers.map((u, index) => {
+          ) : paginatedUsers.map((u, index) => {
             const userId = u['.id'] || u.name || `user-${index}`;
             const userName = u.name || u['.id'] || 'Sans nom';
             const cached = userStatusCache.get(userId) || { isExpired: false, hasUptime: false };
@@ -638,7 +658,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
               <tbody className="divide-y divide-slate-800/60 text-xs">
                 {filteredUsers.length === 0 ? (
                   <tr><td colSpan={7} className="p-12 text-center text-slate-400">Aucun utilisateur correspondant</td></tr>
-                ) : filteredUsers.map((u, index) => {
+                ) : paginatedUsers.map((u, index) => {
                   const userId = u['.id'] || u.name || `user-${index}`;
                   const userName = u.name || u['.id'] || 'Sans nom';
                   const cached = userStatusCache.get(userId) || { isExpired: false, hasUptime: false };
@@ -693,9 +713,39 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
           </div>
         </div>
 
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 glass-panel rounded-2xl border border-slate-800 text-xs">
+            <span className="text-slate-400 font-medium">
+              Affichage de <strong className="text-white font-bold tabular-nums">{((currentPage - 1) * pageSize) + 1}</strong> à <strong className="text-white font-bold tabular-nums">{Math.min(currentPage * pageSize, filteredUsers.length)}</strong> sur <strong className="text-white font-bold tabular-nums">{filteredUsers.length}</strong> utilisateurs
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="flex items-center gap-1 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-slate-200 font-semibold border border-slate-700 btn-press touch-target"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Précédent</span>
+              </button>
+              <span className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 font-bold text-indigo-400 tabular-nums">
+                Page {currentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="flex items-center gap-1 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-slate-200 font-semibold border border-slate-700 btn-press touch-target"
+              >
+                <span>Suivant</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* INSPECT USER MODAL */}
         {inspectingUser && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
             <div className="glass-panel bg-slate-900 p-6 rounded-2xl max-w-md w-full border border-slate-800 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -749,7 +799,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
 
         {/* ADD USER MODAL */}
         {showAddModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
             <div className="glass-panel bg-slate-900 p-6 rounded-2xl max-w-md w-full border border-slate-800 space-y-4">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Plus className="w-5 h-5 text-indigo-400" /><span>Créer un utilisateur MikroTik</span>

@@ -138,7 +138,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-600 selection:text-white">
+    <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col selection:bg-indigo-600 selection:text-white">
       {/* Blocking Full-Screen Spinner Overlay */}
       <BlockingSpinner isLoading={loading} message={loadingMessage} />
 

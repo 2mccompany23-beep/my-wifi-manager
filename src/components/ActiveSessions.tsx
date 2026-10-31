@@ -63,8 +63,8 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ sessions, onRefr
         {/* Header Info */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 glass-panel p-4 rounded-2xl">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shrink-0">
-              <Zap className="w-5 h-5 animate-pulse" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shrink-0">
+              <Zap className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-white">Sessions Hotspot Actives</h3>
@@ -132,10 +132,10 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ sessions, onRefr
 
                   <div className="flex items-center justify-between text-xs border-t border-slate-800/60 pt-2">
                     <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span>{s.uptime}</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="tabular-nums font-mono">{s.uptime}</span>
                     </div>
-                    <div className="text-[11px] text-slate-400">
+                    <div className="text-[11px] text-slate-400 tabular-nums font-mono">
                       ↓ {s.bytesOut || '0 MB'} • ↑ {s.bytesIn || '0 MB'}
                     </div>
                   </div>
@@ -169,8 +169,8 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ sessions, onRefr
                         <td className="p-4 font-mono text-slate-300">{s.address}</td>
                         <td className="p-4 font-mono text-slate-400">{s.macAddress || s.mac || 'N/A'}</td>
                         <td className="p-4 text-slate-300">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <div className="flex items-center gap-1.5 tabular-nums font-mono">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
                             <span>{s.uptime}</span>
                           </div>
                         </td>

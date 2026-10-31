@@ -107,6 +107,14 @@ async function deploy() {
     }
     console.log('✅ Fichiers PWA & Service Worker envoyés avec succès !');
 
+    // 3e. Transfert sécurisé des variables d'environnement (.env)
+    const localEnv = path.join(process.cwd(), '.env');
+    if (fs.existsSync(localEnv)) {
+      console.log('🔐 Synchronisation des variables d\'environnement (.env)...');
+      await client.fastPut(localEnv, `${remoteBase}.env`);
+      console.log('✅ .env synchronisé avec succès !');
+    }
+
     // 4. Protection de la base de données de production (NE JAMAIS ÉCRASER db.json EN PRODUCTION)
     const remoteDbFile = `${remoteBase}data/db.json`;
     const remoteExists = await client.exists(remoteDbFile);

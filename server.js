@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
@@ -7,6 +7,8 @@ import crypto from 'crypto';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import webpush from 'web-push';
+import pg from 'pg';
+const { Pool } = pg;
 
 // Charger .env (compatible CJS bundle)
 try {
@@ -164,12 +166,33 @@ function verifyPassword(plaintext, stored) {
   return crypto.timingSafeEqual(Buffer.from(derived, 'hex'), Buffer.from(hash, 'hex'));
 }
 
-function readDb() {
+// --- PostgreSQL Connection Pool (AlwaysData 2mc_wifi) ---
+const pgPool = new Pool({
+  host: process.env.PG_HOST || 'postgresql-2mc.alwaysdata.net',
+  port: parseInt(process.env.PG_PORT || '5432', 10),
+  database: process.env.PG_DATABASE || '2mc_wifi',
+  user: process.env.PG_USER || '2mc',
+  password: process.env.PG_PASSWORD || '',
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 8000
+});
+
+pgPool.on('error', (err) => {
+  console.warn('[PostgreSQL Pool Warn]:', err.message);
+});
+
+// Cache mémoire synchrone ultra-rapide (0ms)
+let cachedDb = null;
+let isPostgresConnected = false;
+
+function readDbFromJson() {
   if (!fs.existsSync(DB_FILE)) {
     const initDb = { ...defaultDb };
-    // Hacher le mot de passe par défaut dès la création
     initDb.adminAuth.password = hashPassword(initDb.adminAuth.password);
-    fs.writeFileSync(DB_FILE, JSON.stringify(initDb, null, 2));
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(initDb, null, 2));
+    } catch (e) {}
     return initDb;
   }
   try {
@@ -178,11 +201,10 @@ function readDb() {
     if (!data.adminAuth) {
       data.adminAuth = { username: 'admin', password: hashPassword('admin') };
     }
-    // Migration automatique : hacher les mots de passe en clair
     if (data.adminAuth.password && !data.adminAuth.password.startsWith('scrypt:')) {
       console.log('[Security] Migration du mot de passe admin vers scrypt...');
       data.adminAuth.password = hashPassword(data.adminAuth.password);
-      writeDb(data);
+      try { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2)); } catch (e) {}
     }
     if (!data.settings) {
       data.settings = defaultDb.settings;
@@ -190,19 +212,270 @@ function readDb() {
       if (!data.settings.connectionMode) data.settings.connectionMode = 'auto';
       if (!data.settings.pollSecretToken) data.settings.pollSecretToken = defaultDb.settings.pollSecretToken;
     }
+    if (!data.sales) data.sales = [];
+    if (!data.vouchers) data.vouchers = [];
+    if (!data.pendingFedaPay) data.pendingFedaPay = [];
+    if (!data.pushSubscriptions) data.pushSubscriptions = [];
     return data;
   } catch (err) {
     console.error('Error reading db.json:', err);
-    return defaultDb;
+    return { ...defaultDb };
   }
 }
 
+// Initialisation et chargement immédiat depuis PostgreSQL
+async function initPostgresCache() {
+  try {
+    const client = await pgPool.connect();
+    try {
+      // 1. Settings
+      const sRes = await client.query('SELECT data FROM app_settings WHERE id = 1 LIMIT 1');
+      const settings = sRes.rows[0]?.data || null;
+
+      // 2. Admin Auth
+      const aRes = await client.query('SELECT username, password FROM admin_auth WHERE id = 1 LIMIT 1');
+      const adminAuth = aRes.rows[0] ? { username: aRes.rows[0].username, password: aRes.rows[0].password } : null;
+
+      // 3. Sales
+      const salesRes = await client.query('SELECT data FROM sales ORDER BY date DESC');
+      const sales = salesRes.rows.map(r => r.data).filter(Boolean);
+
+      // 4. Vouchers
+      const vouchersRes = await client.query('SELECT data FROM vouchers ORDER BY created DESC');
+      const vouchers = vouchersRes.rows.map(r => r.data).filter(Boolean);
+
+      // 5. Pending FedaPay
+      const pendingRes = await client.query('SELECT data FROM pending_fedapay ORDER BY date DESC');
+      const pendingFedaPay = pendingRes.rows.map(r => r.data).filter(Boolean);
+
+      // 6. Push Subscriptions
+      const pushRes = await client.query('SELECT endpoint, keys, user_agent, updated_at FROM push_subscriptions');
+      const pushSubscriptions = pushRes.rows.map(r => ({
+        endpoint: r.endpoint,
+        keys: r.keys,
+        userAgent: r.user_agent,
+        updatedAt: r.updated_at
+      }));
+
+      const diskDb = readDbFromJson();
+      cachedDb = {
+        adminAuth: adminAuth || diskDb.adminAuth || defaultDb.adminAuth,
+        settings: settings || diskDb.settings || defaultDb.settings,
+        sales: sales.length > 0 ? sales : (diskDb.sales || []),
+        vouchers: vouchers.length > 0 ? vouchers : (diskDb.vouchers || []),
+        pendingFedaPay: pendingFedaPay.length > 0 ? pendingFedaPay : (diskDb.pendingFedaPay || []),
+        pushSubscriptions: pushSubscriptions.length > 0 ? pushSubscriptions : (diskDb.pushSubscriptions || []),
+        hotspotUsers: diskDb.hotspotUsers || [],
+        activeSessions: diskDb.activeSessions || []
+      };
+
+      isPostgresConnected = true;
+      console.log(`[PostgreSQL] ✅ Cache initialisé depuis PostgreSQL : ${cachedDb.sales.length} ventes, ${cachedDb.vouchers.length} vouchers, ${cachedDb.pendingFedaPay.length} en attente.`);
+
+      // Miroir local synchrone
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(cachedDb, null, 2));
+      } catch (e) {}
+
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    isPostgresConnected = false;
+    console.warn('[PostgreSQL] ⚠️ Connexion PG indisponible au démarrage, repli db.json local:', err.message);
+    if (!cachedDb) {
+      cachedDb = readDbFromJson();
+    }
+  }
+}
+
+// Lancement immédiat asynchrone du chargement PostgreSQL
+initPostgresCache().catch(err => {
+  console.warn('[PostgreSQL] Erreur init:', err.message);
+});
+
+// Lecture synchrone instantanée (0ms en mémoire)
+function readDb() {
+  if (cachedDb) return cachedDb;
+  cachedDb = readDbFromJson();
+  return cachedDb;
+}
+
+// Persistance asynchrone sécurisée vers PostgreSQL
+async function persistToPostgres(data) {
+  if (!data) return;
+  try {
+    const client = await pgPool.connect();
+    try {
+      // 1. Settings
+      if (data.settings) {
+        await client.query(
+          'INSERT INTO app_settings (id, data) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET data = $1',
+          [JSON.stringify(data.settings)]
+        );
+      }
+
+      // 2. Admin Auth
+      if (data.adminAuth) {
+        await client.query(
+          'INSERT INTO admin_auth (id, username, password) VALUES (1, $1, $2) ON CONFLICT (id) DO UPDATE SET username = $1, password = $2',
+          [data.adminAuth.username, data.adminAuth.password]
+        );
+      }
+
+      // 3. Sales (Persist up to 200 recent sales)
+      if (Array.isArray(data.sales) && data.sales.length > 0) {
+        const salesToPersist = data.sales.slice(0, 200);
+        for (const s of salesToPersist) {
+          if (!s || !s.id) continue;
+          const d = s.date ? new Date(s.date) : new Date();
+          await client.query(
+            `INSERT INTO sales (
+              id, reference, voucher, amount, plan, profile, mode, phone, date, source, status, comment, fedapay_ref, ip, mac, duration, data
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+            ) ON CONFLICT (id) DO UPDATE SET
+              amount = EXCLUDED.amount,
+              date = EXCLUDED.date,
+              status = EXCLUDED.status,
+              source = EXCLUDED.source,
+              fedapay_ref = EXCLUDED.fedapay_ref,
+              data = EXCLUDED.data`,
+            [
+              String(s.id),
+              s.reference || String(s.id),
+              s.voucher || s.username || '',
+              parseInt(s.amount || s.price || 0) || 0,
+              s.plan || s.profile || '',
+              s.profile || '',
+              s.mode || '',
+              s.phone || '',
+              isNaN(d.getTime()) ? new Date() : d,
+              s.source || 'router_script',
+              s.status || 'SUCCESS',
+              s.comment || '',
+              s.fedapayRef || s.fedapay_ref || null,
+              s.ip || '',
+              s.mac || '',
+              s.duration || '',
+              JSON.stringify(s)
+            ]
+          );
+        }
+      }
+
+      // 4. Vouchers (Persist current vouchers)
+      if (Array.isArray(data.vouchers) && data.vouchers.length > 0) {
+        for (const v of data.vouchers.slice(0, 100)) {
+          if (!v) continue;
+          const vid = String(v.id || v.code);
+          if (!vid) continue;
+          const d = v.created ? new Date(v.created) : new Date();
+          await client.query(
+            `INSERT INTO vouchers (
+              id, code, profile, price, created, status, comment, fedapay_ref, data
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9
+            ) ON CONFLICT (id) DO UPDATE SET
+              status = EXCLUDED.status,
+              fedapay_ref = EXCLUDED.fedapay_ref,
+              data = EXCLUDED.data`,
+            [
+              vid,
+              v.code || vid,
+              v.profile || '',
+              parseInt(v.price || 0) || 0,
+              isNaN(d.getTime()) ? new Date() : d,
+              v.status || 'AVAILABLE',
+              v.comment || '',
+              v.fedapayRef || null,
+              JSON.stringify(v)
+            ]
+          );
+        }
+      }
+
+      // 5. Pending FedaPay
+      if (Array.isArray(data.pendingFedaPay)) {
+        for (const p of data.pendingFedaPay.slice(0, 50)) {
+          if (!p || !p.id) continue;
+          const d = p.date ? new Date(p.date) : new Date();
+          await client.query(
+            `INSERT INTO pending_fedapay (
+              id, fedapay_ref, reference, amount, plan, profile, voucher, mode, phone, date, status, data
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+            ) ON CONFLICT (id) DO UPDATE SET
+              status = EXCLUDED.status,
+              amount = EXCLUDED.amount,
+              voucher = EXCLUDED.voucher,
+              data = EXCLUDED.data`,
+            [
+              String(p.id),
+              p.fedapayRef || p.fedapay_ref || null,
+              p.reference || String(p.id),
+              parseInt(p.amount || 0) || 0,
+              p.plan || '',
+              p.profile || '',
+              p.voucher || '',
+              p.mode || '',
+              p.phone || '',
+              isNaN(d.getTime()) ? new Date() : d,
+              p.status || 'PENDING',
+              JSON.stringify(p)
+            ]
+          );
+        }
+      }
+
+      // 6. Push subscriptions
+      if (Array.isArray(data.pushSubscriptions)) {
+        for (const sub of data.pushSubscriptions) {
+          if (!sub || !sub.endpoint) continue;
+          await client.query(
+            `INSERT INTO push_subscriptions (endpoint, keys, user_agent, updated_at)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (endpoint) DO UPDATE SET keys = $2, user_agent = $3, updated_at = $4`,
+            [
+              sub.endpoint,
+              JSON.stringify(sub.keys || {}),
+              sub.userAgent || '',
+              sub.updatedAt ? new Date(sub.updatedAt) : new Date()
+            ]
+          );
+        }
+      }
+      isPostgresConnected = true;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    isPostgresConnected = false;
+    console.warn('[PostgreSQL Async Persist Fail]:', err.message);
+  }
+}
+
+// Suppression explicite de vouchers dans PostgreSQL
+async function deleteVouchersFromPg(ids) {
+  if (!ids || ids.length === 0) return;
+  try {
+    await pgPool.query('DELETE FROM vouchers WHERE id = ANY($1) OR code = ANY($1)', [ids]);
+  } catch (e) {
+    console.warn('[PostgreSQL deleteVouchers Warn]:', e.message);
+  }
+}
+
+// Écriture : mise à jour mémoire + réplica local + persistance PostgreSQL
 function writeDb(data) {
+  cachedDb = data;
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
   } catch (err) {
     console.error('Error writing db.json:', err);
   }
+  persistToPostgres(data).catch(err => {
+    console.warn('[PostgreSQL Async Persist Warn]:', err.message);
+  });
 }
 
 // RouterOS API Response Cache
@@ -2473,6 +2746,45 @@ app.post('/api/settings', requireAuth, (req, res) => {
   db.settings = { ...db.settings, ...req.body, connectionMode };
   writeDb(db);
   res.json({ success: true, settings: db.settings });
+});
+
+// Endpoint de diagnostic et statut base de données PostgreSQL
+app.get('/api/system/db-status', async (req, res) => {
+  const token = req.query.token || req.headers['authorization']?.replace('Bearer ', '');
+  const db = readDb();
+  const validToken = db.settings?.pollSecretToken || 'mcwifi_secret_token_2026';
+  if (!isTokenValid(token) && token !== validToken) {
+    return res.status(401).json({ error: 'Non autorisé' });
+  }
+  try {
+    const start = Date.now();
+    const result = await pgPool.query('SELECT count(*) as sales_count FROM sales');
+    const latency = Date.now() - start;
+    const db = readDb();
+    return res.json({
+      success: true,
+      provider: 'PostgreSQL 16 (AlwaysData)',
+      host: process.env.PG_HOST || 'postgresql-2mc.alwaysdata.net',
+      database: process.env.PG_DATABASE || '2mc_wifi',
+      connected: true,
+      latencyMs: latency,
+      remoteSalesCount: parseInt(result.rows[0].sales_count, 10),
+      memorySalesCount: db.sales?.length || 0,
+      vouchersCount: db.vouchers?.length || 0,
+      pendingFedaPayCount: db.pendingFedaPay?.length || 0,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    const db = readDb();
+    return res.json({
+      success: false,
+      provider: 'Local JSON fallback',
+      connected: false,
+      error: err.message,
+      memorySalesCount: db.sales?.length || 0,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Endpoint sécurisé pour redémarrer le serveur Node.js AlwaysData

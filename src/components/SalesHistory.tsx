@@ -440,6 +440,19 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
     });
   }, [allTxs, searchTerm, planFilter, sortBy, sortDir]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 25;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, planFilter, periodFilter, customStartDate, customEndDate, activeSource, sortBy, sortDir]);
+
+  const totalPages = Math.ceil(filteredTxs.length / pageSize) || 1;
+  const paginatedTxs = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredTxs.slice(start, start + pageSize);
+  }, [filteredTxs, currentPage, pageSize]);
+
   const filteredRevenue = filteredTxs.reduce((s, t) => s + t.amount, 0);
   const avgTicket = filteredTxs.length > 0 ? filteredRevenue / filteredTxs.length : 0;
 
@@ -993,7 +1006,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
             <p className="font-bold text-xs text-white">Aucune donnée trouvée</p>
           </div>
         ) : (
-          filteredTxs.map(s => (
+          paginatedTxs.map(s => (
             <div key={s.id} className="glass-card p-3.5 rounded-2xl border border-slate-800 flex flex-col gap-2 space-y-1">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
@@ -1048,7 +1061,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
                     </div>
                   </td>
                 </tr>
-              ) : filteredTxs.map(s => (
+              ) : paginatedTxs.map(s => (
                 <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
                   <td className="p-4 font-mono font-bold text-slate-200">
                     {s.reference}
