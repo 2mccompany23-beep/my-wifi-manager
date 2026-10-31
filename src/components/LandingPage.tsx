@@ -105,39 +105,36 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
       ></div>
 
       {/* ========================================================
-          1. HEADER / NAVIGATION BAR
+          1. HEADER / NAVIGATION BAR (STICKY & RESPONSIVE MOBILE)
       ======================================================== */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#080c14]/90 border-b border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between relative z-10">
+      <header className="sticky top-0 z-50 bg-[#080c14]/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 sm:h-20 flex items-center justify-between relative z-10">
           
           {/* Brand & Hardware Tag */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-emerald-500/40 p-2 flex items-center justify-center shadow-lg shadow-emerald-500/10">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-900 border border-emerald-500/40 p-2 flex items-center justify-center shadow-lg shadow-emerald-500/10 shrink-0">
               <Network className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-black tracking-tight text-white">2MC SpotCloud</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                <span className="text-base sm:text-lg font-heading font-black tracking-tight text-white">2MC SpotCloud</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-mono font-bold tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                   ROUTEROS v7
                 </span>
               </div>
-              <p className="text-[11px] font-mono text-slate-400 hidden sm:block">Automate Wi-Fi Zone & Passerelle Mobile Money</p>
+              <p className="text-[10px] sm:text-[11px] font-mono text-slate-400 hidden xs:block">Automate Wi-Fi Zone & Mobile Money</p>
             </div>
           </div>
 
-          {/* Desktop Nav Items */}
-          <nav className="hidden lg:flex items-center gap-7 text-xs font-semibold text-slate-300 uppercase tracking-wider">
-            <a href="#demo-live" className="hover:text-emerald-400 transition-colors">Démo Interactive</a>
-            <a href="#architecture" className="hover:text-emerald-400 transition-colors">Architecture Réseau</a>
-            <a href="#terrains" className="hover:text-emerald-400 transition-colors">Cas d'Usage</a>
-            <a href="#simulateur" className="hover:text-emerald-400 transition-colors">Rentabilité</a>
-            <a href="#tarifs" className="hover:text-emerald-400 transition-colors">Packs Matériel</a>
-            <a href="#faq" className="hover:text-emerald-400 transition-colors">FAQ</a>
+          {/* Desktop Nav Items — Exactement 3 liens épurés */}
+          <nav className="hidden md:flex items-center gap-8 text-xs font-heading font-bold text-slate-300 uppercase tracking-wider">
+            <a href="#demo-live" className="hover:text-emerald-400 transition-colors">Démo</a>
+            <a href="#architecture" className="hover:text-emerald-400 transition-colors">Installation</a>
+            <a href="#tarifs" className="hover:text-emerald-400 transition-colors">Tarifs</a>
           </nav>
 
-          {/* Action CTAs */}
-          <div className="flex items-center gap-2.5">
+          {/* Desktop CTAs */}
+          <div className="hidden sm:flex items-center gap-2.5">
             <button
               onClick={onOpenLogin}
               className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-2 transition-all hover:border-slate-500 cursor-pointer"
@@ -153,12 +150,87 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
             >
               <MessageCircle className="w-4 h-4 fill-slate-950" />
-              <span className="hidden sm:inline">WhatsApp Commercial</span>
-              <span className="sm:hidden">WhatsApp</span>
+              <span>WhatsApp Commercial</span>
             </a>
           </div>
 
+          {/* Mobile Right Controls: Hamburger + Quick Login */}
+          <div className="flex items-center gap-2 sm:hidden">
+            <button
+              onClick={onOpenLogin}
+              className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 font-bold text-xs flex items-center justify-center cursor-pointer"
+              title="Espace Admin"
+            >
+              <Lock className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              aria-label="Menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5 text-emerald-400" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+
         </div>
+
+        {/* Mobile Dropdown Drawer Menu */}
+        {mobileMenuOpen && (
+          <div className="sm:hidden border-t border-slate-800 bg-[#080c14] px-4 py-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-150 shadow-2xl">
+            <nav className="flex flex-col space-y-2 text-sm font-heading font-bold text-slate-200">
+              <a
+                href="#demo-live"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2.5 rounded-xl hover:bg-slate-900 flex items-center justify-between text-slate-200 hover:text-emerald-400 transition-colors"
+              >
+                <span>Démo Interactive en Direct</span>
+                <ChevronRight className="w-4 h-4 text-slate-500" />
+              </a>
+              <a
+                href="#architecture"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2.5 rounded-xl hover:bg-slate-900 flex items-center justify-between text-slate-200 hover:text-emerald-400 transition-colors"
+              >
+                <span>Schéma d'Installation Réseau</span>
+                <ChevronRight className="w-4 h-4 text-slate-500" />
+              </a>
+              <a
+                href="#tarifs"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2.5 rounded-xl hover:bg-slate-900 flex items-center justify-between text-slate-200 hover:text-emerald-400 transition-colors"
+              >
+                <span>Tarifs & Packs Routeur</span>
+                <ChevronRight className="w-4 h-4 text-slate-500" />
+              </a>
+            </nav>
+
+            <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenLogin();
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Accéder à l'Espace Admin</span>
+              </button>
+
+              <a
+                href={getWhatsAppLink("Bonjour, je souhaite commander un pack MikroTik 2MC SpotCloud prêt à l'emploi.")}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 cursor-pointer text-center"
+              >
+                <MessageCircle className="w-4 h-4 fill-slate-950" />
+                <span>Commander sur WhatsApp ({WHATSAPP_DISPLAY})</span>
+              </a>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* ========================================================
