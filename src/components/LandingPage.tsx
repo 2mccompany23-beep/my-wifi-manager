@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Wifi, 
   Zap, 
@@ -44,12 +44,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
   // Menu mobile responsive
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Contact commercial WhatsApp
-  const WHATSAPP_CONTACT = '2290144044414';
-  const WHATSAPP_DISPLAY = '+229 01 44 04 44 14';
+  // Numéro WhatsApp synchronisé dynamiquement avec les paramètres admin
+  const [whatsappContact, setWhatsappContact] = useState<string>('2290140370851');
+  const [whatsappDisplay, setWhatsappDisplay] = useState<string>('+229 01 40 37 08 51');
+
+  useEffect(() => {
+    fetch('/api/portal-settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data && (data.whatsappNumber || data.supportPhone)) {
+          const raw = (data.whatsappNumber || data.supportPhone || '').trim();
+          if (raw) {
+            setWhatsappDisplay(raw);
+            const clean = raw.replace(/\D/g, '');
+            if (clean) setWhatsappContact(clean);
+          }
+        }
+      })
+      .catch(err => {
+        console.warn('[LandingPage] Could not load dynamic WhatsApp contact:', err);
+      });
+  }, []);
 
   const getWhatsAppLink = (message: string) => {
-    return `https://wa.me/${WHATSAPP_CONTACT}?text=${encodeURIComponent(message)}`;
+    return `https://wa.me/${whatsappContact}?text=${encodeURIComponent(message)}`;
   };
 
   // ========================================================
@@ -226,7 +244,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 cursor-pointer text-center"
               >
                 <MessageCircle className="w-4 h-4 fill-slate-950" />
-                <span>Commander sur WhatsApp ({WHATSAPP_DISPLAY})</span>
+                <span>Commander sur WhatsApp ({whatsappDisplay})</span>
               </a>
             </div>
           </div>
@@ -1196,7 +1214,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenLogin }) => {
                 rel="noreferrer" 
                 className="text-emerald-400 font-bold hover:underline"
               >
-                WhatsApp : {WHATSAPP_DISPLAY}
+                WhatsApp : {whatsappDisplay}
               </a>
             </div>
           </div>
