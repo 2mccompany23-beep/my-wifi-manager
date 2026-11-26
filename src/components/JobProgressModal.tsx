@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Trash2, RefreshCw, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { getAuthToken } from '../utils/auth';
 
 export interface BackgroundJob {
   id: string;
@@ -29,7 +30,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({ jobId, onCom
 
   const getAuthHeaders = () => ({
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${sessionStorage.getItem('mikhmon_token') || ''}`
+    'Authorization': `Bearer ${getAuthToken()}`
   });
 
   const checkJob = async (targetId: string | null) => {

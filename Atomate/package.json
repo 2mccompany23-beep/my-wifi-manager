@@ -1,0 +1,19 @@
+{
+  "name": "atomate",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "electron": "^45.4.1",
+    "selenium-webdriver": "^4.51.0",
+    "ws": "^8.23.0"
+  }
+}

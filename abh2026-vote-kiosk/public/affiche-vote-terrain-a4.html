@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Affiche A4 Imprimable · Vote Gildas Zodome (ABH 2026)</title>
+  <style>
+    /* Configuration Impression A4 Haute Définition */
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+    :root {
+      --bj-green: #008751;
+      --bj-yellow: #FCD116;
+      --bj-red: #E8112D;
+      --navy: #090e1a;
+      --card-bg: #111827;
+      --gold: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: #f1f5f9;
+      color: #1e293b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 0;
+    }
+
+    /* Barre d'action supérieure (masquée à l'impression) */
+    .print-bar {
+      width: 210mm;
+      max-width: 95vw;
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .print-btn {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
+      border: none;
+      padding: 10px 22px;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);
+    }
+    .print-btn:hover {
+      background: #059669;
+    }
+
+    /* Page A4 réelle */
+    .page-a4 {
+      width: 210mm;
+      min-height: 297mm;
+      height: 297mm;
+      background: #ffffff;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12mm 14mm 10mm 14mm;
+    }
+
+    /* Banderole tricolore Bénin en haut et en bas */
+    .benin-flag-top {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 7mm;
+      display: flex;
+    }
+    .flag-green { flex: 1; background: var(--bj-green); }
+    .flag-yellow { flex: 1; background: var(--bj-yellow); }
+    .flag-red { flex: 1; background: var(--bj-red); }
+
+    /* En-tête */
+    .header {
+      text-align: center;
+      margin-top: 3mm;
+    }
+    .competition-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #fef3c7;
+      color: #92400e;
+      border: 1.5px solid #f59e0b;
+      padding: 4px 16px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 12pt;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 3mm;
+    }
+    .hero-title {
+      font-size: 27pt;
+      font-weight: 900;
+      line-height: 1.15;
+      color: #0f172a;
+      text-transform: uppercase;
+    }
+    .hero-title span {
+      color: var(--bj-green);
+    }
+    .hero-subtitle {
+      font-size: 13.5pt;
+      font-weight: 700;
+      color: #475569;
+      margin-top: 1.5mm;
+    }
+
+    /* Section Candidat */
+    .candidate-box {
+      display: flex;
+      align-items: center;
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 10px 18px;
+      gap: 18px;
+      margin-top: 3mm;
+    }
+    .candidate-img {
+      width: 78px;
+      height: 78px;
+      border-radius: 50%;
+      border: 3.5px solid var(--gold);
+      background: #0f172a url('https://api.abh2026top10vote.org/media/gildas-zodome.8fb17633737f.webp') center/cover no-repeat;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    .candidate-info h2 {
+      font-size: 18pt;
+      font-weight: 900;
+      color: #0f172a;
+    }
+    .candidate-info p {
+      font-size: 11pt;
+      color: #334155;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .candidate-tag {
+      display: inline-block;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 9.5pt;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-top: 3px;
+    }
+
+    /* Encadré Réseau Wi-Fi */
+    .wifi-alert-box {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      border-radius: 12px;
+      padding: 9px 16px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+      margin-top: 3mm;
+    }
+    .wifi-alert-box .wifi-name {
+      font-size: 15pt;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      background: rgba(0, 0, 0, 0.25);
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 6px;
+      margin: 2px 0;
+      border: 1px dashed #7dd3fc;
+    }
+    .wifi-alert-box .wifi-sub {
+      font-size: 10pt;
+      font-weight: 600;
+      opacity: 0.95;
+    }
+
+    /* Zone Centrale : QR Code & Étapes */
+    .core-grid {
+      display: grid;
+      grid-template-columns: 82mm 1fr;
+      gap: 16px;
+      align-items: center;
+      margin-top: 3mm;
+    }
+
+    .qr-card {
+      background: #ffffff;
+      border: 3px solid #0f172a;
+      border-radius: 16px;
+      padding: 12px;
+      text-align: center;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    }
+    .qr-card .qr-wrapper {
+      width: 64mm;
+      height: 64mm;
+      margin: 0 auto;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr-card .qr-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .qr-card .qr-label {
+      font-size: 10.5pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin-top: 5px;
+      text-transform: uppercase;
+    }
+    .qr-card .short-link {
+      font-size: 13pt;
+      font-weight: 900;
+      color: #0284c7;
+      background: #e0f2fe;
+      padding: 2px 10px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-top: 4px;
+    }
+
+    /* Étapes de vote */
+    .steps-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .step-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 14px;
+    }
+    .step-number {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--bj-green);
+      color: #ffffff;
+      font-size: 14pt;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-content h3 {
+      font-size: 12pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+    .step-content p {
+      font-size: 10pt;
+      color: #334155;
+      line-height: 1.35;
+    }
+    .step-content .highlight {
+      background: #fef08a;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 4px;
+      color: #854d0e;
+    }
+    .step-content .spam-box {
+      background: #fee2e2;
+      color: #991b1b;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid #f87171;
+    }
+
+    /* Encadré d'Avertissement Spams */
+    .important-alert {
+      background: #fffbeb;
+      border: 2px solid #f59e0b;
+      border-radius: 12px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 3mm;
+    }
+    .alert-icon {
+      font-size: 24pt;
+      flex-shrink: 0;
+    }
+    .alert-text h4 {
+      font-size: 11.5pt;
+      font-weight: 900;
+      color: #92400e;
+      margin-bottom: 2px;
+    }
+    .alert-text p {
+      font-size: 9.8pt;
+      color: #78350f;
+      line-height: 1.3;
+    }
+
+    /* Pied de page A4 */
+    .footer-a4 {
+      text-align: center;
+      border-top: 1.5px solid #e2e8f0;
+      padding-top: 8px;
+      margin-top: 2mm;
+    }
+    .footer-a4 p {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #64748b;
+    }
+    .footer-a4 .hashtag {
+      font-size: 11pt;
+      font-weight: 900;
+      color: var(--bj-green);
+      letter-spacing: 0.05em;
+    }
+
+    /* Adaptation écran Mobile & Tablette (Vue sur Smartphone) */
+    @media screen and (max-width: 768px) {
+      body {
+        padding: 8px 4px;
+        background: #0f172a;
+      }
+      .print-bar {
+        width: 100%;
+        max-width: 100vw;
+        border-radius: 8px;
+        padding: 10px;
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+      }
+      .print-btn {
+        width: 100%;
+        justify-content: center;
+      }
+      .page-a4 {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: unset !important;
+        height: auto !important;
+        padding: 18px 12px 14px 12px !important;
+        border-radius: 12px;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+      .header {
+        margin-top: 6px;
+      }
+      .competition-badge {
+        font-size: 0.72rem;
+        padding: 3px 10px;
+        margin-bottom: 6px;
+      }
+      .hero-title {
+        font-size: 1.45rem;
+      }
+      .hero-subtitle {
+        font-size: 0.82rem;
+        margin-top: 4px;
+      }
+      .candidate-box {
+        padding: 10px 12px;
+        gap: 12px;
+        margin-top: 10px;
+      }
+      .candidate-img {
+        width: 60px;
+        height: 60px;
+      }
+      .candidate-info h2 {
+        font-size: 1.15rem;
+      }
+      .candidate-info p {
+        font-size: 0.8rem;
+      }
+      .candidate-tag {
+        font-size: 0.68rem;
+      }
+      .wifi-alert-box {
+        padding: 10px 12px;
+        margin-top: 10px;
+      }
+      .wifi-alert-box .wifi-name {
+        font-size: 1rem;
+        padding: 4px 8px;
+        word-break: break-word;
+      }
+      .core-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+        margin-top: 10px;
+      }
+      .qr-card {
+        padding: 12px;
+      }
+      .qr-card .qr-wrapper {
+        width: 170px !important;
+        height: 170px !important;
+      }
+      .steps-card {
+        gap: 8px;
+      }
+      .step-box {
+        padding: 8px 10px;
+        gap: 10px;
+      }
+      .step-number {
+        width: 28px;
+        height: 28px;
+        font-size: 11pt;
+      }
+      .step-content h3 {
+        font-size: 0.88rem;
+      }
+      .step-content p {
+        font-size: 0.76rem;
+      }
+      .important-alert {
+        padding: 8px 10px;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .alert-icon {
+        font-size: 18pt;
+      }
+      .alert-text h4 {
+        font-size: 0.78rem;
+      }
+      .alert-text p {
+        font-size: 0.72rem;
+      }
+      .footer-a4 .hashtag {
+        font-size: 0.84rem;
+      }
+      .footer-a4 p {
+        font-size: 0.7rem;
+      }
+    }
+
+    /* Styles spécifiques pour l'impression physique */
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .print-bar {
+        display: none !important;
+      }
+      .page-a4 {
+        box-shadow: none;
+        margin: 0;
+        width: 100vw;
+        height: 100vh;
+        min-height: 100vh;
+        padding: 10mm 12mm;
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barre Supérieure de Contrôle (Visible uniquement à l'écran) -->
+  <div class="print-bar">
+    <div>
+      <strong>📄 Affiche Officielle de Vote A4</strong> &nbsp;|&nbsp; Prête pour impression stand &amp; campus
+    </div>
+    <button class="print-btn" onclick="window.print()">
+      🖨️ Imprimer cette Affiche (A4)
+    </button>
+  </div>
+
+  <!-- Format Document A4 Physique -->
+  <div class="page-a4">
+    <!-- Drapeau Béninois en haut -->
+    <div class="benin-flag-top">
+      <div class="flag-green"></div>
+      <div class="flag-yellow"></div>
+      <div class="flag-red"></div>
+    </div>
+
+    <!-- En-tête de Campagne -->
+    <div class="header">
+      <div class="competition-badge">
+        🏆 AFRICA'S BUSINESS HEROES 2026 · TOP 10 AFRIQUE
+      </div>
+      <h1 class="hero-title">
+        VOTEZ POUR LE <span>BÉNIN</span> !
+      </h1>
+      <div class="hero-subtitle">
+        Soutenez notre champion national dans la plus grande compétition d'Afrique
+      </div>
+    </div>
+
+    <!-- Carte Profil Candidat -->
+    <div class="candidate-box">
+      <div class="candidate-img"></div>
+      <div class="candidate-info">
+        <h2>Gildas ZODOME</h2>
+        <p>Fondateur de <strong>BIO PHYTO Bénin</strong> · Leader des bio-intrants agricoles durables</p>
+        <div class="candidate-tag">🇧🇯 SEUL CANDIDAT REPRÉSENTANT LE BÉNIN DANS LE TOP 10</div>
+      </div>
+    </div>
+
+    <!-- Encadré Wi-Fi Gratuit Stand -->
+    <div class="wifi-alert-box">
+      <div class="wifi-sub">📶 WI-FI GRATUIT &amp; OUVERT SUR CE STAND (Sans mot de passe) :</div>
+      <div class="wifi-name">VOTE ABH 2026 - GILDAS ZODOME</div>
+      <div class="wifi-sub">💡 Une fois connecté à ce Wi-Fi, ouvrez votre navigateur et tapez : <strong>vote.bj</strong></div>
+    </div>
+
+    <!-- Bloc Central : QR Code & Déroulé en 3 Étapes -->
+    <div class="core-grid">
+      <!-- QR Code Universel HD -->
+      <div class="qr-card">
+        <div class="qr-label">📷 Scannez pour voter</div>
+        <div class="qr-wrapper">
+          <img src="/qr-vote-official.svg" alt="QR Code Vote Gildas Zodome">
+        </div>
+        <div style="font-size: 8.5pt; font-weight: 700; color: #0f172a; margin-top: 4px;">SCAN RAPIDE UNIVERSEL</div>
+        <div style="font-size: 7.8pt; color: #64748b; margin-top: 2px;">Fonctionne avec l'appareil photo en <strong>Wi-Fi</strong> et en <strong>4G</strong></div>
+      </div>
+
+      <!-- 3 Étapes claires -->
+      <div class="steps-card">
+        <div class="step-box">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>Accédez à la page de vote</h3>
+            <p><strong>Scannez le QR Code</strong> ci-contre avec votre appareil photo,<br>OU connectez-vous au Wi-Fi du stand et tapez <strong class="highlight">vote.bj</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step-box">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>Cliquez sur « Voter »</h3>
+            <p>Descendez jusqu'à <strong>Gildas ZODOME</strong>, cliquez sur <strong>Voter</strong> et entrez votre <strong>adresse e-mail</strong>.</p>
+          </div>
+        </div>
+
+        <div class="step-box">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Validez avec le code reçu</h3>
+            <p>Ouvrez votre boîte e-mail. <strong class="spam-box">Regardez dans vos SPAMS</strong> si nécessaire, tapez le code à 6 chiffres et confirmez !</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alerte Spams Stratégique -->
+    <div class="important-alert">
+      <div class="alert-icon">💡</div>
+      <div class="alert-text">
+        <h4>ASTUCE IMPORTANTE POUR RECEVOIR VOTRE CODE EN 5 SECONDES :</h4>
+        <p>Le courriel de validation officiel arrive fréquemment dans le dossier <strong>« SPAM » (Courriers indésirables)</strong> de Gmail ou Outlook. Consultez ce dossier sans quitter la page de vote !</p>
+      </div>
+    </div>
+
+    <!-- Pied de page officiel -->
+    <div class="footer-a4">
+      <div class="hashtag">#VotezGildasZodome · #ABH2026 · #FiertéBéninoise 🇧🇯</div>
+      <p>Initiative citoyenne pour le rayonnement de l'entrepreneuriat béninois sur la scène continentale.</p>
+    </div>
+  </div>
+
+</body>
+</html>

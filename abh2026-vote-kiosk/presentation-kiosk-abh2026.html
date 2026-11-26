@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Présentation Solution · Borne Wi-Fi Kiosk ABH 2026</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm 14mm 12mm 14mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      line-height: 1.45;
+      font-size: 11pt;
+    }
+
+    /* En-tête Institutionnel */
+    .header-banner {
+      border-radius: 12px;
+      background: linear-gradient(135deg, #091322 0%, #1e293b 100%);
+      color: #ffffff;
+      padding: 22px 24px;
+      margin-bottom: 18px;
+      position: relative;
+      overflow: hidden;
+      border-left: 6px solid #10b981;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .badge-status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid #10b981;
+      color: #34d399;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .doc-date {
+      font-size: 8.5pt;
+      color: #94a3b8;
+    }
+
+    .main-title {
+      font-size: 19pt;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 4px;
+      letter-spacing: -0.02em;
+    }
+
+    .sub-title {
+      font-size: 10.5pt;
+      color: #f59e0b;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 8.5pt;
+    }
+
+    .meta-item strong {
+      color: #cbd5e1;
+      display: block;
+      margin-bottom: 2px;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .meta-item span {
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    /* Sections */
+    .section {
+      margin-bottom: 16px;
+      page-break-inside: avoid;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12pt;
+      font-weight: 800;
+      color: #0f172a;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .section-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 10pt;
+    }
+
+    .intro-box {
+      background: #f8fafc;
+      border-left: 4px solid #f59e0b;
+      border-radius: 0 10px 10px 0;
+      padding: 12px 16px;
+      font-size: 9.5pt;
+      color: #334155;
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    /* Grilles de Fonctionnalités */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 11px 13px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      page-break-inside: avoid;
+    }
+
+    .card-highlight {
+      border-color: #cbd5e1;
+      background: #fcfdfe;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+
+    .card-pill {
+      font-size: 7pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      letter-spacing: 0.04em;
+    }
+
+    .pill-green { background: #dcfce7; color: #15803d; }
+    .pill-gold { background: #fef3c7; color: #b45309; }
+    .pill-blue { background: #dbeafe; color: #1d4ed8; }
+    .pill-red { background: #fee2e2; color: #b91c1c; }
+
+    .card-title {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .card-desc {
+      font-size: 8.5pt;
+      color: #475569;
+      line-height: 1.4;
+    }
+
+    /* Tableau Synthétique */
+    .validation-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 8.5pt;
+    }
+
+    .validation-table th {
+      background: #0f172a;
+      color: #ffffff;
+      text-align: left;
+      padding: 7px 10px;
+      font-weight: 700;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .validation-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #334155;
+      vertical-align: middle;
+    }
+
+    .validation-table tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    .status-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #16a34a;
+      font-weight: 700;
+      font-size: 8pt;
+    }
+
+    /* Signature & Validation */
+    .sign-box {
+      margin-top: 14px;
+      padding: 12px 16px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      background: #fafaf9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8.5pt;
+      page-break-inside: avoid;
+    }
+
+    .sign-statement {
+      max-width: 65%;
+      color: #44403c;
+    }
+
+    .sign-action {
+      text-align: right;
+    }
+
+    .sign-stamp {
+      display: inline-block;
+      border: 2px solid #10b981;
+      color: #047857;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 8.5pt;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: #ecfdf5;
+    }
+
+    .page-break {
+      page-break-before: always;
+    }
+
+    .footer {
+      margin-top: 14px;
+      padding-top: 8px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================= PAGE 1 ================= -->
+  <div class="header-banner">
+    <div class="header-top">
+      <span class="badge-status">Document de Synthèse & Validation Client</span>
+      <span class="doc-date">Novembre 2026 · Version 1.0</span>
+    </div>
+    <h1 class="main-title">Borne Wi-Fi de Campagne (Vote Kiosk)</h1>
+    <div class="sub-title">Dispositif de Mobilisation & Régulation Réseau · Soutien Officiel Gildas ZODOME (ABH 2026)</div>
+    
+    <div class="meta-grid">
+      <div class="meta-item">
+        <strong>Objet du Dispositif</strong>
+        <span>Kiosk Wi-Fi Autonome Dédié au Vote</span>
+      </div>
+      <div class="meta-item">
+        <strong>Cible Géographique</strong>
+        <span>Campus, Événements & Lieux Publics</span>
+      </div>
+      <div class="meta-item">
+        <strong>Statut Solution</strong>
+        <span>100% Fonctionnelle & Déployable</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="intro-box">
+    <strong>🎯 Note d'intention & Résumé Exécutif :</strong><br>
+    Le sous-projet <strong>abh2026-vote-kiosk</strong> est une solution matérielle et logicielle clé en main spécialement conçue pour les opérations de vote sur le terrain. Elle transforme un simple routeur en une <strong>borne de vote interactive et sécurisée</strong> : les électeurs (étudiants, citoyens) accèdent immédiatement à un Wi-Fi gratuit qui les guide directement vers le vote pour Gildas Zodome, tout en verrouillant strictement le réseau contre le gaspillage du forfait Internet (téléchargements, vidéos, réseaux sociaux tiers).
+  </div>
+
+  <!-- SECTION 1 : EXPÉRIENCE ÉLECTEUR -->
+  <div class="section">
+    <div class="section-title">
+      <span class="section-icon">📱</span>
+      <span>1. Expérience Électeur (Fluidité & Taux de Conversion Maximal)</span>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span class="card-pill pill-green">Accès Rapide</span>
+          <span class="card-title">Connexion Libre & Immédiate</span>
+        </div>
+        <div class="card-desc">
+          Aucun mot de passe WPA ni création de compte requise. L'utilisateur clique sur le nom du Wi-Fi et accède directement à l'interface sans friction.
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span class="card-pill pill-gold">Portail Captif</span>
+          <span class="card-title">Accueil Visuel Officiel</span>
+        </div>
+        <div class="card-desc">
+          Affichage automatique sur l'écran du smartphone de la fiche officielle de campagne (photo HD de Gildas Zodome, couleurs du Bénin et consignes claires).
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span class="card-pill pill-blue">Ciblage Direct</span>
+          <span class="card-title">Redirection & Pré-sélection</span>
+        </div>
+        <div class="card-desc">
+          Le lien de vote officiel s'ouvre avec le candidat <strong>Gildas Zodome déjà présélectionné</strong>. L'électeur n'a pas besoin de chercher son nom dans la liste des concurrents.
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span class="card-pill pill-green">Exclusivité Mobile</span>
+          <span class="card-title">Système « Anti-Fermeture » iOS / Android</span>
+        </div>
+        <div class="card-desc">
+          Résout le problème critique des téléphones dont la fenêtre de connexion se ferme dès qu'on quitte pour voir son mail. Le portail force l'ouverture dans Safari ou Chrome.
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span class="card-pill pill-gold">Validation OTP</span>
+          <span class="card-title">Raccourcis Messagerie & Alerte Anti-Spam</span>
+        </div>
+        <div class="card-desc">
+          Boutons d'accès direct en 1 clic vers Gmail, Outlook et Yahoo, accompagnés d'un rappel bien visible d'aller vérifier le dossier <em>« Spams / Indésirables »</em> pour le code de vote.
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span class="card-pill pill-red">Régulation</span>
+          <span class="card-title">Sortie Courtoise & Rotation des Votants</span>
+        </div>
+        <div class="card-desc">
+          Une fois le vote validé (ou au terme du temps / volume imparti), un message clair indique la fin de session et libère immédiatement l'antenne pour les électeurs suivants.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>Dossier Technique & Commercial · Borne Wi-Fi ABH 2026</span>
+    <span>Page 1 sur 2</span>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ================= PAGE 2 ================= -->
+  <!-- SECTION 2 : COCKPIT SUPERVISEUR -->
+  <div class="section">
+    <div class="section-title">
+      <span class="section-icon">🎛️</span>
+      <span>2. Cockpit Superviseur (Supervision & Régulation Terrain)</span>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-pill pill-blue">Télémétrie</span>
+          <span class="card-title">Supervision en Direct (&lt; 1s)</span>
+        </div>
+        <div class="card-desc">
+          Tableau de bord web protégé par mot de passe affichant en temps réel le nombre d'électeurs connectés, le cumul des sessions et les données consommées.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-pill pill-green">Économie Data</span>
+          <span class="card-title">Filtre Réseau Anti-Gaspillage</span>
+        </div>
+        <div class="card-desc">
+          Bloque 100% des gros consommateurs de forfait (TikTok, YouTube, Netflix, mises à jour automatiques iOS/Android/Windows et torrents). Préserve le forfait de la box.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-pill pill-gold">Gestion Débit</span>
+          <span class="card-title">Ajustement Immédiat de la Vitesse</span>
+        </div>
+        <div class="card-desc">
+          Réglage en un clic du débit par personne (256K, 512K, 1M, 2M) garantissant une navigation rapide sans coupure même en cas de forte affluence.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-pill pill-red">Plafonds & Délais</span>
+          <span class="card-title">Quotas de Volume & Temps</span>
+        </div>
+        <div class="card-desc">
+          Limitation par appareil (10 à 50 Mo, 5 à 30 min) et paramétrage du délai de pause (ex: 24h) avant réautorisation pour empêcher le squattage du réseau.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-pill pill-blue">Haute Capacité</span>
+          <span class="card-title">Gestion Multi-Routeurs</span>
+        </div>
+        <div class="card-desc">
+          Surveillance et synchronisation simultanée de deux routeurs MikroTik sur un même site pour doubler la portée Wi-Fi et absorber les pics de foule.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-pill pill-green">Action Rapide</span>
+          <span class="card-title">Purge Collective & Déconnexion 1-Clic</span>
+        </div>
+        <div class="card-desc">
+          Contrôle individuel des téléphones connectés et bouton de réinitialisation générale permettant de lever instantanément toutes les restrictions.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3 : FACILITÉ TECHNIQUE & DÉPLOIEMENT -->
+  <div class="section">
+    <div class="section-title">
+      <span class="section-icon">🚀</span>
+      <span>3. Déploiement Terrain & Fiabilité Opérationnelle</span>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span class="card-pill pill-green">Zéro Connaissance Réseau</span>
+          <span class="card-title">Scripts d'Installation 1-Clic</span>
+        </div>
+        <div class="card-desc">
+          Fichiers automatisés (.bat) permettant à n'importe quel membre de l'équipe de configurer un routeur de secours en moins de 60 secondes sans ouvrir de logiciel technique.
+        </div>
+      </div>
+
+      <div class="card card-highlight">
+        <div class="card-header">
+          <span class="card-pill pill-blue">Double Mode</span>
+          <span class="card-title">Autonome sur Place ou Télé-Supervisé</span>
+        </div>
+        <div class="card-desc">
+          Fonctionne à 100% en local sur le terrain même sans Internet pour le PC de contrôle, tout en restant pilotable à distance via le Cloud si désiré.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4 : TABLEAU DE CONFORMITÉ & VALIDATION CLIENT -->
+  <div class="section">
+    <div class="section-title">
+      <span class="section-icon">📋</span>
+      <span>4. Grille de Validation des Attentes Client</span>
+    </div>
+
+    <table class="validation-table">
+      <thead>
+        <tr>
+          <th style="width: 28%;">Attente Client Exprimée</th>
+          <th style="width: 48%;">Réponse & Implémentation de la Solution</th>
+          <th style="width: 24%;">Conformité</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Participation massive au vote</strong></td>
+          <td>Wi-Fi ouvert sans ticket + ouverture directe sur le vote Gildas Zodome.</td>
+          <td><span class="status-check">✅ 100% Conforme</span></td>
+        </tr>
+        <tr>
+          <td><strong>Éviter les abandons mobiles</strong></td>
+          <td>Technologie anti-fermeture de fenêtre captive + liens directs Gmail/Outlook.</td>
+          <td><span class="status-check">✅ 100% Conforme</span></td>
+        </tr>
+        <tr>
+          <td><strong>Protection du forfait Data</strong></td>
+          <td>Filtrage strict bloquant TikTok, YouTube, Netflix et mises à jour système.</td>
+          <td><span class="status-check">✅ 100% Conforme</span></td>
+        </tr>
+        <tr>
+          <td><strong>Simplicité pour l'équipe terrain</strong></td>
+          <td>Tableau de bord visuel en français, réglages en 1 clic et scripts automatiques.</td>
+          <td><span class="status-check">✅ 100% Conforme</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BLOC DE VALIDATION -->
+  <div class="sign-box">
+    <div class="sign-statement">
+      <strong>Confirmation & Bon pour Accord :</strong><br>
+      Ce document atteste que l'architecture et les fonctionnalités du projet <em>abh2026-vote-kiosk</em> répondent exhaustivement aux objectifs de mobilisation électorale et de régulation terrain pour la campagne ABH 2026.
+    </div>
+    <div class="sign-action">
+      <div class="sign-stamp">Solution Validée ✅</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>Campagne Officielle Gildas ZODOME (BIO PHYTO Bénin) · ABH 2026</span>
+    <span>Page 2 sur 2</span>
+  </div>
+
+</body>
+</html>

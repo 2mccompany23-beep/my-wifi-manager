@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Search, Plus, Trash2, Edit3, Lock, Unlock, RotateCcw, Filter, RefreshCw,
   KeyRound, CheckSquare, Square, Eye, Clock, ShieldAlert, CheckCircle2,
@@ -8,6 +8,7 @@ import { ConfirmModal } from './ConfirmModal';
 import { ToastContainer, useToast } from './Toast';
 import { JobProgressModal } from './JobProgressModal';
 import { HotspotUser } from '../types';
+import { getAuthToken } from '../utils/auth';
 
 interface UserManagerProps {
   users: HotspotUser[];
@@ -377,7 +378,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users = [], onRefresh 
 
   const getAuthHeaders = () => ({
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${sessionStorage.getItem('mikhmon_token')}`
+    'Authorization': `Bearer ${getAuthToken()}`
   });
 
   const handleDeleteUser = (id: string, name: string) => {

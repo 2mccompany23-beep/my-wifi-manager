@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Save, CheckCircle, RefreshCw, Lock, Server, Key, Activity, Copy, MessageCircle, Phone } from 'lucide-react';
 import { AppSettings } from '../types';
 import { PushNotificationSettings } from './PushNotificationSettings';
+import { getAuthToken } from '../utils/auth';
 
 interface RouterSettingsProps {
   onRefresh: () => void;
@@ -25,7 +26,7 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
   const [pollDiag, setPollDiag] = useState<{ pollingActive: boolean; lastPollSecAgo: number | null; pendingQueueSize: number } | null>(null);
 
   useEffect(() => {
-    const token = sessionStorage.getItem('mikhmon_token');
+    const token = getAuthToken();
     fetch('/api/settings', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -50,7 +51,7 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    const token = sessionStorage.getItem('mikhmon_token');
+    const token = getAuthToken();
     try {
       await fetch('/api/settings', {
         method: 'POST',
@@ -72,7 +73,7 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
 
   const handleTestConnection = async () => {
     setTestResult('Test en cours...');
-    const token = sessionStorage.getItem('mikhmon_token');
+    const token = getAuthToken();
     try {
       const res = await fetch('/api/router/status', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -149,7 +150,7 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
           </div>
         </div>
 
-        <PushNotificationSettings token={sessionStorage.getItem('mikhmon_token') || ''} />
+        <PushNotificationSettings token={getAuthToken()} />
 
         <form onSubmit={handleSave} className="space-y-6 text-xs">
           
@@ -427,7 +428,7 @@ export const RouterSettings: React.FC<RouterSettingsProps> = ({ onRefresh }) => 
                   alert('Veuillez remplir les deux champs de mot de passe');
                   return;
                 }
-                const token = sessionStorage.getItem('mikhmon_token');
+                const token = getAuthToken();
                 try {
                   const res = await fetch('/api/auth/change-password', {
                     method: 'POST',

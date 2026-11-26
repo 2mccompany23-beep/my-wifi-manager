@@ -1,0 +1,13 @@
+{
+  "name": "kiosk-abh2026-supervision",
+  "version": "1.0.0",
+  "bin": "server.cjs",
+  "pkg": {
+    "assets": [
+      "public/**/*"
+    ],
+    "targets": [
+      "node20-win-x64"
+    ]
+  }
+}

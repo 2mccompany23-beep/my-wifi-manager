@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supervision Kiosk · ABH 2026 (Gildas Zodome)</title>
+  <link rel="stylesheet" href="/css/dashboard.css?v=2.5">
+</head>
+<body>
+
+  <!-- Notification Flottante de Confirmation Visuelle des Règles Réseau -->
+  <div id="rule-toast-container" class="rule-toast-container"></div>
+
+  <!-- Écran de Connexion Superviseur -->
+  <div id="login-screen" class="login-container">
+    <div class="login-card">
+      <div class="brand" style="justify-content: center; margin-bottom: 12px;">
+        <span class="brand-flag">🇧🇯</span>
+        <div>
+          <h1 style="font-size: 1.25rem; font-weight: 800; color: #fff;">Supervision Kiosk ABH 2026</h1>
+          <div style="font-size: 0.78rem; color: var(--gold); font-weight: 600;">Campagne Officielle Gildas Zodome</div>
+        </div>
+      </div>
+
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4;">
+        Accès restreint au poste d'administration et de régulation réseau.
+      </p>
+
+      <form id="form-login">
+        <div style="margin-bottom: 16px; text-align: left;">
+          <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px;">Mot de passe Superviseur</label>
+          <input type="password" id="input-password" class="form-input" style="width: 100%; font-size: 0.95rem; padding: 12px;" placeholder="••••••••" required autofocus>
+        </div>
+
+        <div id="login-error" style="display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 10px; border-radius: 8px; font-size: 0.78rem; margin-bottom: 16px;"></div>
+
+        <button type="submit" id="btn-login" class="btn-action btn-gold" style="width: 100%; padding: 12px; font-size: 0.9rem;">Se Connecter au Dashboard</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Sas de Vérification & Progression de Connexion aux Routeurs (Handshake Gate) -->
+  <div id="gate-screen" class="gate-container" style="display: none;">
+    <div class="gate-card">
+      
+      <!-- En-tête Sas -->
+      <div class="brand" style="justify-content: center; margin-bottom: 16px;">
+        <span class="brand-flag">🇧🇯</span>
+        <div style="text-align: left;">
+          <h2 style="font-size: 1.22rem; font-weight: 800; color: #fff;">Sas de Liaison MikroTik</h2>
+          <div style="font-size: 0.78rem; color: var(--gold); font-weight: 600;">Contrôle d'accès & Connectivité Matérielle</div>
+        </div>
+      </div>
+
+      <!-- Radar Visuel de Détection -->
+      <div class="gate-radar-wrap">
+        <div class="radar-pulse"></div>
+        <div id="gate-radar-icon" class="radar-icon">📡</div>
+      </div>
+
+      <!-- Titre d'état -->
+      <div id="gate-main-status" class="gate-main-status">Recherche des routeurs MikroTik...</div>
+      <div id="gate-sub-status" class="gate-sub-status">Établissement du canal de communication sécurisé</div>
+
+      <!-- Barre de progression -->
+      <div class="gate-progress-wrap">
+        <div class="gate-progress-info">
+          <span id="gate-progress-step">Étape 2 / 3 : Détection routeurs</span>
+          <span id="gate-progress-pct" style="font-weight: 700; color: var(--gold);">50%</span>
+        </div>
+        <div class="gate-progress-track">
+          <div id="gate-progress-bar" class="gate-progress-bar" style="width: 50%;"></div>
+        </div>
+      </div>
+
+      <!-- Liste des étapes du Handshake -->
+      <div class="gate-steps">
+        <div id="step-auth" class="gate-step-item done">
+          <div class="step-icon">✅</div>
+          <div class="step-text">
+            <div class="step-title">Session Superviseur</div>
+            <div class="step-desc">Clé d'administration validée</div>
+          </div>
+        </div>
+
+        <div id="step-env" class="gate-step-item in-progress">
+          <div id="step-env-icon" class="step-icon">⏳</div>
+          <div class="step-text">
+            <div class="step-title">Canal Réseau</div>
+            <div id="step-env-desc" class="step-desc">Détection AlwaysData Cloud (Reverse Polling)...</div>
+          </div>
+        </div>
+
+        <div id="step-r1" class="gate-step-item waiting">
+          <div id="step-r1-icon" class="step-icon">⚪</div>
+          <div class="step-text">
+            <div class="step-title">Routeur 1 · Principal (192.168.1.161)</div>
+            <div id="step-r1-desc" class="step-desc">En attente de handshake...</div>
+          </div>
+        </div>
+
+        <div id="step-r2" class="gate-step-item waiting">
+          <div id="step-r2-icon" class="step-icon">⚪</div>
+          <div class="step-text">
+            <div class="step-title">Routeur 2 · Secondaire (192.168.1.162)</div>
+            <div id="step-r2-desc" class="step-desc">En attente de handshake...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panneau d'Actions Dynamiques du Sas -->
+      <div id="gate-action-box" class="gate-action-box" style="display: none;">
+        <!-- Injecté dynamiquement par JS selon succès 2 routeurs, 1 routeur ou 0 routeur -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Dashboard Principal (Visible après Authentification) -->
+  <div id="dashboard-app" class="container" style="display: none;">
+    
+    <!-- Top Header -->
+    <header class="header">
+      <div class="brand">
+        <span class="brand-flag">🇧🇯</span>
+        <div>
+          <h1 class="brand-title">ABH 2026 · Super Kiosk Control Center</h1>
+          <div class="brand-sub">Poste de Supervision Réseau & Régulation des Flux en Direct</div>
+        </div>
+      </div>
+
+      <div class="router-badges">
+        <span id="badge-live-stream" class="badge" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" title="Monitoring Haute Fréquence en Continu">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; box-shadow: 0 0 8px #10b981;"></span>
+          ⚡ Live Stream (&lt; 1s)
+        </span>
+        <span id="badge-mode" class="badge badge-online" style="cursor: pointer;" title="Mode de connexion actif">⚡ Mode : Auto</span>
+        <span id="badge-r1" class="badge badge-waiting">⚪ Routeur 1</span>
+        <span id="badge-r2" class="badge badge-waiting">⚪ Routeur 2</span>
+        <button id="btn-recheck-gate" class="btn-action" title="Relancer le Sas de diagnostic et test des routeurs">🔍 Test Routeurs</button>
+        <button id="btn-reapply-config" class="btn-action" title="Ré-appliquer la configuration au routeur connecté">⚡ Synchroniser Routeur</button>
+        <button id="btn-logout" class="btn-action btn-red" title="Fermer la session">Déconnexion</button>
+      </div>
+    </header>
+
+    <!-- Bandeau Mode Consultation Hors-Ligne (si aucun routeur joint) -->
+    <div id="banner-offline-mode" style="display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 12px 18px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 1.4rem;">⚠️</span>
+        <div>
+          <div style="font-weight: 800; color: #fca5a5; font-size: 0.9rem;">Mode Consultation Hors-Ligne (Aucun routeur actif)</div>
+          <div style="font-size: 0.78rem; color: #cbd5e1;">Vous visualisez les données en cache. Les modifications (débit, SSID, restrictions) sont bloquées jusqu'au raccordement d'un routeur.</div>
+        </div>
+      </div>
+      <button id="btn-gate-recheck" class="btn-action btn-gold" style="padding: 8px 14px; font-size: 0.8rem;">🔄 Retester la Liaison Routeurs</button>
+    </div>
+
+    <!-- Sélecteur de Périmètre / Filtre de Routeur -->
+    <div class="router-scope-bar">
+      <div class="scope-label">Affichage & Données :</div>
+      <div class="scope-pills" id="group-router-scope">
+        <button id="scope-all" class="btn-scope active" data-scope="all">
+          <span class="scope-icon">🌐</span>
+          <span>Vue Globale (Tous)</span>
+          <span id="badge-count-all" class="scope-badge">0</span>
+        </button>
+        <button id="scope-r1" class="btn-scope scope-r1" data-scope="1">
+          <span class="scope-dot dot-r1"></span>
+          <span>Routeur 1 · Principal (192.168.1.161)</span>
+          <span id="badge-count-r1" class="scope-badge">0</span>
+        </button>
+        <button id="scope-r2" class="btn-scope scope-r2" data-scope="2">
+          <span class="scope-dot dot-r2"></span>
+          <span>Routeur 2 · Secondaire (192.168.1.162)</span>
+          <span id="badge-count-r2" class="scope-badge">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- KPI Metrics Grid -->
+    <div class="kpi-grid">
+      <div class="kpi-card gold">
+        <div class="kpi-label">Utilisateurs Actifs</div>
+        <div id="stat-active-students" class="kpi-value">0</div>
+        <div id="stat-active-sub" class="kpi-sub">Connectés en direct sur le Hotspot Kiosk</div>
+      </div>
+
+      <div class="kpi-card green">
+        <div class="kpi-label">Sessions Traitées</div>
+        <div id="stat-processed" class="kpi-value">0</div>
+        <div id="stat-processed-sub" class="kpi-sub">Total des appareils pris en charge</div>
+      </div>
+
+      <div class="kpi-card blue">
+        <div class="kpi-label">Trafic Réseau (WAN)</div>
+        <div id="stat-data-consumed" class="kpi-value">0 Mo</div>
+        <div id="stat-wan-status" class="kpi-sub">ether1 (Uplink) : En attente</div>
+      </div>
+
+      <div class="kpi-card red">
+        <div class="kpi-label">Période d'Attente (Ban)</div>
+        <div id="stat-banned-count" class="kpi-value">0</div>
+        <div id="stat-ban-duration-sub" class="kpi-sub">Quota ou durée max atteint (24h)</div>
+      </div>
+    </div>
+
+    <!-- Réglages en Temps Réel -->
+    <h2 class="section-title">⚙️ Politiques de Régulation en Temps Réel</h2>
+
+    <!-- Sélecteur de Routeur Cible pour les Actions -->
+    <div class="action-target-bar">
+      <div class="action-target-title">
+        🎯 <strong>Cible d'application des réglages :</strong>
+        <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: normal; margin-left: 6px;">
+          (Débit, Plafond, SSID, Filtrage s'appliquent sur le routeur sélectionné)
+        </span>
+      </div>
+      <div class="action-target-pills" id="group-action-target">
+        <button class="btn-target active" data-target="all">🌐 Les 2 Routeurs Simultanément</button>
+        <button class="btn-target target-r1" data-target="1">🟢 Routeur 1 (192.168.1.161)</button>
+        <button class="btn-target target-r2" data-target="2">🟣 Routeur 2 (192.168.1.162)</button>
+      </div>
+    </div>
+
+    <div class="controls-grid">
+      
+      <!-- Débit par utilisateur -->
+      <div class="control-card" id="card-bandwidth">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+          <div class="control-label">Débit alloué par utilisateur</div>
+          <span class="badge-feedback-state" id="badge-live-bandwidth">✅ Actif</span>
+        </div>
+        <div class="control-desc">Ajustement instantané du shaper PCQ & Profil Hotspot RouterOS</div>
+        <div class="btn-group" id="group-bandwidth">
+          <button class="btn-pill" data-rate="256k">256K</button>
+          <button class="btn-pill active" data-rate="512k">512K</button>
+          <button class="btn-pill" data-rate="1M">1M</button>
+          <button class="btn-pill" data-rate="2M">2M</button>
+        </div>
+        <div class="rule-router-status" id="status-router-bandwidth"></div>
+      </div>
+
+      <!-- Quota Volume avant Délai d'Attente -->
+      <div class="control-card" id="card-quota">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+          <div class="control-label">Plafond de volume par session</div>
+          <span class="badge-feedback-state" id="badge-live-quota">✅ Actif</span>
+        </div>
+        <div class="control-desc">Limite de transfert par appareil (surveillance cumulée)</div>
+        <div class="btn-group" id="group-quota">
+          <button class="btn-pill" data-quota="10">10 Mo</button>
+          <button class="btn-pill active" data-quota="20">20 Mo</button>
+          <button class="btn-pill" data-quota="30">30 Mo</button>
+          <button class="btn-pill" data-quota="50">50 Mo</button>
+        </div>
+        <div class="rule-router-status" id="status-router-quota"></div>
+      </div>
+
+      <!-- Temps Max par Session -->
+      <div class="control-card" id="card-time">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+          <div class="control-label">Durée maximale de connexion</div>
+          <span class="badge-feedback-state" id="badge-live-time">✅ Actif</span>
+        </div>
+        <div class="control-desc">Temps accordé pour finaliser le vote (session-timeout RouterOS)</div>
+        <div class="btn-group" id="group-time">
+          <button class="btn-pill" data-time="5">5 min</button>
+          <button class="btn-pill" data-time="10">10 min</button>
+          <button class="btn-pill active" data-time="15">15 min</button>
+          <button class="btn-pill" data-time="30">30 min</button>
+        </div>
+        <div class="rule-router-status" id="status-router-time"></div>
+      </div>
+
+      <!-- Durée du Bannissement (Configurable, 24h par défaut) -->
+      <div class="control-card" id="card-ban">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+          <div class="control-label">Durée de restriction (Bannissement)</div>
+          <span class="badge-feedback-state" id="badge-live-ban">✅ Actif</span>
+        </div>
+        <div class="control-desc">Délai avant réautorisation d'un appareil (timeout firewall)</div>
+        <div class="btn-group" id="group-ban-duration">
+          <button class="btn-pill" data-banduration="1">1h</button>
+          <button class="btn-pill" data-banduration="6">6h</button>
+          <button class="btn-pill" data-banduration="12">12h</button>
+          <button class="btn-pill active" data-banduration="24">24h</button>
+          <button class="btn-pill" data-banduration="48">48h</button>
+        </div>
+        <div class="rule-router-status" id="status-router-ban"></div>
+      </div>
+
+      <!-- Délai d'éjection Wi-Fi (Déconnexion radio silencieuse) -->
+      <div class="control-card" id="card-eject">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+          <div class="control-label">Délai d'éjection Wi-Fi (Silencieux)</div>
+          <span class="badge-feedback-state" id="badge-live-eject">✅ Actif</span>
+        </div>
+        <div class="control-desc">Déconnexion radio de l'antenne après restriction (Watchdog)</div>
+        <div class="btn-group" id="group-eject-grace">
+          <button class="btn-pill" data-ejectgrace="10">10s (Immédiat)</button>
+          <button class="btn-pill" data-ejectgrace="30">30s</button>
+          <button class="btn-pill active" data-ejectgrace="60">60s</button>
+          <button class="btn-pill" data-ejectgrace="120">2 min</button>
+        </div>
+        <div class="rule-router-status" id="status-router-eject"></div>
+      </div>
+
+      <!-- SSID Wi-Fi -->
+      <div class="control-card col-span-2" id="card-ssid">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+          <div class="control-label">Nom du réseau Wi-Fi diffusé (SSID)</div>
+          <span class="badge-feedback-state" id="badge-live-ssid">✅ Diffusé</span>
+        </div>
+        <div class="control-desc">Diffusion en direct sur l'antenne radio du routeur connecté</div>
+        <div class="input-group">
+          <input type="text" id="input-ssid" class="form-input" value="VOTE ABH 2026 - GILDAS ZODOME">
+          <button id="btn-update-ssid" class="btn-action btn-gold">Mettre à jour le SSID</button>
+        </div>
+        <div class="rule-router-status" id="status-router-ssid"></div>
+      </div>
+
+      <!-- Interrupteur de Mode de Filtrage Réseau & Anti-Gaspillage -->
+      <div class="control-card col-span-2 filter-mode-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div class="control-label" style="font-size: 0.95rem; color: #fff;">🛡️ Mode de Filtrage Réseau (Protection Forfait Data Box)</div>
+            <div class="control-desc">Basculez entre le mode économie intelligente anti-gaspillage et le mode vote strict</div>
+          </div>
+          <span id="badge-filter-mode" class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.8rem; padding: 6px 14px; font-weight: 700;">🛡️ Anti-Gaspillage Actif</span>
+        </div>
+
+        <div class="filter-modes-grid">
+          <button id="btn-mode-smart" class="btn-filter-mode active" type="button">
+            <div style="font-weight: 800; font-size: 0.92rem; color: #34d399; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+              <span>⚡ Mode Anti-Gaspillage (Recommandé)</span>
+            </div>
+            <div style="font-size: 0.74rem; color: #cbd5e1; line-height: 1.4;">
+              Internet ouvert pour Cloudflare/Vote et navigation fluide, mais <strong>bloque les gros consommateurs</strong> : YouTube, TikTok, Netflix, Mises à jour iOS/Android/Windows, WhatsApp Vidéos, Torrents.
+            </div>
+          </button>
+
+          <button id="btn-mode-strict" class="btn-filter-mode" type="button">
+            <div style="font-weight: 800; font-size: 0.92rem; color: #f59e0b; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+              <span>🔒 Mode Strict (Vote Seul)</span>
+            </div>
+            <div style="font-size: 0.74rem; color: #94a3b8; line-height: 1.4;">
+              Ferme 100% d'Internet sauf le site officiel ABH Vote, Cloudflare et les serveurs d'e-mails pour recevoir le code de vérification.
+            </div>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tableau Utilisateurs Actifs -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3 class="section-title" style="margin-bottom: 0;">📱 Appareils Connectés (<span id="table-students-count">0</span>)</h3>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Actualisé en temps réel (&lt; 1s)</span>
+      </div>
+
+      <div class="table-swipe-hint">👈 Glissez horizontalement pour faire défiler le tableau 👉</div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Routeur</th>
+              <th>Appareil / ID Unique</th>
+              <th>Adresse IP</th>
+              <th>Adresse MAC</th>
+              <th>Temps Connecté</th>
+              <th>Volume Transféré</th>
+              <th>Consommation / Plafond</th>
+              <th>Statut</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-students">
+            <tr>
+              <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                Aucun appareil connecté actuellement sur le réseau Kiosk.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tableau Registre Persistant & Gestion des Restrictions (Fusionné Option B) -->
+    <div class="table-card" style="border: 1px solid rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.03);">
+      <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+        <div>
+          <h3 class="section-title" style="margin-bottom: 4px; color: #60a5fa;">📋 Registre Persistant & Restrictions (<span id="table-history-count">0</span>)</h3>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Historique durable sauvegardé sur disque & synchronisé RouterOS</span>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <button id="btn-unban-all" class="btn-action btn-red" style="font-size: 0.76rem; padding: 6px 12px; white-space: nowrap;" title="Lever tous les blocages pare-feu sur les 2 routeurs">🔓 Lever tous les bans (<span id="table-banned-count">0</span>)</button>
+          <button id="btn-export-history" class="btn-action btn-gold" style="font-size: 0.76rem; padding: 6px 12px; white-space: nowrap;" title="Télécharger le fichier CSV complet des électeurs">📥 Exporter CSV</button>
+          <button id="btn-clear-history" class="btn-action" style="font-size: 0.76rem; padding: 6px 12px; white-space: nowrap; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);" title="Réinitialiser l'historique enregistré">Purger l'Historique</button>
+        </div>
+      </div>
+
+      <!-- Barre d'outils dédiée : Filtres rapides et Recherche -->
+      <div class="history-toolbar">
+        <div class="history-filter-group" id="group-history-filter">
+          <button class="btn-history-tab active" data-filter="all">Tous</button>
+          <button class="btn-history-tab" data-filter="banned" style="color: #fca5a5;">🚫 Restreints&nbsp;(<span id="filter-banned-count">0</span>)</button>
+          <button class="btn-history-tab" data-filter="voted" style="color: #fcd34d;">🗳️ A&nbsp;Voté</button>
+        </div>
+        <div class="history-search-box">
+          <input type="text" id="input-history-search" class="form-input" placeholder="🔍 Filtrer (IP, MAC, nom)...">
+        </div>
+      </div>
+
+      <div class="table-swipe-hint">👈 Glissez horizontalement pour faire défiler le tableau 👉</div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Routeur</th>
+              <th>Appareil</th>
+              <th>Adresse IP</th>
+              <th>Adresse MAC</th>
+              <th>1ère Détection</th>
+              <th>Dernière Activité</th>
+              <th>Volume Transféré</th>
+              <th>Statut</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-history">
+            <tr>
+              <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                Chargement du registre persistant...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Diagnostic Matériel Multi-Routeurs Side-by-Side -->
+    <div class="table-card" style="background: rgba(17, 24, 39, 0.7);">
+      <div class="table-header" style="margin-bottom: 8px;">
+        <h3 class="section-title" style="margin-bottom: 0;">📡 Diagnostic Matériel & Télémétrie des Routeurs</h3>
+        <span style="font-size: 0.75rem; color: #34d399;">Dual RB951Ui-2HnD Haute Fréquence</span>
+      </div>
+      
+      <div class="dual-diag-grid">
+        <!-- Carte Routeur 1 -->
+        <div class="diag-card r1">
+          <div class="diag-card-header">
+            <div class="diag-card-title" style="color: #34d399;">
+              <span class="scope-dot dot-r1"></span>
+              <span>Routeur 1 · Principal</span>
+            </div>
+            <span id="r1-diag-badge" class="badge badge-online">🟢 En Ligne</span>
+          </div>
+          <div class="diag-card-grid">
+            <div class="diag-item"><strong>IP LAN :</strong> <code>10.50.0.1/22</code></div>
+            <div class="diag-item"><strong>IP WAN :</strong> <code>192.168.1.161</code></div>
+            <div class="diag-item"><strong>Modèle :</strong> <span id="r1-diag-model">RB951Ui-2HnD</span></div>
+            <div class="diag-item"><strong>RouterOS :</strong> <span id="r1-diag-version">v7.18.2</span></div>
+            <div class="diag-item"><strong>Charge CPU :</strong> <span id="r1-diag-cpu">0%</span></div>
+            <div class="diag-item"><strong>RAM Libre :</strong> <span id="r1-diag-ram">0 Mo</span></div>
+            <div class="diag-item"><strong>Uplink ether1 :</strong> <span id="r1-diag-wan">Actif</span></div>
+            <div class="diag-item"><strong>Actifs / Bannis :</strong> <span id="r1-diag-users">0 / 0</span></div>
+            <div class="diag-item" style="grid-column: span 2;"><strong>Trafic Consommé :</strong> <span id="r1-diag-traffic" style="color: #34d399; font-weight: 700;">0 Mo</span></div>
+          </div>
+        </div>
+
+        <!-- Carte Routeur 2 -->
+        <div class="diag-card r2">
+          <div class="diag-card-header">
+            <div class="diag-card-title" style="color: #c084fc;">
+              <span class="scope-dot dot-r2"></span>
+              <span>Routeur 2 · Secondaire</span>
+            </div>
+            <span id="r2-diag-badge" class="badge badge-online">🟣 En Ligne</span>
+          </div>
+          <div class="diag-card-grid">
+            <div class="diag-item"><strong>IP LAN :</strong> <code>10.54.0.1/22</code></div>
+            <div class="diag-item"><strong>IP WAN :</strong> <code>192.168.1.162</code></div>
+            <div class="diag-item"><strong>Modèle :</strong> <span id="r2-diag-model">RB951Ui-2HnD</span></div>
+            <div class="diag-item"><strong>RouterOS :</strong> <span id="r2-diag-version">v7.18.2</span></div>
+            <div class="diag-item"><strong>Charge CPU :</strong> <span id="r2-diag-cpu">0%</span></div>
+            <div class="diag-item"><strong>RAM Libre :</strong> <span id="r2-diag-ram">0 Mo</span></div>
+            <div class="diag-item"><strong>Uplink ether1 :</strong> <span id="r2-diag-wan">Actif</span></div>
+            <div class="diag-item"><strong>Actifs / Bannis :</strong> <span id="r2-diag-users">0 / 0</span></div>
+            <div class="diag-item" style="grid-column: span 2;"><strong>Trafic Consommé :</strong> <span id="r2-diag-traffic" style="color: #c084fc; font-weight: 700;">0 Mo</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Raccourci QR Code Kiosk Officiel (Scan-to-Safari / Anti-Fermeture) -->
+    <div class="table-card" style="border: 1px solid rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.04);">
+      <div class="table-header">
+        <div>
+          <h3 class="section-title" style="margin-bottom: 4px; color: var(--gold);">📲 QR Code Officiel Kiosk · Anti-Fermeture (Scan direct Safari & Chrome)</h3>
+          <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+            Faites scanner ce QR Code par les électeurs connectés au Wi-Fi. 
+            Le lien s'ouvre <strong>directement dans Safari ou Chrome</strong> (contourne à 100% la fenêtre captive temporaire) et conserve la session lors de la vérification des Spams !
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-top: 12px; background: rgba(0,0,0,0.3); padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
+        <div style="background: #fff; padding: 12px; border-radius: 12px; display: inline-flex; justify-content: center; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          <!-- QR Code haute définition vers le vote officiel -->
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=https%3A%2F%2Fabh2026top10vote.org%2F%3Fcandidate%3Dgildas-zodome%26lang%3Dfr%23vote" alt="QR Code Vote Gildas Zodome" width="160" height="160" style="display: block; border-radius: 6px;">
+        </div>
+
+        <div style="flex: 1; min-width: 260px;">
+          <div style="font-size: 0.95rem; font-weight: 800; color: #fff; margin-bottom: 6px;">
+            🇧🇯 Cible : Candidat Gildas ZODOME (Pré-sélectionné)
+          </div>
+          <div style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 12px;">
+            • <strong>Lien complet :</strong> <code>https://abh2026top10vote.org/?candidate=gildas-zodome#vote</code><br>
+            • <strong>Lien court Wi-Fi :</strong> <strong style="color: var(--gold);">http://vote.bj</strong> (ou <strong>http://kiosk.vote</strong>)<br>
+            • <strong>Spam Protection :</strong> La page reste ouverte en permanence dans le navigateur, même si l'électeur bascule sur l'app Mail/Gmail.
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="https://abh2026top10vote.org/?candidate=gildas-zodome&lang=fr#vote" target="_blank" class="btn-action btn-gold" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+              🔗 Tester le lien de vote
+            </a>
+            <button type="button" class="btn-action" onclick="window.print()" style="display: inline-flex; align-items: center; gap: 6px;">
+              🖨️ Imprimer la fiche QR Code
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode de Connexion & Reverse Polling Cloud -->
+    <div class="table-card" style="border: 1px solid rgba(59, 130, 246, 0.3); background: rgba(15, 23, 42, 0.8);">
+      <div class="table-header">
+        <h3 class="section-title" style="margin-bottom: 0;">🔄 Mode de Communication & Reverse Polling (CGNAT)</h3>
+        <span id="poll-heartbeat-badge" class="badge badge-waiting">Vérification de la liaison...</span>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin: 8px 0 16px 0; line-height: 1.4;">
+        Choisissez le mode d'accès : <strong>Direct Local</strong> si votre application (APK / EXE / PC) est sur le même réseau Wi-Fi/LAN que le MikroTik (< 50ms, fonctionne 100% hors-ligne), ou <strong>Reverse Polling</strong> si le serveur est hébergé sur AlwaysData pour piloter le routeur à distance sans IP publique ni redirection de port.
+      </p>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+        <button id="btn-mode-auto" class="btn-pill active" title="Bascule automatique : teste le local puis replie sur le polling">⚡ Auto (Recommandé)</button>
+        <button id="btn-mode-direct" class="btn-pill" title="Connexion directe sur port 8728 / 80 (APK ou EXE sur le même réseau)">🔌 Direct Local (LAN / Wi-Fi)</button>
+        <button id="btn-mode-polling" class="btn-pill" title="Reverse Polling via AlwaysData Cloud (Compatible CGNAT / 4G)">☁️ Polling Cloud (AlwaysData)</button>
+      </div>
+
+      <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 14px; font-size: 0.8rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span style="font-weight: 700; color: #93c5fd;">État du Polling Routeur 1 :</span>
+          <span id="poll-status-r1" style="color: var(--text-muted);">En attente...</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 700; color: #93c5fd;">État du Polling Routeur 2 :</span>
+          <span id="poll-status-r2" style="color: var(--text-muted);">En attente...</span>
+        </div>
+      </div>
+
+      <!-- Script WinBox RouterOS -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 0.76rem; font-weight: 700; color: var(--gold); text-transform: uppercase;">Script RouterOS v7 Prêt pour WinBox (System -&gt; Scripts)</span>
+        <button id="btn-copy-script" class="btn-action btn-gold" style="font-size: 0.72rem; padding: 4px 10px;">📋 Copier le Script MikroTik</button>
+      </div>
+      <pre id="code-router-script" style="background: #050811; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 0.72rem; color: #34d399; overflow-x: auto; max-height: 120px; white-space: pre-wrap;"></pre>
+    </div>
+
+  </div>
+
+  <script src="/js/dashboard.js?v=2.5"></script>
+</body>
+</html>

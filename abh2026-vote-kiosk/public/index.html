@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Supervision Kiosk · ABH 2026 (Gildas Zodome)</title>
+  <link rel="stylesheet" href="/css/dashboard.css?v=3.3">
+</head>
+<body>
+
+  <!-- Notification Flottante de Confirmation Visuelle des Règles Réseau -->
+  <div id="rule-toast-container" class="rule-toast-container"></div>
+
+  <!-- Écran de Connexion Superviseur -->
+  <div id="login-screen" class="login-container">
+    <div class="login-card">
+      <div class="brand" style="justify-content: center; margin-bottom: 12px;">
+        <span class="brand-flag">🇧🇯</span>
+        <div>
+          <h1 style="font-size: 1.25rem; font-weight: 800; color: #fff;">Supervision Kiosk ABH 2026</h1>
+          <div style="font-size: 0.78rem; color: var(--gold); font-weight: 600;">Campagne Officielle Gildas Zodome</div>
+        </div>
+      </div>
+
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4;">
+        Accès restreint au poste d'administration et de régulation réseau.
+      </p>
+
+      <form id="form-login">
+        <div style="margin-bottom: 16px; text-align: left;">
+          <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px;">Mot de passe Superviseur</label>
+          <input type="password" id="input-password" class="form-input" style="width: 100%; font-size: 0.95rem; padding: 12px;" placeholder="••••••••" required autofocus>
+        </div>
+
+        <div id="login-error" style="display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 10px; border-radius: 8px; font-size: 0.78rem; margin-bottom: 16px;"></div>
+
+        <button type="submit" id="btn-login" class="btn-action btn-gold" style="width: 100%; padding: 12px; font-size: 0.9rem;">Se Connecter au Dashboard</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Sas de Vérification & Progression de Connexion aux Routeurs (Handshake Gate) -->
+  <div id="gate-screen" class="gate-container" style="display: none;">
+    <div class="gate-card">
+      <div class="brand" style="justify-content: center; margin-bottom: 16px;">
+        <span class="brand-flag">🇧🇯</span>
+        <div style="text-align: left;">
+          <h2 style="font-size: 1.22rem; font-weight: 800; color: #fff;">Sas de Liaison MikroTik</h2>
+          <div style="font-size: 0.78rem; color: var(--gold); font-weight: 600;">Contrôle d'accès & Connectivité Matérielle</div>
+        </div>
+      </div>
+
+      <div class="gate-radar-wrap">
+        <div class="radar-pulse"></div>
+        <div id="gate-radar-icon" class="radar-icon">📡</div>
+      </div>
+
+      <div id="gate-main-status" class="gate-main-status">Recherche des routeurs MikroTik...</div>
+      <div id="gate-sub-status" class="gate-sub-status">Établissement du canal de communication sécurisé</div>
+
+      <div class="gate-progress-wrap">
+        <div class="gate-progress-info">
+          <span id="gate-progress-step">Étape 2 / 3 : Détection routeurs</span>
+          <span id="gate-progress-pct" style="font-weight: 700; color: var(--gold);">50%</span>
+        </div>
+        <div class="gate-progress-track">
+          <div id="gate-progress-bar" class="gate-progress-bar" style="width: 50%;"></div>
+        </div>
+      </div>
+
+      <div class="gate-steps">
+        <div id="step-auth" class="gate-step-item done">
+          <div class="step-icon">✅</div>
+          <div class="step-text">
+            <div class="step-title">Session Superviseur</div>
+            <div class="step-desc">Clé d'administration validée</div>
+          </div>
+        </div>
+
+        <div id="step-env" class="gate-step-item in-progress">
+          <div id="step-env-icon" class="step-icon">⏳</div>
+          <div class="step-text">
+            <div class="step-title">Canal Réseau</div>
+            <div id="step-env-desc" class="step-desc">Détection AlwaysData Cloud (Reverse Polling)...</div>
+          </div>
+        </div>
+
+        <div id="step-r1" class="gate-step-item waiting">
+          <div id="step-r1-icon" class="step-icon">⚪</div>
+          <div class="step-text">
+            <div class="step-title" id="step-r1-title">Routeur 1 · Principal</div>
+            <div id="step-r1-desc" class="step-desc">En attente de liaison...</div>
+          </div>
+        </div>
+
+        <div id="step-r2" class="gate-step-item waiting">
+          <div id="step-r2-icon" class="step-icon">⚪</div>
+          <div class="step-text">
+            <div class="step-title" id="step-r2-title">Routeur 2 · Secondaire</div>
+            <div id="step-r2-desc" class="step-desc">En attente de liaison...</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="gate-action-box" class="gate-action-box" style="display: none;"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard Principal (Visible après Authentification) -->
+  <div id="dashboard-app" class="container" style="display: none;">
+    
+    <!-- Top Header Mobile & Desktop -->
+    <header class="header">
+      <div class="brand">
+        <span class="brand-flag">🇧🇯</span>
+        <div>
+          <h1 class="brand-title">ABH 2026 · Kiosk Control</h1>
+          <div class="brand-sub">Gildas ZODOME · Supervision Réseau & Effectivité des Votes</div>
+        </div>
+      </div>
+
+      <div class="router-badges">
+        <span id="badge-env-indicator" class="badge badge-online">☁️ Cloud</span>
+        <span id="badge-live-stream" class="badge badge-pulse" title="Monitoring Haute Fréquence">
+          <span class="live-dot"></span>
+          <span>Live (&lt; 1s)</span>
+        </span>
+        <span id="badge-r1" class="badge badge-waiting">⚪ R1</span>
+        <span id="badge-r2" class="badge badge-waiting">⚪ R2</span>
+        <a href="/affiche-vote-terrain-a4.html" target="_blank" class="btn-action btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px;" title="Ouvrir l'affiche A4 prête à imprimer">📄 Affiche A4</a>
+        <button id="btn-recheck-gate" class="btn-action btn-sm" title="Sas de diagnostic">🔍 Test</button>
+        <button id="btn-logout" class="btn-action btn-red btn-sm" title="Fermer la session">Quitter</button>
+      </div>
+    </header>
+
+    <!-- Bandeau Mode Consultation Hors-Ligne -->
+    <div id="banner-offline-mode" class="offline-banner" style="display: none;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.3rem;">⚠️</span>
+        <div>
+          <div style="font-weight: 800; color: #fca5a5; font-size: 0.85rem;">Mode Consultation (Aucun routeur joint)</div>
+          <div style="font-size: 0.74rem; color: #cbd5e1;">Visualisation du cache. Actions limitées.</div>
+        </div>
+      </div>
+      <button id="btn-gate-recheck" class="btn-action btn-gold btn-sm">🔄 Retester</button>
+    </div>
+
+    <!-- Navigation Mobile-First par Onglets / Pages -->
+    <nav class="app-nav" id="app-nav">
+      <button class="nav-tab active" data-view="view-live" title="Vue globale et télémétrie">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label"><span class="label-long">En Direct</span><span class="label-short">Direct</span></span>
+      </button>
+
+      <button class="nav-tab" data-view="view-voters" title="Registre d'audit et preuves électorales pour le client">
+        <span class="nav-icon">🗳️</span>
+        <span class="nav-label"><span class="label-long">Preuves de Vote</span><span class="label-short">Preuves</span></span>
+        <span id="nav-voters-badge" class="nav-badge">0</span>
+      </button>
+
+      <button class="nav-tab" data-view="view-active" title="Appareils connectés en ce moment même">
+        <span class="nav-icon">📱</span>
+        <span class="nav-label"><span class="label-long">Étudiants Actifs</span><span class="label-short">Actifs</span></span>
+        <span id="nav-active-badge" class="nav-badge">0</span>
+      </button>
+
+      <button class="nav-tab" data-view="view-rules" title="Régulation des flux, débits et quotas">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label"><span class="label-long">Règles Réseau</span><span class="label-short">Règles</span></span>
+      </button>
+
+      <button class="nav-tab" data-view="view-events" title="Journal d'audit immuable des faits">
+        <span class="nav-icon">📜</span>
+        <span class="nav-label"><span class="label-long">Journal des Faits</span><span class="label-short">Journal</span></span>
+      </button>
+    </nav>
+
+    <!-- ============================================================== -->
+    <!-- PAGE 1 : EN DIRECT (VUE GLOBALE & TÉLÉMÉTRIE)                  -->
+    <!-- ============================================================== -->
+    <section id="view-live" class="view-panel active">
+      
+      <!-- Sélecteur de Périmètre (Scope) -->
+      <div class="router-scope-bar">
+        <div class="scope-label">Affichage :</div>
+        <div class="scope-pills" id="group-router-scope">
+          <button id="scope-all" class="btn-scope active" data-scope="all">
+            <span class="scope-icon">🌐</span>
+            <span>Vue Globale</span>
+            <span id="badge-count-all" class="scope-badge">0</span>
+          </button>
+          <button id="scope-r1" class="btn-scope scope-r1" data-scope="1">
+            <span class="scope-dot dot-r1"></span>
+            <span>R1 (10.50)</span>
+            <span id="badge-count-r1" class="scope-badge">0</span>
+          </button>
+          <button id="scope-r2" class="btn-scope scope-r2" data-scope="2">
+            <span class="scope-dot dot-r2"></span>
+            <span>R2 (10.54)</span>
+            <span id="badge-count-r2" class="scope-badge">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Metrics Grid -->
+      <div class="kpi-grid">
+        <div class="kpi-card gold">
+          <div class="kpi-label">Utilisateurs Actifs</div>
+          <div id="stat-active-students" class="kpi-value">0</div>
+          <div id="stat-active-sub" class="kpi-sub">Connectés en direct sur le Wi-Fi</div>
+        </div>
+
+        <div class="kpi-card green">
+          <div class="kpi-label">Étudiants Pris en Charge</div>
+          <div id="stat-processed" class="kpi-value">0</div>
+          <div id="stat-processed-sub" class="kpi-sub">Total appareils &amp; votes enregistrés</div>
+        </div>
+
+        <div class="kpi-card blue">
+          <div class="kpi-label">Trafic Réseau (WAN)</div>
+          <div id="stat-data-consumed" class="kpi-value">0 Mo</div>
+          <div id="stat-wan-status" class="kpi-sub">ether1 : Uplink actif</div>
+        </div>
+
+        <div class="kpi-card red">
+          <div class="kpi-label">Appareils Restreints</div>
+          <div id="stat-banned-count" class="kpi-value">0</div>
+          <div id="stat-ban-duration-sub" class="kpi-sub">Quota ou durée atteints</div>
+        </div>
+      </div>
+
+      <!-- Télémétrie Matérielle Côte-à-Côte -->
+      <div class="section-box">
+        <div class="table-header">
+          <h3 class="section-title" style="margin-bottom: 0;">📡 Diagnostic Matériel MikroTik</h3>
+          <span style="font-size: 0.75rem; color: #34d399;">Double Routeur RB951Ui-2HnD</span>
+        </div>
+
+        <div class="dual-diag-grid">
+          <!-- Carte R1 -->
+          <div class="diag-card r1">
+            <div class="diag-card-header">
+              <div class="diag-card-title" style="color: #34d399;">
+                <span class="scope-dot dot-r1"></span>
+                <span>Routeur 1 · Principal</span>
+              </div>
+              <span id="r1-diag-badge" class="badge badge-online">🟢 En Ligne</span>
+            </div>
+            <div class="diag-card-grid">
+              <div class="diag-item"><strong>LAN :</strong> <code>10.50.0.1</code></div>
+              <div class="diag-item"><strong>WAN :</strong> <code id="r1-wan-ip">192.168.1.71</code></div>
+              <div class="diag-item"><strong>CPU :</strong> <span id="r1-diag-cpu">0%</span></div>
+              <div class="diag-item"><strong>RAM :</strong> <span id="r1-diag-ram">0 Mo</span></div>
+              <div class="diag-item"><strong>Connectés :</strong> <span id="r1-diag-users">0</span></div>
+              <div class="diag-item"><strong>Trafic :</strong> <span id="r1-diag-traffic" style="color: #34d399; font-weight: 700;">0 Mo</span></div>
+            </div>
+          </div>
+
+          <!-- Carte R2 -->
+          <div class="diag-card r2">
+            <div class="diag-card-header">
+              <div class="diag-card-title" style="color: #c084fc;">
+                <span class="scope-dot dot-r2"></span>
+                <span>Routeur 2 · Secondaire</span>
+              </div>
+              <span id="r2-diag-badge" class="badge badge-online">🟣 En Ligne</span>
+            </div>
+            <div class="diag-card-grid">
+              <div class="diag-item"><strong>LAN :</strong> <code>10.54.0.1</code></div>
+              <div class="diag-item"><strong>WAN :</strong> <code id="r2-wan-ip">192.168.1.72</code></div>
+              <div class="diag-item"><strong>CPU :</strong> <span id="r2-diag-cpu">0%</span></div>
+              <div class="diag-item"><strong>RAM :</strong> <span id="r2-diag-ram">0 Mo</span></div>
+              <div class="diag-item"><strong>Connectés :</strong> <span id="r2-diag-users">0</span></div>
+              <div class="diag-item"><strong>Trafic :</strong> <span id="r2-diag-traffic" style="color: #c084fc; font-weight: 700;">0 Mo</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QR Code Officiel Kiosk (Anti-Fermeture) -->
+      <div class="section-box" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.04);">
+        <div class="table-header">
+          <h3 class="section-title" style="color: var(--gold); margin-bottom: 4px;">📲 QR Code Kiosk · Candidat Gildas ZODOME</h3>
+        </div>
+        <div class="qr-content-flex">
+          <div class="qr-code-holder">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fabh2026top10vote.org%2F%3Fcandidate%3Dgildas-zodome%26lang%3Dfr%23vote" alt="QR Code Vote Gildas Zodome" width="140" height="140">
+          </div>
+          <div class="qr-info-holder">
+            <div style="font-weight: 800; font-size: 0.95rem; color: #fff; margin-bottom: 6px;">
+              🇧🇯 Lien Officiel Direct : Candidat Pré-sélectionné
+            </div>
+            <div style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.4; margin-bottom: 12px;">
+              Les étudiants connectés au Wi-Fi peuvent scanner ce QR Code pour ouvrir la page directement dans Safari ou Chrome.
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <a href="https://abh2026top10vote.org/?candidate=gildas-zodome&lang=fr#vote" target="_blank" class="btn-action btn-gold btn-sm">🔗 Tester le lien</a>
+              <button type="button" class="btn-action btn-sm" onclick="window.print()">🖨️ Imprimer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- PAGE 2 : REGISTRE & PREUVES DE VOTE (AUDIT SQLITE CLIENT)      -->
+    <!-- ============================================================== -->
+    <section id="view-voters" class="view-panel">
+      
+      <!-- En-tête Preuves Client & Exports -->
+      <div class="section-box audit-header-box">
+        <div class="audit-banner-top">
+          <div>
+            <h2 class="audit-main-title">🗳️ Registre d'Audit des Votes (Effectivité Certifiée)</h2>
+            <div class="audit-sub-title">Preuves matérielles enregistrées en base SQLite pour le Candidat <strong>Gildas ZODOME</strong></div>
+          </div>
+          <div class="audit-export-actions">
+            <a href="/api/audit/export/csv" class="btn-action btn-gold btn-sm" download>📊 Exporter CSV (Excel)</a>
+            <a href="/api/audit/export/sqlite" class="btn-action btn-sm" download style="background: rgba(59, 130, 246, 0.2); border-color: #3b82f6; color: #93c5fd;">🗄️ Base SQLite (.sqlite)</a>
+          </div>
+        </div>
+
+        <!-- Compteurs d'Effectivité Clés pour le Client -->
+        <div class="audit-kpi-row">
+          <div class="audit-kpi-pill">
+            <span class="audit-kpi-num" id="sqlite-stat-connected">0</span>
+            <span class="audit-kpi-lbl">Étudiants Connectés</span>
+          </div>
+          <div class="audit-kpi-pill active-green">
+            <span class="audit-kpi-num" id="sqlite-stat-voted" style="color: #34d399;">0</span>
+            <span class="audit-kpi-lbl">Votes Confirmés ✅</span>
+          </div>
+          <div class="audit-kpi-pill">
+            <span class="audit-kpi-num" id="sqlite-stat-rate" style="color: var(--gold);">0%</span>
+            <span class="audit-kpi-lbl">Taux d'Effectivité</span>
+          </div>
+          <div class="audit-kpi-pill">
+            <span class="audit-kpi-num" id="sqlite-stat-avgtime">0s</span>
+            <span class="audit-kpi-lbl">Temps Moyen Passé</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtres et Recherche Mobile-First -->
+      <div class="mobile-search-bar">
+        <div class="search-input-wrap">
+          <input type="text" id="input-audit-search" class="form-input" placeholder="🔍 Rechercher (ID, nom téléphone, MAC, IP)...">
+        </div>
+        <div class="filter-pills-row" id="audit-filter-pills">
+          <button class="btn-pill-filter active" data-audit-filter="all">Tous</button>
+          <button class="btn-pill-filter" data-audit-filter="voted" style="color: #34d399;">✅ Votés uniquement</button>
+          <button class="btn-pill-filter" data-audit-filter="not_voted" style="color: #fcd34d;">⏳ Non votés</button>
+        </div>
+      </div>
+
+      <!-- Liste Mobile-First sous forme de Cartes d'Électeurs Certifiées -->
+      <div id="voters-cards-container" class="voters-cards-grid">
+        <div class="empty-state-card">
+          <span style="font-size: 2rem;">🗄️</span>
+          <div style="font-weight: 700; margin-top: 8px;">Chargement du registre SQLite...</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- PAGE 3 : ÉTUDIANTS ACTIFS (CONNECTÉS EN CE MOMENT)             -->
+    <!-- ============================================================== -->
+    <section id="view-active" class="view-panel">
+      <div class="section-box">
+        <div class="table-header">
+          <h3 class="section-title" style="margin-bottom: 0;">📱 Appareils Actuellement Connectés (<span id="table-students-count">0</span>)</h3>
+          <span style="font-size: 0.75rem; color: #34d399;">Flux en direct (&lt; 1s)</span>
+        </div>
+
+        <div class="table-swipe-hint">Glissez vers la gauche pour voir toutes les colonnes 👉</div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Routeur</th>
+                <th>Appareil / ID</th>
+                <th>IP</th>
+                <th>MAC</th>
+                <th>Temps Connecté</th>
+                <th>Consommation</th>
+                <th>Plafond</th>
+                <th>Statut</th>
+                <th style="text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-students">
+              <tr>
+                <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                  Aucun appareil connecté actuellement sur les antennes.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section Appareils Restreints & Déblocage -->
+      <div class="section-box" style="margin-top: 20px;">
+        <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h3 class="section-title" style="margin-bottom: 2px; color: #f87171;">📋 Registre des Sessions & Restrictions (<span id="table-history-count">0</span>)</h3>
+            <div style="font-size: 0.74rem; color: var(--text-muted);">Historique persistant des connexions et sanctions avec horodatage complet (Date & Heure)</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button id="btn-unban-all" class="btn-action btn-red btn-sm">🔓 Lever tous les bans (<span id="table-banned-count">0</span>)</button>
+            <button id="btn-clear-history" class="btn-action btn-sm" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5;" title="Réinitialiser l'historique et les statistiques à zéro">🗑️ Réinitialiser Tout</button>
+          </div>
+        </div>
+
+        <!-- Filtres rapides & Recherche -->
+        <div style="display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+          <div id="group-history-filter" class="segmented-control" style="display: flex; gap: 4px;">
+            <button class="btn-pill active" data-filter="all" style="font-size: 0.74rem; padding: 4px 10px;">Tous (<span id="filter-all-count">0</span>)</button>
+            <button class="btn-pill" data-filter="banned" style="font-size: 0.74rem; padding: 4px 10px; color: #f87171;">🚫 Restreints (<span id="filter-banned-count">0</span>)</button>
+            <button class="btn-pill" data-filter="voted" style="font-size: 0.74rem; padding: 4px 10px; color: #fbbf24;">🗳️ Votés (<span id="filter-voted-count">0</span>)</button>
+          </div>
+          <input type="text" id="input-history-search" placeholder="🔍 Filtrer par IP, MAC, nom..." style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 10px; font-size: 0.75rem; color: #fff; width: 220px;">
+        </div>
+
+        <div class="table-swipe-hint">Glissez vers la gauche pour voir toutes les colonnes 👉</div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Routeur</th>
+                <th>Appareil</th>
+                <th>IP</th>
+                <th>MAC</th>
+                <th>1ère Connexion (Date)</th>
+                <th>Dernière Activité (Date)</th>
+                <th>Consommation</th>
+                <th>Statut</th>
+                <th style="text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-history">
+              <tr>
+                <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 18px;">
+                  Aucun appareil restreint actuellement.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- PAGE 4 : RÈGLES RÉSEAU & GOUVERNANCE TACTILE                   -->
+    <!-- ============================================================== -->
+    <section id="view-rules" class="view-panel">
+      
+      <!-- Cible d'application des règles -->
+      <div class="action-target-bar">
+        <div class="action-target-title">
+          🎯 <strong>Cible d'application :</strong>
+        </div>
+        <div class="action-target-pills" id="group-action-target">
+          <button class="btn-target active" data-target="all">🌐 Les 2 Routeurs Simultanément</button>
+          <button class="btn-target target-r1" data-target="1">🟢 Routeur 1 (10.50)</button>
+          <button class="btn-target target-r2" data-target="2">🟣 Routeur 2 (10.54)</button>
+        </div>
+      </div>
+
+      <!-- Contrôles Tactiles -->
+      <div class="controls-grid">
+        
+        <!-- Débit par utilisateur -->
+        <div class="control-card" id="card-bandwidth">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+            <div class="control-label">Débit alloué par utilisateur</div>
+            <span class="badge-feedback-state" id="badge-live-bandwidth">✅ Actif</span>
+          </div>
+          <div class="control-desc">Ajustement instantané du profil Hotspot RouterOS</div>
+          <div class="btn-group" id="group-bandwidth">
+            <button class="btn-pill" data-rate="256k">256K</button>
+            <button class="btn-pill" data-rate="384k" title="Optimal forte affluence (4G < 10 Mbps)">384K ⚡</button>
+            <button class="btn-pill active" data-rate="512k">512K</button>
+            <button class="btn-pill" data-rate="1M">1M</button>
+            <button class="btn-pill" data-rate="2M">2M</button>
+            <button class="btn-pill" data-rate="3M">3M</button>
+            <button class="btn-pill" data-rate="5M">5M</button>
+            <button class="btn-pill" data-rate="10M">10M</button>
+          </div>
+          <div class="rule-router-status" id="status-router-bandwidth"></div>
+        </div>
+
+        <!-- Quota Volume -->
+        <div class="control-card" id="card-quota">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+            <div class="control-label">Plafond de volume par session</div>
+            <span class="badge-feedback-state" id="badge-live-quota">✅ Actif</span>
+          </div>
+          <div class="control-desc">Limite de transfert par appareil avant attente (ou Illimité)</div>
+          <div class="btn-group" id="group-quota" style="flex-wrap: wrap;">
+            <button class="btn-pill" data-quota="10">10 Mo</button>
+            <button class="btn-pill active" data-quota="20">20 Mo</button>
+            <button class="btn-pill" data-quota="30">30 Mo</button>
+            <button class="btn-pill" data-quota="50">50 Mo</button>
+            <button class="btn-pill" data-quota="100">100 Mo</button>
+            <button class="btn-pill btn-pill-unlimited" data-quota="0" style="color: #38bdf8; font-weight: 700;">♾️ Illimité</button>
+          </div>
+          <!-- Champ valeur personnalisée Volume -->
+          <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center;">
+            <input type="number" id="input-custom-quota" min="1" max="10000" placeholder="Valeur personnalisée (Mo)..." style="flex: 1; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; color: #fff;">
+            <button id="btn-apply-custom-quota" class="btn-action btn-sm" style="white-space: nowrap;">Appliquer Mo</button>
+          </div>
+          <div class="rule-router-status" id="status-router-quota"></div>
+        </div>
+
+        <!-- Temps Max par Session -->
+        <div class="control-card" id="card-time">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+            <div class="control-label">Durée maximale de connexion</div>
+            <span class="badge-feedback-state" id="badge-live-time">✅ Actif</span>
+          </div>
+          <div class="control-desc">Temps accordé pour finaliser le vote (ou Illimité)</div>
+          <div class="btn-group" id="group-time" style="flex-wrap: wrap;">
+            <button class="btn-pill" data-time="5">5 min</button>
+            <button class="btn-pill" data-time="10">10 min</button>
+            <button class="btn-pill active" data-time="15">15 min</button>
+            <button class="btn-pill" data-time="30">30 min</button>
+            <button class="btn-pill" data-time="60">60 min</button>
+            <button class="btn-pill btn-pill-unlimited" data-time="0" style="color: #38bdf8; font-weight: 700;">♾️ Illimité</button>
+          </div>
+          <!-- Champ valeur personnalisée Durée -->
+          <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center;">
+            <input type="number" id="input-custom-time" min="1" max="1440" placeholder="Durée personnalisée (min)..." style="flex: 1; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; color: #fff;">
+            <button id="btn-apply-custom-time" class="btn-action btn-sm" style="white-space: nowrap;">Appliquer min</button>
+          </div>
+          <div class="rule-router-status" id="status-router-time"></div>
+        </div>
+
+        <!-- Durée du Bannissement -->
+        <div class="control-card" id="card-ban">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+            <div class="control-label">Durée de restriction (Attente)</div>
+            <span class="badge-feedback-state" id="badge-live-ban">✅ Actif</span>
+          </div>
+          <div class="control-desc">Délai avant réautorisation d'un appareil</div>
+          <div class="btn-group" id="group-ban-duration">
+            <button class="btn-pill" data-banduration="1">1h</button>
+            <button class="btn-pill" data-banduration="6">6h</button>
+            <button class="btn-pill" data-banduration="12">12h</button>
+            <button class="btn-pill active" data-banduration="24">24h</button>
+          </div>
+          <div class="rule-router-status" id="status-router-ban"></div>
+        </div>
+
+        <!-- Portée Radio Wi-Fi (Tx Power) -->
+        <div class="control-card" id="card-txpower">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+            <div class="control-label">📡 Portée Radio Wi-Fi (Tx Power)</div>
+            <span class="badge-feedback-state" id="badge-live-txpower">✅ 14 dBm</span>
+          </div>
+          <div class="control-desc">Puissance d'émission 2,4 GHz en direct pour ajuster la couverture dans l'amphi</div>
+          <div class="btn-group" id="group-txpower" style="flex-wrap: wrap;">
+            <button class="btn-pill" data-txpower="10" title="Très courte (~8 m)">10 dBm</button>
+            <button class="btn-pill active" data-txpower="14" title="Modérée (~15 m)">14 dBm</button>
+            <button class="btn-pill" data-txpower="18" title="Amphi moyen (~25 m)">18 dBm</button>
+            <button class="btn-pill" data-txpower="22" title="Grand amphi (~35 m)">22 dBm</button>
+            <button class="btn-pill" data-txpower="26" title="Forte couverture">26 dBm</button>
+            <button class="btn-pill" data-txpower="default" style="color: #fbbf24; font-weight: 700;" title="Puissance maximale d'origine (30 dBm)">🚀 Max Auto</button>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center;">
+            <input type="number" id="input-custom-txpower" min="1" max="30" placeholder="Puissance perso (1–30 dBm)..." style="flex: 1; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; color: #fff;">
+            <button id="btn-apply-custom-txpower" class="btn-action btn-sm" style="white-space: nowrap;">Appliquer dBm</button>
+          </div>
+          <div class="rule-router-status" id="status-router-txpower"></div>
+        </div>
+
+        <!-- Limite Appareils Wi-Fi Simultanés (Max Stations) -->
+        <div class="control-card" id="card-maxstations">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+            <div class="control-label">👥 Limite Wi-Fi Simultanée (Par routeur)</div>
+            <span class="badge-feedback-state" id="badge-live-maxstations">✅ 45 max</span>
+          </div>
+          <div class="control-desc">Plafond d'appareils connectés en même temps sur l'antenne pour éviter la saturation radio</div>
+          <div class="btn-group" id="group-maxstations" style="flex-wrap: wrap;">
+            <button class="btn-pill" data-maxstations="35">35 max</button>
+            <button class="btn-pill active" data-maxstations="45">45 max ⚡</button>
+            <button class="btn-pill" data-maxstations="60">60 max</button>
+            <button class="btn-pill" data-maxstations="80">80 max</button>
+            <button class="btn-pill" data-maxstations="120">120 max</button>
+            <button class="btn-pill" data-maxstations="2007" style="color: #38bdf8; font-weight: 700;">♾️ Illimité</button>
+          </div>
+          <div class="rule-router-status" id="status-router-maxstations"></div>
+        </div>
+
+        <!-- SSID Wi-Fi -->
+        <div class="control-card col-span-2" id="card-ssid">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+            <div class="control-label">Nom du réseau Wi-Fi diffusé (SSID)</div>
+            <span class="badge-feedback-state" id="badge-live-ssid">✅ Diffusé</span>
+          </div>
+          <div class="control-desc">Diffusion en direct sur l'antenne radio du routeur</div>
+          <div class="input-group">
+            <input type="text" id="input-ssid" class="form-input" value="VOTE ABH 2026 - GILDAS ZODOME">
+            <button id="btn-update-ssid" class="btn-action btn-gold">Mettre à jour le SSID</button>
+          </div>
+          <div class="rule-router-status" id="status-router-ssid"></div>
+        </div>
+
+        <!-- Mode de Filtrage Réseau -->
+        <div class="control-card col-span-2 filter-mode-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <div class="control-label" style="font-size: 0.95rem; color: #fff;">🛡️ Mode de Filtrage Anti-Gaspillage</div>
+              <div class="control-desc">Protège le forfait data de la Box en bloquant les vidéos et mises à jour lourdes</div>
+            </div>
+            <span id="badge-filter-mode" class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.8rem; padding: 6px 14px; font-weight: 700;">🛡️ Anti-Gaspillage Actif</span>
+          </div>
+
+          <div class="filter-modes-grid">
+            <button id="btn-mode-smart" class="btn-filter-mode active" type="button">
+              <div style="font-weight: 800; font-size: 0.92rem; color: #34d399; margin-bottom: 4px;">⚡ Anti-Gaspillage (Recommandé)</div>
+              <div style="font-size: 0.74rem; color: #cbd5e1; line-height: 1.4;">
+                Permet le vote, Cloudflare et les e-mails tout en <strong>bloquant YouTube, TikTok, Netflix, Torrents et gros téléchargements</strong>.
+              </div>
+            </button>
+
+            <button id="btn-mode-strict" class="btn-filter-mode" type="button">
+              <div style="font-weight: 800; font-size: 0.92rem; color: #f59e0b; margin-bottom: 4px;">🔒 Mode Strict (Vote Seul)</div>
+              <div style="font-size: 0.74rem; color: #94a3b8; line-height: 1.4;">
+                Ferme tout Internet sauf le site officiel du vote ABH 2026.
+              </div>
+            </button>
+          </div>
+
+          <!-- Personnalisation détaillée des flux Anti-Gaspillage (cocher / décocher) -->
+          <div class="anti-waste-categories-panel" id="panel-blocked-categories" style="margin-top: 14px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px; padding: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 6px;">
+              <span style="font-size: 0.84rem; font-weight: 800; color: #34d399;">📋 Personnalisation des Liens & Flux Bloqués</span>
+              <span style="font-size: 0.72rem; color: var(--text-muted);">(Cochez pour bloquer, décochez pour autoriser)</span>
+            </div>
+            <div class="categories-checkbox-grid" id="container-blocked-categories">
+              <!-- Rempli dynamiquement par JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Accès VIP Superviseur (Débridage Total & Bypass Hotspot + Pare-feu) -->
+        <div class="control-card col-span-2" id="card-admin-vip" style="border: 1.5px solid rgba(245, 158, 11, 0.4); background: linear-gradient(145deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <div class="control-label" style="font-size: 0.95rem; color: var(--gold);">👑 Accès VIP Superviseur (Débridage & Bypass Total)</div>
+              <div class="control-desc">Contourne le portail captif, supprime tout bridage ET exempte l'admin du filtrage Anti-Gaspillage (YouTube, etc. autorisés)</div>
+            </div>
+            <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: var(--gold); border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.75rem; padding: 4px 10px;">Bypass Firewall & Hotspot</span>
+          </div>
+
+          <div style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 12px;">
+            Choisissez votre action selon que vous êtes connecté sur le Wi-Fi de la <strong>Box 1 (10.50)</strong> ou de la <strong>Box 2 (10.54)</strong> :
+          </div>
+
+          <!-- Liens directs vers les 2 pages secrètes distinctes -->
+          <div style="display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
+            <a href="http://10.50.0.1/admin.html" target="_blank" class="btn-action btn-sm" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; text-decoration: none; padding: 8px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+              🟢 Page Secrète Box 1 (10.50.0.1/admin.html)
+            </a>
+            <a href="http://10.54.0.1/admin.html" target="_blank" class="btn-action btn-sm" style="background: rgba(168, 85, 247, 0.15); border: 1px solid #a855f7; color: #c084fc; text-decoration: none; padding: 8px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+              🟣 Page Secrète Box 2 (10.54.0.1/admin.html)
+            </a>
+          </div>
+
+          <!-- Barre de Débridage Automatique avec détection du routeur -->
+          <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <span style="font-size: 0.8rem; font-weight: 700; color: #fff;">⚡ Débrider en 1 clic depuis ce navigateur :</span>
+              <div class="vip-target-selector" style="display: flex; gap: 6px;" id="group-vip-target">
+                <button type="button" class="btn-pill active" data-viptarget="auto">Auto-Détection</button>
+                <button type="button" class="btn-pill" data-viptarget="1">R1 (10.50)</button>
+                <button type="button" class="btn-pill" data-viptarget="2">R2 (10.54)</button>
+                <button type="button" class="btn-pill" data-viptarget="all">Les 2</button>
+              </div>
+            </div>
+            <div>
+              <button id="btn-grant-my-vip" class="btn-action btn-gold" style="font-weight: 800; padding: 10px 18px; width: 100%;">
+                🚀 Débrider Mon Appareil en VIP Illimité
+              </button>
+            </div>
+            <div id="msg-vip-status" style="font-size: 0.8rem; display: none; padding: 10px 12px; border-radius: 8px; line-height: 1.4;"></div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- PAGE 5 : JOURNAL D'AUDIT & FAITS EN DIRECT                     -->
+    <!-- ============================================================== -->
+    <section id="view-events" class="view-panel">
+      <div class="section-box">
+        <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h3 class="section-title" style="margin-bottom: 2px;">📜 Journal des Faits en Temps Réel</h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Traçabilité chronologique immuable des faits marquants</span>
+          </div>
+          <button id="btn-refresh-events" class="btn-action btn-sm">🔄 Rafraîchir</button>
+        </div>
+
+        <div id="events-timeline" class="events-timeline-list">
+          <div class="empty-state-card">
+            <span>📜</span>
+            <div style="margin-top: 6px;">Chargement du journal des faits...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="/js/dashboard.js?v=3.7"></script>
+</body>
+</html>

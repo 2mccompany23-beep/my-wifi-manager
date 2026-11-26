@@ -1,0 +1,42 @@
+[
+  {
+    "id": "04:79:70:99:88:77",
+    "mac": "04:79:70:99:88:77",
+    "ip": "10.50.12.99",
+    "hostname": "⚡ Tecno KI5k (Android 13)",
+    "routerId": 1,
+    "routerBadge": "🟢 Routeur 1 (10.50)",
+    "firstSeen": "2026-11-23T17:28:12.582Z",
+    "lastSeen": "2026-11-23T17:28:12.582Z",
+    "priorBytes": 0,
+    "currentSessionBytes": 0,
+    "totalBytes": 0,
+    "totalFormatted": "0 Ko",
+    "sessionCount": 1,
+    "hasVoted": true,
+    "votedAt": "2026-11-23T17:28:12.582Z",
+    "status": "voted"
+  },
+  {
+    "id": "10.50.2.14",
+    "mac": "N/A",
+    "ip": "10.50.2.14",
+    "hostname": "👑 Admin Test R1 (VIP Débridé)",
+    "routerId": 1,
+    "firstSeen": "2026-11-23T18:26:42.611Z",
+    "lastSeen": "2026-11-23T18:26:42.611Z",
+    "sessionCount": 1,
+    "status": "vip_unlimited"
+  },
+  {
+    "id": "10.54.1.88",
+    "mac": "N/A",
+    "ip": "10.54.1.88",
+    "hostname": "👑 Admin Test R2 (VIP Débridé)",
+    "routerId": 2,
+    "firstSeen": "2026-11-23T18:26:43.019Z",
+    "lastSeen": "2026-11-23T18:26:43.019Z",
+    "sessionCount": 1,
+    "status": "vip_unlimited"
+  }
+]

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Zap, PowerOff, RefreshCw, Smartphone, WifiOff } from 'lucide-react';
 import { ActiveSession } from '../types';
+import { getAuthToken } from '../utils/auth';
 import { ConfirmModal } from './ConfirmModal';
 import { ToastContainer, useToast } from './Toast';
 
@@ -28,7 +29,7 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ sessions, onRefr
     try {
       await fetch(`/api/router/active/${encodeURIComponent(pendingSession.id)}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${sessionStorage.getItem('mikhmon_token')}` }
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
       });
       success(`Session de "${pendingSession.user}" déconnectée avec succès.`);
       setConfirmOpen(false);

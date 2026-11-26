@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   DollarSign, Search, Download, Smartphone, TrendingUp,
   Calendar, Filter, BarChart2, ChevronDown, ChevronUp,
@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { JobProgressModal } from './JobProgressModal';
 import { SaleTransaction, HotspotUser } from '../types';
+import { getAuthToken } from '../utils/auth';
 
 interface RouterScriptTx {
   id: string;
@@ -177,7 +178,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, totalRevenue,
 
   const authHeaders = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token || sessionStorage.getItem('mikhmon_token')}`
+    'Authorization': `Bearer ${token || getAuthToken()}`
   };
 
   const startBackgroundSalesSync = async () => {

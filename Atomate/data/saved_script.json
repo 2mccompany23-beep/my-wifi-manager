@@ -1,0 +1,8 @@
+[
+  {
+    "type": "click",
+    "timestamp": 1795467551285,
+    "selector": ".vote-now",
+    "description": "Clic sur .vote-now"
+  }
+]

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Printer, ShieldCheck, QrCode, RefreshCw, Layers, Copy, Check } from 'lucide-react';
 import QRCode from 'qrcode';
+import { getAuthToken } from '../utils/auth';
 import { VoucherItem } from '../types';
 import { ToastContainer, useToast } from './Toast';
 
@@ -44,7 +45,7 @@ export const VoucherGenerator: React.FC<VoucherGeneratorProps> = ({ vouchers, on
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionStorage.getItem('mikhmon_token')}`
+          'Authorization': `Bearer ${getAuthToken()}`
         },
         body: JSON.stringify({
           prefix,

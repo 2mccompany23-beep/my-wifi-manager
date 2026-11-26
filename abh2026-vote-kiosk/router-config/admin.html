@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Accès Superviseur VIP · Kiosk ABH 2026</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111827;
+      --gold: #f59e0b;
+      --green: #10b981;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .admin-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 20px;
+      padding: 24px 20px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      position: relative;
+    }
+    .vip-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--gold);
+      margin-bottom: 14px;
+      text-transform: uppercase;
+    }
+    h1 { font-size: 1.3rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 18px; }
+    .form-group { text-align: left; margin-bottom: 14px; }
+    label { display: block; font-size: 0.75rem; color: #d1d5db; margin-bottom: 5px; font-weight: 600; }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+    }
+    input:focus { border-color: var(--gold); }
+    .btn-vip {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #111827;
+      font-weight: 800;
+      font-size: 0.95rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .badge-unlimited {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 0.76rem;
+      color: #34d399;
+      margin-top: 14px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="admin-card">
+    <div class="vip-pill">👑 Espace Superviseur Discret</div>
+    <h1>Accès Illimité Administrateur</h1>
+    <p>Authentification prioritaire sans aucune restriction : débit maximal de la Box 4G, zéro quota, zéro filtrage.</p>
+
+    <form name="login" action="$(link-login-only)" method="post">
+      <input type="hidden" name="dst" value="https://charmeldev.alwaysdata.net">
+
+      <div class="form-group">
+        <label for="username">Identifiant Superviseur :</label>
+        <input type="text" id="username" name="username" value="admin" required autocomplete="username">
+      </div>
+
+      <div class="form-group">
+        <label for="password">Mot de passe Administrateur :</label>
+        <input type="password" id="password" name="password" placeholder="Entrez le mot de passe" required autocomplete="current-password" autofocus>
+      </div>
+
+      <button type="submit" class="btn-vip">
+        ⚡ Débloquer l'Accès VIP Illimité
+      </button>
+    </form>
+
+    <div class="badge-unlimited">
+      <span>🛡️</span>
+      <span>Bypass complet du filtrage &amp; débit prioritaire</span>
+    </div>
+
+    <div style="margin-top: 14px; font-size: 0.72rem; color: #64748b;">
+      IP Détectée : <code>$(ip)</code> · MAC : <code>$(mac)</code>
+    </div>
+  </div>
+
+</body>
+</html>

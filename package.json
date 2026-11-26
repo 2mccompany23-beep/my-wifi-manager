@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "deploy": "node deploy.js",
     "upload:router": "node scripts/upload-to-router.cjs",
+    "upload:kiosk:routers": "node scripts/upload-all-to-routers.cjs",
     "preview": "vite preview",
     "start": "node server.js"
   },

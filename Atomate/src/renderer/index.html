@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atomate — Orchestration multi-navigateurs</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a href="#contenu-principal" class="skip-link">Aller au contenu principal</a>
+
+  <!-- Annonceur global unique pour les lecteurs d'écran (erreurs hors soumission et statuts majeurs) -->
+  <div id="live-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+
+  <div class="app-shell">
+    <!-- En-tête utilitaire sobre aligné à gauche -->
+    <header class="app-header">
+      <div class="brand-block">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+            <rect x="3" y="3" width="8" height="8"></rect>
+            <rect x="13" y="3" width="8" height="8"></rect>
+            <rect x="3" y="13" width="8" height="8"></rect>
+            <path d="M13 17h8M17 13v8"></path>
+          </svg>
+        </div>
+        <div class="brand-copy">
+          <h1>Atomate</h1>
+          <p class="brand-subtitle">Enregistrement double-onglet et exécution parallèle Selenium</p>
+        </div>
+      </div>
+
+      <div class="header-meta" aria-label="État du système et du stockage">
+        <span class="meta-badge meta-neutral" id="vault-status">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="4" y="11" width="16" height="10" rx="1"></rect>
+            <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+          </svg>
+          <span>Base SQLite chiffrée (AES-256-GCM)</span>
+        </span>
+        <span class="meta-badge meta-ready" id="global-status-pill">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="global-status-text">Système prêt</span>
+        </span>
+      </div>
+    </header>
+
+    <main id="contenu-principal" tabindex="-1" class="workspace-grid">
+      <!-- Colonne gauche : Paramètres & exécution -->
+      <section class="panel panel-config" aria-labelledby="heading-config">
+        <div class="panel-header">
+          <h2 id="heading-config">Paramètres d’exécution</h2>
+          <span class="save-indicator" id="save-status-badge">Enregistré</span>
+        </div>
+
+        <form id="launch-form" class="panel-body" novalidate>
+          <!-- Lien 1 -->
+          <div class="field-group">
+            <label for="url1">
+              <span>Lien 1 (Onglet 1)</span>
+              <span class="req-mark" aria-hidden="true">*</span>
+            </label>
+            <span id="url1-hint" class="field-hint">URL ouverte dans le premier onglet de chaque navigateur.</span>
+            <input
+              type="url"
+              id="url1"
+              name="url1"
+              placeholder="https://exemple.org/depart"
+              aria-describedby="url1-hint"
+              data-error="url1-error"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              required
+            >
+            <p id="url1-error" class="field-error" hidden></p>
+          </div>
+
+          <!-- Lien 2 -->
+          <div class="field-group">
+            <label for="url2">
+              <span>Lien 2 (Onglet 2)</span>
+              <span class="optional-tag">Optionnel</span>
+            </label>
+            <span id="url2-hint" class="field-hint">URL ouverte dans un second onglet pour les échanges entre pages.</span>
+            <input
+              type="url"
+              id="url2"
+              name="url2"
+              placeholder="https://exemple.org/verification"
+              aria-describedby="url2-hint"
+              data-error="url2-error"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+            >
+            <p id="url2-error" class="field-error" hidden></p>
+          </div>
+
+          <!-- Nombre de navigateurs -->
+          <div class="field-group">
+            <label for="browser-count">Nombre de navigateurs en parallèle</label>
+            <div class="stepper-row">
+              <button type="button" class="btn btn-icon-only" id="btn-count-dec" aria-label="Diminuer le nombre de navigateurs">−</button>
+              <input
+                type="number"
+                id="browser-count"
+                name="browserCount"
+                min="1"
+                max="50"
+                value="3"
+                inputmode="numeric"
+                data-error="count-error"
+                required
+              >
+              <button type="button" class="btn btn-icon-only" id="btn-count-inc" aria-label="Augmenter le nombre de navigateurs">+</button>
+            </div>
+            <p id="count-error" class="field-error" hidden></p>
+
+            <div class="preset-group" role="group" aria-label="Choix rapides du nombre de navigateurs">
+              <span class="preset-caption">Raccourcis :</span>
+              <button type="button" class="btn-chip preset-btn" data-val="1">1</button>
+              <button type="button" class="btn-chip preset-btn" data-val="2">2</button>
+              <button type="button" class="btn-chip preset-btn" data-val="3">3</button>
+              <button type="button" class="btn-chip preset-btn" data-val="5">5</button>
+              <button type="button" class="btn-chip preset-btn" data-val="10">10</button>
+            </div>
+          </div>
+
+          <!-- Options d'exécution -->
+          <fieldset class="options-fieldset">
+            <legend>Comportement des instances</legend>
+
+            <label class="checkbox-row" for="headless-toggle">
+              <input type="checkbox" id="headless-toggle" name="headless">
+              <span>Mode sans fenêtre (Headless)</span>
+            </label>
+
+            <label class="checkbox-row" for="keep-open-toggle">
+              <input type="checkbox" id="keep-open-toggle" name="keepOpen" checked>
+              <span>Laisser les navigateurs ouverts en fin de cycle</span>
+            </label>
+
+            <div class="range-group">
+              <div class="range-header">
+                <label for="action-delay">Délai entre étapes</label>
+                <output id="delay-val" for="action-delay">600 ms</output>
+              </div>
+              <input type="range" id="action-delay" name="actionDelay" min="100" max="3000" step="100" value="600">
+            </div>
+          </fieldset>
+
+          <!-- Boutons d'action -->
+          <div class="launch-actions">
+            <button type="submit" id="btn-go" class="btn btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M8 5v14l11-7z"></path>
+              </svg>
+              <span>Go — Lancer les navigateurs</span>
+            </button>
+            <button type="button" id="btn-abort" class="btn btn-danger" disabled>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <rect x="5" y="5" width="14" height="14"></rect>
+              </svg>
+              <span>Arrêter tout</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Colonne droite : Workflow unique & Témoin double-onglet -->
+      <section class="panel panel-workflow" aria-labelledby="heading-workflow">
+        <div class="panel-header">
+          <div class="heading-with-count">
+            <h2 id="heading-workflow">Workflow séquentiel</h2>
+            <span class="count-pill" id="step-count">0 étape</span>
+          </div>
+          <span class="witness-pill" id="witness-status-badge">
+            <span class="witness-dot" aria-hidden="true"></span>
+            <span id="witness-status-text">Témoin inactif</span>
+          </span>
+        </div>
+
+        <div class="panel-body">
+          <p class="panel-lead">
+            Enregistrez un parcours continu entre l’Onglet 1 et l’Onglet 2 avec le navigateur témoin, ou composez chaque étape manuellement pour extraire et réutiliser des valeurs.
+          </p>
+
+          <!-- Barre d'outils principale du workflow -->
+          <div class="workflow-toolbar" role="toolbar" aria-label="Outils d'enregistrement et d'édition du workflow">
+            <button type="button" id="btn-start-witness" class="btn btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"></circle>
+                <circle cx="12" cy="12" r="3.5" fill="currentColor"></circle>
+              </svg>
+              <span>Ouvrir le témoin (Onglet 1 + 2)</span>
+            </button>
+            <button type="button" id="btn-stop-witness" class="btn btn-outline" disabled>
+              <span>Fermer le témoin</span>
+            </button>
+            <button type="button" id="btn-add-step" class="btn btn-outline">
+              <span>+ Ajouter une étape</span>
+            </button>
+            <button type="button" id="btn-clear-workflow" class="btn btn-outline-danger">
+              <span>Vider</span>
+            </button>
+          </div>
+
+          <!-- Barre des variables extraites -->
+          <div class="variables-strip" id="variables-bar" hidden>
+            <span class="variables-title">Variables extraites (à utiliser dans « Saisir du texte » ou « Remplir {{var}} ») :</span>
+            <div class="variables-list" id="vars-chips"></div>
+          </div>
+
+          <!-- En-tête de liste & import/export -->
+          <div class="list-subheader">
+            <h3>Séquence d’actions (<span id="step-count-inline">0</span>)</h3>
+            <div class="io-actions">
+              <button type="button" class="btn-link" id="btn-import-workflow">Importer JSON</button>
+              <span aria-hidden="true" class="sep">·</span>
+              <button type="button" class="btn-link" id="btn-export-workflow">Exporter JSON</button>
+              <input type="file" id="import-file-input" accept=".json" class="visually-hidden" aria-label="Choisir un fichier JSON de workflow à importer">
+            </div>
+          </div>
+
+          <!-- Liste ordonnée sémantique des étapes -->
+          <div class="workflow-scroll-region" id="workflow-scroll-region">
+            <div class="empty-state" id="empty-placeholder">
+              <p class="empty-title">Aucune étape configurée</p>
+              <p class="empty-copy">
+                Ouvrez le navigateur témoin pour capturer vos clics, saisies et changements d’onglet, ou ajoutez une étape manuellement.
+              </p>
+            </div>
+            <ol class="workflow-list" id="workflow-steps-list" hidden></ol>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Moniteur & Journal d'événements -->
+    <section class="panel panel-monitor" aria-labelledby="heading-monitor">
+      <div class="panel-header">
+        <h2 id="heading-monitor">Supervision en direct</h2>
+        <span class="workers-summary" id="workers-summary">0 instance active</span>
+      </div>
+
+      <div class="monitor-split">
+        <div class="workers-pane">
+          <h3 class="pane-title">État par navigateur</h3>
+          <div class="workers-grid" id="workers-grid">
+            <p class="workers-empty">Les indicateurs de progression apparaîtront ici dès le lancement.</p>
+          </div>
+        </div>
+
+        <div class="logs-pane">
+          <div class="logs-header">
+            <h3 class="pane-title">Journal technique</h3>
+            <button type="button" id="btn-clear-logs" class="btn-link">Effacer le journal</button>
+          </div>
+          <div
+            class="log-terminal"
+            id="terminal-logs"
+            role="region"
+            aria-label="Journal technique des exécutions"
+            tabindex="0"
+          >
+            <div class="log-line log-system">
+              <span class="log-time">[Init]</span>
+              <span class="log-tag">[SYSTÈME]</span>
+              <span class="log-msg">Prêt. Stockage local chiffré AES-256-GCM initialisé.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Modale native : Ajout / Insertion / Édition d'étape -->
+  <dialog id="step-dialog" closedby="any" aria-labelledby="step-dialog-title">
+    <div class="dialog-header">
+      <h1 id="step-dialog-title">Ajouter une étape</h1>
+      <button type="button" class="btn btn-icon-only" id="btn-close-modal" aria-label="Fermer la fenêtre">✕</button>
+    </div>
+
+    <form id="step-form" class="dialog-form" novalidate>
+      <div class="dialog-body">
+        <div class="field-group">
+          <label for="step-action-type">Type d’action</label>
+          <select id="step-action-type" name="actionType" autofocus>
+            <option value="switch_tab">Basculer d’onglet (Onglet 1 ⇄ Onglet 2)</option>
+            <option value="extract">Récupérer une valeur dans une variable</option>
+            <option value="wait_for">Attendre un élément ou une nouvelle valeur</option>
+            <option value="type">Saisir du texte (accepte {{variable}})</option>
+            <option value="click">Cliquer sur un élément</option>
+            <option value="refresh">Actualiser l’onglet actif</option>
+            <option value="wait">Marquer une pause fixe (ms)</option>
+            <option value="scroll">Faire défiler la page (scroll)</option>
+            <option value="navigate">Ouvrir une URL dans l’onglet actif</option>
+          </select>
+        </div>
+
+        <!-- Onglet cible -->
+        <div class="field-group" id="group-tab">
+          <label for="step-tab-select">Onglet cible</label>
+          <select id="step-tab-select" name="tabIndex">
+            <option value="1">Onglet 1 (Lien 1)</option>
+            <option value="2">Onglet 2 (Lien 2)</option>
+          </select>
+        </div>
+
+        <!-- Sélecteur CSS / XPath -->
+        <div class="field-group" id="group-selector" hidden>
+          <label for="step-selector">Cible de l’élément (classe, ID, CSS ou XPath)</label>
+          <span id="selector-hint" class="field-hint">Exemple pour une classe : <code>.btn-valider</code> (ou <code>btn-valider</code>).</span>
+          <input
+            type="text"
+            id="step-selector"
+            name="selector"
+            placeholder=".ma-classe, #mon-id ou //button"
+            aria-describedby="selector-hint"
+            data-error="selector-error"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+          >
+          <p id="selector-error" class="field-error" hidden></p>
+        </div>
+
+        <!-- Options Extraction -->
+        <fieldset id="group-extract" class="dialog-fieldset" hidden>
+          <legend>Paramètres d’extraction</legend>
+          <div class="field-group">
+            <label for="step-var-name">Nom de la variable</label>
+            <span id="var-name-hint" class="field-hint">Réutilisable ensuite avec la syntaxe <code>{{nom}}</code>.</span>
+            <input
+              type="text"
+              id="step-var-name"
+              name="varName"
+              value="val1"
+              placeholder="code1, token, resultat"
+              aria-describedby="var-name-hint"
+              data-error="var-name-error"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+            >
+            <p id="var-name-error" class="field-error" hidden></p>
+          </div>
+          <div class="field-group">
+            <label for="step-var-prop">Propriété à lire</label>
+            <select id="step-var-prop" name="varProp">
+              <option value="text">Texte visible de l’élément (innerText)</option>
+              <option value="value">Valeur du champ de formulaire (value)</option>
+              <option value="href">Adresse du lien (href)</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="step-var-regex">Expression régulière de filtrage (optionnel)</label>
+            <input
+              type="text"
+              id="step-var-regex"
+              name="varRegex"
+              placeholder="ex : \d{6} pour extraire 6 chiffres"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+            >
+          </div>
+          <label class="checkbox-row" for="step-extract-non-empty">
+            <input type="checkbox" id="step-extract-non-empty" checked>
+            <span>Attendre que la valeur ne soit pas vide</span>
+          </label>
+        </fieldset>
+
+        <!-- Options Attente conditionnelle -->
+        <fieldset id="group-waitfor" class="dialog-fieldset" hidden>
+          <legend>Condition d’attente</legend>
+          <div class="field-group">
+            <label for="step-wait-condition">Critère de validation</label>
+            <select id="step-wait-condition" name="waitCondition">
+              <option value="non_empty">Texte non vide (attend l’apparition d’une valeur)</option>
+              <option value="changed">Valeur différente d’avant (nouvelle valeur)</option>
+              <option value="visible">Élément visible à l’écran</option>
+              <option value="present">Élément présent dans le document (DOM)</option>
+              <option value="matches">Contient un texte ou motif Regex</option>
+            </select>
+          </div>
+          <div class="field-group" id="group-wait-prev" hidden>
+            <label for="step-wait-prev">Ancienne valeur à dépasser (texte ou {{variable}})</label>
+            <input type="text" id="step-wait-prev" name="waitPrev" placeholder="ex : {{val1}}">
+            <div class="inline-var-chips" id="wait-prev-chips"></div>
+          </div>
+          <div class="field-group" id="group-wait-match" hidden>
+            <label for="step-wait-match">Texte ou Regex attendu</label>
+            <input type="text" id="step-wait-match" name="waitMatch" placeholder="ex : Confirmé ou \d{6}">
+          </div>
+          <div class="field-group">
+            <label for="step-refresh-sec">Actualiser la page toutes les X secondes (0 = jamais)</label>
+            <input type="number" id="step-refresh-sec" name="refreshSec" value="0" min="0" max="60" inputmode="numeric">
+          </div>
+        </fieldset>
+
+        <!-- Saisie de texte -->
+        <div class="field-group" id="group-value" hidden>
+          <label for="step-value">Texte ou variable à saisir</label>
+          <span id="step-value-hint" class="field-hint">
+            Tapez un texte fixe ou utilisez <code>{{nom_variable}}</code> (ex : <code>{{val1}}</code>).
+          </span>
+          <input
+            type="text"
+            id="step-value"
+            name="stepValue"
+            placeholder="Texte ou {{val1}}"
+            aria-describedby="step-value-hint"
+          >
+          <div class="inline-var-chips" id="type-var-chips"></div>
+        </div>
+
+        <!-- Navigation URL -->
+        <div class="field-group" id="group-url" hidden>
+          <label for="step-url">URL cible (accepte {{variable}})</label>
+          <input
+            type="text"
+            id="step-url"
+            name="stepUrl"
+            placeholder="https://..."
+            data-error="step-url-error"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+          >
+          <p id="step-url-error" class="field-error" hidden></p>
+        </div>
+
+        <!-- Timeout -->
+        <div class="field-group" id="group-timeout" hidden>
+          <label for="step-timeout-sec">Temps d’attente maximal (secondes)</label>
+          <input type="number" id="step-timeout-sec" name="timeoutSec" value="20" min="1" max="300" inputmode="numeric">
+        </div>
+
+        <!-- Pause fixe -->
+        <div class="field-group" id="group-duration" hidden>
+          <label for="step-duration">Durée de la pause (millisecondes)</label>
+          <input type="number" id="step-duration" name="duration" value="2000" step="500" min="100" inputmode="numeric">
+        </div>
+
+        <!-- Scroll Y -->
+        <div class="field-group" id="group-scroll" hidden>
+          <label for="step-scroll-y">Défilement vertical (pixels, négatif pour remonter)</label>
+          <input type="number" id="step-scroll-y" name="scrollY" value="500" step="100" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button type="button" class="btn btn-outline" id="btn-cancel-modal">Annuler</button>
+        <button type="submit" class="btn btn-primary" id="btn-save-step">Enregistrer l’étape</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Modale native de confirmation de suppression du workflow -->
+  <dialog id="confirm-clear-dialog" closedby="any" aria-labelledby="confirm-clear-title" aria-describedby="confirm-clear-desc">
+    <div class="dialog-header">
+      <h1 id="confirm-clear-title">Vider le workflow</h1>
+      <button type="button" class="btn btn-icon-only" id="btn-close-confirm" aria-label="Fermer">✕</button>
+    </div>
+    <form method="dialog" class="dialog-form">
+      <div class="dialog-body">
+        <p id="confirm-clear-desc">
+          Toutes les étapes enregistrées dans ce workflow seront supprimées de la base locale. Cette action est irréversible.
+        </p>
+      </div>
+      <div class="dialog-footer">
+        <button type="submit" value="cancel" class="btn btn-outline" autofocus>Annuler</button>
+        <button type="submit" value="confirm" class="btn btn-danger">Supprimer toutes les étapes</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

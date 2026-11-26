@@ -1,0 +1,15 @@
+{
+  "updatedAt": "2026-11-23T05:27:28.791Z",
+  "connectionMode": "direct",
+  "selectedRouterId": 1,
+  "policy": {
+    "bandwidthRate": "2M",
+    "maxQuotaMB": 20,
+    "maxTimeMinutes": 15,
+    "banDurationHours": 24,
+    "ejectGraceSeconds": 30,
+    "ssid": "VOTE ABH 2026 - GILDAS ZODOME",
+    "filterMode": "smart",
+    "bannedHistory": []
+  }
+}

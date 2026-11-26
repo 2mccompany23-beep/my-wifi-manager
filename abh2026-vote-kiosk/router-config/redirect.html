@@ -1,0 +1,13 @@
+$(if http-status == 302)Hotspot login required$(endif)
+$(if http-header == "Location")http://kiosk.vote/login$(endif)
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirection Kiosk...</title>
+  <meta http-equiv="refresh" content="0; url=http://kiosk.vote/login">
+</head>
+<body>
+  <script>window.location.replace("http://kiosk.vote/login");</script>
+</body>
+</html>

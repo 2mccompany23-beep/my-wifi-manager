@@ -1,0 +1,20 @@
+=========================================================================
+  KIOSK VOTE ABH 2026 - POSTE DE SUPERVISION AUTONOME (SANS INSTALLATION)
+=========================================================================
+
+Cette application est 100% autonome et pré-embarquée.
+Elle fonctionne sur N'IMPORTE QUEL PC Windows (10, 11, 7, 8, Server).
+AUCUN Node.js, aucun terminal, et aucun outil de développement n'est requis.
+
+UTILISATION :
+1. Double-cliquez simplement sur :
+   👉 Kiosk-ABH2026-Supervision.exe
+
+2. La console démarre et ouvre automatiquement votre navigateur sur :
+   http://localhost:3000
+
+3. Mot de passe de connexion au tableau de bord :
+   admin  (ou 4ZFF63YJ4H)
+
+4. Pour arrêter la supervision, fermez simplement la fenêtre console.
+=========================================================================

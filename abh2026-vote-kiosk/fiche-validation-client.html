@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Fiche de Cadrage et Validation Client · Kiosk de Vote ABH 2026</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 14mm 16mm 14mm 16mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      background: #ffffff;
+      line-height: 1.5;
+      font-size: 10pt;
+    }
+
+    /* En-tête sobre et institutionnel */
+    .header {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+
+    .doc-category {
+      font-size: 8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #475569;
+    }
+
+    .doc-meta {
+      font-size: 8.5pt;
+      color: #64748b;
+    }
+
+    .doc-title {
+      font-size: 17pt;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.01em;
+      margin-bottom: 3px;
+    }
+
+    .doc-subtitle {
+      font-size: 10pt;
+      color: #334155;
+      font-weight: 500;
+    }
+
+    /* Cadre d'intention */
+    .intent-box {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-left: 4px solid #0f172a;
+      border-radius: 4px;
+      padding: 10px 14px;
+      margin-bottom: 18px;
+      font-size: 9pt;
+      color: #334155;
+    }
+
+    .intent-box strong {
+      color: #0f172a;
+    }
+
+    /* Titres de section */
+    .section {
+      margin-bottom: 16px;
+      page-break-inside: avoid;
+    }
+
+    .section-title {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin-bottom: 10px;
+    }
+
+    /* Listes épurées et lisibles */
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 9pt;
+      color: #334155;
+    }
+
+    .bullet {
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #0f172a;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    .feature-text strong {
+      color: #0f172a;
+      font-weight: 600;
+    }
+
+    /* Bloc de vérification / validation */
+    .checkpoint-box {
+      margin-top: 10px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 8.5pt;
+    }
+
+    .checkbox-wrap {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .checkbox-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .square {
+      width: 13px;
+      height: 13px;
+      border: 1.5px solid #475569;
+      border-radius: 2px;
+      display: inline-block;
+      background: #ffffff;
+    }
+
+    /* Tableau sobre de questions */
+    .questions-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 8.5pt;
+    }
+
+    .questions-table th {
+      background: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+      text-align: left;
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .questions-table td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 10px;
+      vertical-align: top;
+      color: #334155;
+    }
+
+    /* Zone de retour client */
+    .feedback-box {
+      margin-top: 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 12px 14px;
+      background: #ffffff;
+      page-break-inside: avoid;
+    }
+
+    .feedback-title {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+
+    .feedback-lines {
+      height: 48px;
+      border-bottom: 1px dashed #cbd5e1;
+      margin-bottom: 10px;
+    }
+
+    .sign-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 8.5pt;
+      color: #475569;
+    }
+
+    .sign-field {
+      width: 45%;
+      border-top: 1px solid #94a3b8;
+      padding-top: 4px;
+    }
+
+    .page-break {
+      page-break-before: always;
+    }
+
+    .footer {
+      margin-top: 16px;
+      padding-top: 6px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================= PAGE 1 ================= -->
+  <header class="header">
+    <div class="header-top">
+      <span class="doc-category">Document de cadrage et validation</span>
+      <span class="doc-meta">Campagne ABH 2026 · Candidat Gildas Zodome</span>
+    </div>
+    <h1 class="doc-title">Dispositif Borne Wi-Fi de Vote (Kiosk)</h1>
+    <div class="doc-subtitle">Validation fonctionnelle avant déploiement terrain</div>
+  </header>
+
+  <div class="intent-box">
+    <strong>Objectif de ce document :</strong> Vous présenter de manière synthétique et concrète le fonctionnement de la borne Wi-Fi, afin de nous assurer que l'outil répond précisément à vos besoins sur le terrain et identifier d'éventuels ajustements avant mise en service.
+  </div>
+
+  <!-- SECTION 1 : EXPÉRIENCE DU VOTANT -->
+  <section class="section">
+    <h2 class="section-title">1. Ce que vit l'électeur sur le terrain (Parcours utilisateur)</h2>
+    <p style="font-size: 8.5pt; color: #64748b; margin-bottom: 8px;">Conçu pour éliminer toute friction et maximiser le nombre de votes effectifs :</p>
+
+    <ul class="feature-list">
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Connexion immédiate sans barrière :</strong> L'électeur se connecte au Wi-Fi ouvert sans mot de passe ni ticket à saisir.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Page d'accueil officielle :</strong> Dès la liaison, une page s'ouvre automatiquement sur son téléphone avec la photo officielle de Gildas Zodome et les instructions de vote.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Candidat présélectionné :</strong> Le lien officiel s'ouvre directement avec la fiche de Gildas Zodome déjà cochée, évitant à l'électeur de chercher parmi les candidats.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Sécurité anti-fermeture (iPhone & Android) :</strong> Le système force l'ouverture dans le navigateur habituel (Safari ou Chrome). Cela empêche la page de se fermer accidentellement lorsque l'électeur va chercher son code de validation par e-mail.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Accès direct aux e-mails (Code OTP) :</strong> Des boutons renvoient directement vers Gmail, Outlook et Yahoo avec un rappel bien visible de vérifier le dossier "Spams / Courriers indésirables".
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Accès alternatif simplifié :</strong> Possibilité de scanner un QR Code sur les stands ou de taper l'adresse courte <em>vote.bj</em>.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Rotation naturelle des électeurs :</strong> Une fois le vote terminé (ou après un temps imparti), la session prend fin courtoisement pour libérer la place aux suivants.
+        </div>
+      </li>
+    </ul>
+
+    <div class="checkpoint-box">
+      <span><strong>Point de contrôle 1 :</strong> Ce parcours correspond-il au comportement attendu des électeurs ?</span>
+      <div class="checkbox-wrap">
+        <span class="checkbox-option"><span class="square"></span> Conforme</span>
+        <span class="checkbox-option"><span class="square"></span> À ajuster</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2 : PILOTAGE & PROTECTION DATA -->
+  <section class="section">
+    <h2 class="section-title">2. Ce que contrôle votre équipe de campagne (Tableau de bord)</h2>
+    <p style="font-size: 8.5pt; color: #64748b; margin-bottom: 8px;">Accessible depuis un navigateur avec mot de passe sécurisé :</p>
+
+    <ul class="feature-list">
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Suivi en temps réel :</strong> Affichage en direct du nombre d'appareils connectés, du total des votes passés et du volume de connexion consommé.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Protection totale du forfait Internet :</strong> Blocage automatique des vidéos (TikTok, YouTube, Netflix), des réseaux sociaux tiers et des téléchargements lourds. Le forfait de votre box n'est pas gaspillé.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Vitesse équitable par personne :</strong> Réglage de la vitesse en un clic (ex: 512 Kbps) pour que la navigation reste fluide pour tout le monde, même en cas de foule.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Limites de session configurables :</strong> Durée max (ex: 15 minutes) et volume max (ex: 20 Mo) pour donner exactement le nécessaire pour voter.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Capacité étendue (2 routeurs) :</strong> Possibilité de gérer deux bornes en simultané sur un même site pour doubler la portée et la fréquentation.
+        </div>
+      </li>
+    </ul>
+
+    <div class="checkpoint-box">
+      <span><strong>Point de contrôle 2 :</strong> Ces règles de protection et de suivi répondent-elles à vos exigences ?</span>
+      <div class="checkbox-wrap">
+        <span class="checkbox-option"><span class="square"></span> Conforme</span>
+        <span class="checkbox-option"><span class="square"></span> À ajuster</span>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>Fiche de validation client · Borne Wi-Fi de Vote ABH 2026</span>
+    <span>Page 1 sur 2</span>
+  </footer>
+
+  <div class="page-break"></div>
+
+  <!-- ================= PAGE 2 ================= -->
+  <!-- SECTION 3 : DÉPLOIEMENT TERRAIN -->
+  <section class="section" style="margin-top: 4px;">
+    <h2 class="section-title">3. Utilisation pratique par les équipes sur le terrain</h2>
+
+    <ul class="feature-list">
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Mise en service sans informaticien :</strong> Les routeurs se configurent en un clic via un fichier prêt à l'emploi. Le matériel est branché et opérationnel immédiatement.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Fonctionnement autonome ou à distance :</strong> Le système fonctionne 100% en local sur place même sans connexion extérieure pour le PC de supervision, tout en restant pilotable à distance si nécessaire.
+        </div>
+      </li>
+      <li class="feature-item">
+        <span class="bullet"></span>
+        <div class="feature-text">
+          <strong>Affichage terrain prêt à l'emploi :</strong> Un bouton permet d'imprimer directement la fiche avec le QR Code officiel pour les tables de vote et les kakémonos.
+        </div>
+      </li>
+    </ul>
+
+    <div class="checkpoint-box">
+      <span><strong>Point de contrôle 3 :</strong> Ce mode d'exploitation terrain est-il adapté à vos équipes ?</span>
+      <div class="checkbox-wrap">
+        <span class="checkbox-option"><span class="square"></span> Conforme</span>
+        <span class="checkbox-option"><span class="square"></span> À ajuster</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4 : QUESTIONS DE VALIDATION CLIENT -->
+  <section class="section">
+    <h2 class="section-title">4. Questions pour caler définitivement vos préférences</h2>
+    <p style="font-size: 8.5pt; color: #64748b; margin-bottom: 8px;">Merci de nous confirmer les paramètres par défaut qui vous semblent les plus pertinents :</p>
+
+    <table class="questions-table">
+      <thead>
+        <tr>
+          <th style="width: 32%;">Paramètre proposé</th>
+          <th style="width: 36%;">Valeur par défaut recommandée</th>
+          <th style="width: 32%;">Votre choix / Remarque</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Durée de connexion par électeur</strong></td>
+          <td>15 minutes (suffisant pour voter et recevoir l'OTP)</td>
+          <td>[ ] 10 min &nbsp; [ ] 15 min &nbsp; [ ] 20 min</td>
+        </tr>
+        <tr>
+          <td><strong>Volume de données alloué</strong></td>
+          <td>20 Mo (garantit le vote, empêche les vidéos)</td>
+          <td>[ ] 10 Mo &nbsp; [ ] 20 Mo &nbsp; [ ] 30 Mo</td>
+        </tr>
+        <tr>
+          <td><strong>Délai avant reconnexion du même téléphone</strong></td>
+          <td>24 heures (évite les réutilisations abusives)</td>
+          <td>[ ] 12h &nbsp; [ ] 24h &nbsp; [ ] Autre : _____</td>
+        </tr>
+        <tr>
+          <td><strong>Nom du réseau Wi-Fi diffusé (SSID)</strong></td>
+          <td><em>VOTE ABH 2026 - GILDAS ZODOME</em></td>
+          <td>[ ] Valider &nbsp; [ ] Modifier en : _________</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION 5 : AVIS & VALIDATION GLOBALE DU CLIENT -->
+  <section class="section">
+    <h2 class="section-title">5. Avis et validation générale du client</h2>
+
+    <div class="feedback-box">
+      <div class="feedback-title">Remarques ou demandes particulières :</div>
+      <div class="feedback-lines"></div>
+
+      <div style="margin-top: 10px; font-size: 8.5pt; color: #1e293b;">
+        <strong>Décision :</strong> &nbsp;&nbsp;
+        <span class="square"></span> &nbsp;<strong>La solution comble mes attentes, prête pour déploiement</strong> &nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="square"></span> &nbsp;<strong>Ajustements nécessaires avant validation</strong>
+      </div>
+
+      <div class="sign-row" style="margin-top: 24px;">
+        <div class="sign-field">
+          <strong>Nom & Rôle du responsable :</strong><br><br>
+        </div>
+        <div class="sign-field">
+          <strong>Date & Signature :</strong><br><br>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>Campagne Officielle Gildas ZODOME · Africa's Business Heroes 2026</span>
+    <span>Page 2 sur 2</span>
+  </footer>
+
+</body>
+</html>

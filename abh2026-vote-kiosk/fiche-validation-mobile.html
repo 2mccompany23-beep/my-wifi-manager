@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Fiche de Validation Mobile · Kiosk ABH 2026</title>
+  <style>
+    /* Format Mobile Natif (smartphone 105mm x 200mm) */
+    @page {
+      size: 105mm 200mm;
+      margin: 8mm 8mm 8mm 8mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      color: #1e293b;
+      background: #ffffff;
+      line-height: 1.4;
+      font-size: 10pt;
+    }
+
+    .screen {
+      page-break-after: always;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 184mm; /* Hauteur exacte de la page imprimable */
+      max-height: 184mm;
+      overflow: hidden;
+    }
+
+    .screen:last-child {
+      page-break-after: avoid;
+    }
+
+    /* En-tête */
+    .header {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+    }
+
+    .doc-cat {
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #475569;
+    }
+
+    .doc-title {
+      font-size: 13pt;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.2;
+      margin-top: 3px;
+      margin-bottom: 2px;
+    }
+
+    .doc-sub {
+      font-size: 8.5pt;
+      color: #334155;
+      font-weight: 600;
+    }
+
+    .intent-box {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-left: 3px solid #0f172a;
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 8.5pt;
+      color: #334155;
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+
+    .section-title {
+      font-size: 10pt;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+
+    /* Cartes de fonctionnalités */
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .card {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      padding: 6px 8px;
+    }
+
+    .card-title {
+      font-size: 9pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+
+    .card-desc {
+      font-size: 8pt;
+      color: #334155;
+      line-height: 1.35;
+    }
+
+    /* Point de contrôle */
+    .checkpoint {
+      background: #f1f5f9;
+      border: 1.5px solid #0f172a;
+      border-radius: 5px;
+      padding: 6px 8px;
+      margin-top: 6px;
+      margin-bottom: 4px;
+    }
+
+    .checkpoint-question {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 5px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      gap: 16px;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 8.5pt;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .square {
+      width: 13px;
+      height: 13px;
+      border: 1.5px solid #0f172a;
+      border-radius: 2px;
+      background: #ffffff;
+      display: inline-block;
+    }
+
+    /* Tableau des options */
+    .table-params {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+      font-size: 8pt;
+    }
+
+    .table-params th {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 5px 6px;
+      text-align: left;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+    }
+
+    .table-params td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 6px;
+      color: #1e293b;
+      vertical-align: middle;
+    }
+
+    .table-params tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    /* Zone de validation */
+    .sign-box {
+      border: 1px solid #0f172a;
+      border-radius: 5px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      margin-top: 8px;
+    }
+
+    .sign-title {
+      font-size: 9pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+
+    .sign-field {
+      margin-top: 10px;
+      border-top: 1px solid #94a3b8;
+      padding-top: 3px;
+      font-size: 8pt;
+      color: #475569;
+    }
+
+    .footer {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 4px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7pt;
+      color: #64748b;
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================= ÉCRAN 1 : LE PARCOURS ÉLECTEUR ================= -->
+  <div class="screen">
+    <div>
+      <div class="header">
+        <div class="doc-cat">Fiche de Cadrage & Validation Client</div>
+        <div class="doc-title">Borne Wi-Fi de Vote (Kiosk)</div>
+        <div class="doc-sub">Campagne ABH 2026 · Candidat Gildas Zodome</div>
+      </div>
+
+      <div class="intent-box">
+        <strong>À l'attention du Responsable :</strong> Ce document résume la solution pour valider en 2 minutes que le dispositif répond parfaitement à vos attentes avant déploiement.
+      </div>
+
+      <div class="section-title">1. Ce que vit l'électeur (Parcours)</div>
+
+      <div class="card-list">
+        <div class="card">
+          <div class="card-title">1. Connexion libre sans mot de passe</div>
+          <div class="card-desc">L'électeur se connecte directement au Wi-Fi ouvert, sans ticket ni friction.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">2. Page d'accueil officielle</div>
+          <div class="card-desc">Une page s'ouvre toute seule sur son écran avec la photo officielle de Gildas Zodome et les consignes.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">3. Candidat présélectionné</div>
+          <div class="card-desc">Redirection automatique vers le vote officiel avec Gildas Zodome déjà coché pour éviter de chercher.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">4. Sécurité anti-fermeture (iPhone & Android)</div>
+          <div class="card-desc">Ouverture forcée dans Safari ou Chrome. La page ne se perd pas quand l'électeur ouvre son application e-mail.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">5. Accès mail direct + Alerte Spam</div>
+          <div class="card-desc">Boutons express pour Gmail, Outlook, Yahoo avec rappel d'ouvrir le dossier Spams pour trouver le code de vote (OTP).</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">6. Fin de session courtoise</div>
+          <div class="card-desc">Déconnexion automatique dès le vote terminé pour libérer le réseau pour les électeurs suivants.</div>
+        </div>
+      </div>
+
+      <div class="checkpoint">
+        <div class="checkpoint-question">Ce parcours utilisateur est-il conforme à vos attentes ?</div>
+        <div class="checkbox-row">
+          <div class="check-item"><span class="square"></span> Conforme</div>
+          <div class="check-item"><span class="square"></span> À modifier</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Campagne Gildas ZODOME · ABH 2026</span>
+      <span>Écran 1 / 3</span>
+    </div>
+  </div>
+
+  <!-- ================= ÉCRAN 2 : CONTRÔLE DE CAMPAGNE & TERRAIN ================= -->
+  <div class="screen">
+    <div>
+      <div class="section-title">2. Ce que contrôle votre équipe</div>
+
+      <div class="card-list">
+        <div class="card">
+          <div class="card-title">Suivi en direct (&lt; 1s)</div>
+          <div class="card-desc">Tableau de bord affichant le nombre de votants connectés, le total des votes et les données consommées.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Protection totale du forfait Internet</div>
+          <div class="card-desc">Blocage automatique des applications dévoreuses (TikTok, YouTube, Netflix, téléchargements). Le forfait box est préservé.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Vitesse équitable garantie</div>
+          <div class="card-desc">Débit régulé par personne (ex: 512 Kbps) pour une navigation fluide sans coupure même en cas de foule.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Quotas de temps & données</div>
+          <div class="card-desc">Limite de 15 minutes et 20 Mo par personne, avec pause obligatoire pour éviter le squattage du réseau.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Support de 2 routeurs en simultané</div>
+          <div class="card-desc">Gestion de 2 bornes en parallèle sur le même site pour doubler la portée et la capacité d'accueil.</div>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top: 10px;">3. Utilisation pratique sur le terrain</div>
+
+      <div class="card-list">
+        <div class="card">
+          <div class="card-title">Mise en route en 1 clic</div>
+          <div class="card-desc">Zéro compétence informatique requise. Les routeurs sont branchés et opérationnels immédiatement.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">100% Autonome ou supervisé à distance</div>
+          <div class="card-desc">Fonctionne localement sur place même sans connexion extérieure pour le PC de supervision.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Fiches QR Code imprimables</div>
+          <div class="card-desc">Impression en un clic de la fiche QR Code pour les tables de stand et kakémonos.</div>
+        </div>
+      </div>
+
+      <div class="checkpoint">
+        <div class="checkpoint-question">Ces règles et ce mode d'exploitation vous conviennent-ils ?</div>
+        <div class="checkbox-row">
+          <div class="check-item"><span class="square"></span> Conforme</div>
+          <div class="check-item"><span class="square"></span> À modifier</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Campagne Gildas ZODOME · ABH 2026</span>
+      <span>Écran 2 / 3</span>
+    </div>
+  </div>
+
+  <!-- ================= ÉCRAN 3 : PARAMÈTRES & ACCORD ================= -->
+  <div class="screen">
+    <div>
+      <div class="section-title">4. Choix de vos réglages par défaut</div>
+      <p style="font-size: 8pt; color: #64748b; margin-bottom: 6px;">Cochez les paramètres à appliquer sur le terrain :</p>
+
+      <table class="table-params">
+        <thead>
+          <tr>
+            <th style="width: 40%;">Paramètre</th>
+            <th style="width: 60%;">Votre choix</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Durée par électeur</strong></td>
+            <td>
+              [ ] 10 min &nbsp;&nbsp; [ ] 15 min <em>(Conseillé)</em><br>
+              [ ] 20 min &nbsp;&nbsp; [ ] 30 min
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Volume par électeur</strong></td>
+            <td>
+              [ ] 10 Mo &nbsp;&nbsp; [ ] 20 Mo <em>(Conseillé)</em><br>
+              [ ] 30 Mo &nbsp;&nbsp; [ ] 50 Mo
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Pause reconnexion</strong></td>
+            <td>
+              [ ] 12h &nbsp;&nbsp;&nbsp;&nbsp; [ ] 24h <em>(Conseillé)</em><br>
+              [ ] 48h &nbsp;&nbsp;&nbsp;&nbsp; [ ] Autre : ________
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Nom Wi-Fi (SSID)</strong></td>
+            <td>
+              [ ] VOTE ABH 2026 - GILDAS ZODOME<br>
+              [ ] Autre : _______________________
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="section-title" style="margin-top: 12px;">5. Décision finale & Bon pour accord</div>
+
+      <div class="sign-box">
+        <div class="sign-title">Avis général du responsable de campagne :</div>
+
+        <div style="font-size: 8.5pt; margin-bottom: 6px;">
+          <div style="margin-bottom: 4px;"><span class="square"></span> &nbsp;<strong>La solution comble mes attentes, prête pour le terrain</strong></div>
+          <div><span class="square"></span> &nbsp;<strong>Ajustements nécessaires</strong> (préciser ci-dessous)</div>
+        </div>
+
+        <div style="margin-top: 8px; font-size: 8pt; color: #64748b; border-bottom: 1px dashed #cbd5e1; height: 30px;">
+          Remarques ou besoins complémentaires :
+        </div>
+
+        <div class="sign-field" style="margin-top: 10px;">
+          <strong>Nom & Rôle :</strong> ______________________________________
+        </div>
+
+        <div class="sign-field" style="margin-top: 8px;">
+          <strong>Date & Signature :</strong> ___________________________________
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Campagne Gildas ZODOME · ABH 2026</span>
+      <span>Écran 3 / 3</span>
+    </div>
+  </div>
+
+</body>
+</html>

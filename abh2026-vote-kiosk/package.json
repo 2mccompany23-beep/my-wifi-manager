@@ -1,0 +1,21 @@
+{
+  "name": "abh2026-vote-kiosk",
+  "version": "1.0.0",
+  "description": "Kiosk Hotspot ultra-léger et économe en data pour le vote étudiant ABH 2026 (Gildas Zodome) sur MikroTik",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "apply:router": "node scripts/apply-router-config.cjs",
+    "upload:portal": "node scripts/upload-kiosk-portal.cjs",
+    "setup:router": "node scripts/configure-both-routers.cjs"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "author": "2MC Company",
+  "license": "ISC"
+}
+

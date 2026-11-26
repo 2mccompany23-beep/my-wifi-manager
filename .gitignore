@@ -16,7 +16,9 @@ scratch-*.cjs
 nul
 **/nul
 
-# Applications desktop & mobile
+# Sous-projets autonomes
+abh2026top10vote/
+
 desktop/node_modules
 desktop/dist
 desktop/data

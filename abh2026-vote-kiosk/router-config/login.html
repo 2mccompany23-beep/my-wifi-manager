@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Vote ABH 2026 · Gildas Zodome (Bénin)</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111827;
+      --gold: #f59e0b;
+      --gold-glow: rgba(245, 158, 11, 0.25);
+      --green: #10b981;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+    }
+
+    .kiosk-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 22px 18px;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kiosk-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #008751 0%, #FCD116 50%, #E8112D 100%);
+    }
+
+    .benin-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 9999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #34d399;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+
+    .candidate-avatar {
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      border: 3px solid var(--gold);
+      margin: 0 auto 10px;
+      background: #1f2937 url('gildas.webp') center/cover no-repeat;
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 3px;
+    }
+
+    .candidate-sub {
+      color: var(--gold);
+      font-weight: 700;
+      font-size: 0.82rem;
+      margin-bottom: 12px;
+    }
+
+    /* Guide étape par étape du vote officiel */
+    .vote-guide-card {
+      background: rgba(17, 24, 39, 0.85);
+      border: 1.5px solid rgba(245, 158, 11, 0.45);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      text-align: left;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+    .vote-guide-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 800;
+      font-size: 0.8rem;
+      color: #fbbf24;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .guide-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      margin-bottom: 8px;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: #e5e7eb;
+    }
+    .guide-step:last-child { margin-bottom: 0; }
+    .guide-badge {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid #f59e0b;
+      color: #fbbf24;
+      font-weight: 800;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .guide-step strong { color: #fff; }
+    .guide-step .highlight-spam {
+      color: #fca5a5;
+      font-weight: 800;
+      background: rgba(239, 68, 68, 0.25);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+    .guide-step .highlight-human {
+      color: #93c5fd;
+      font-weight: 700;
+      background: rgba(59, 130, 246, 0.15);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    /* Boutons de vote principaux */
+    .btn-main {
+      display: block;
+      width: 100%;
+      padding: 15px 16px;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .btn-main:active { transform: scale(0.98); }
+
+    .btn-safari {
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      color: #ffffff;
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+    }
+
+    .btn-chrome {
+      background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+      color: #ffffff;
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
+    }
+
+    .btn-gold {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #111827;
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: #94a3b8;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    .btn-secondary:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+
+    /* Boîte d'instructions iOS après activation */
+    .ios-step-card {
+      display: none;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid #10b981;
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 14px;
+      text-align: left;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .short-url-pill {
+      display: inline-block;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--gold);
+      background: rgba(0, 0, 0, 0.45);
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-family: monospace;
+      letter-spacing: 0.05em;
+      border: 1px dashed var(--gold);
+      margin: 6px 0;
+    }
+
+    /* Webmail direct deep-links (SPAM) */
+    .email-section {
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      margin-top: 10px;
+    }
+
+    .email-label {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .email-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+    }
+
+    .btn-email {
+      display: block;
+      padding: 8px 4px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: #e5e7eb;
+      font-size: 0.74rem;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 8px;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .btn-email:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+
+    /* Carte de remerciement et encouragement */
+    #thanks-card {
+      display: none;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="kiosk-card">
+    <div class="benin-pill">🇧🇯 Soutien Officiel · ABH 2026</div>
+
+    <div class="candidate-avatar"></div>
+
+    <h1>Gildas ZODOME</h1>
+    <div class="candidate-sub">BIO PHYTO Bénin · Top 10 Afrique</div>
+
+    $(if error)
+    <div style="background:rgba(239,68,68,0.2); border:1px solid #ef4444; color:#fca5a5; padding:10px; border-radius:10px; font-size:0.82rem; margin-bottom:12px;">
+      $(error)
+    </div>
+    $(endif)
+
+    <!-- Guide Officiel du Vote en 3 Étapes Simples -->
+    <div class="vote-guide-card" id="tip-box">
+      <div class="vote-guide-title">
+        <span>📋</span>
+        <span>Comment voter en 30 secondes :</span>
+      </div>
+      
+      <div class="guide-step">
+        <div class="guide-badge">1</div>
+        <div>Sur la page, cliquez sur <strong>« Voter »</strong> sous la photo de Gildas ZODOME.</div>
+      </div>
+
+      <div class="guide-step">
+        <div class="guide-badge">2</div>
+        <div>Entrez votre <strong>e-mail</strong> et cochez la case <strong class="highlight-human">« Vérifier que vous êtes humain »</strong>.</div>
+      </div>
+
+      <div class="guide-step">
+        <div class="guide-badge">3</div>
+        <div>
+          Consultez vos <strong>e-mails</strong> (dossier <strong class="highlight-spam">SPAMS / Indésirables</strong>), entrez le code à 6 chiffres et validez !
+        </div>
+      </div>
+    </div>
+
+    <!-- Carte de remerciement si déjà voté -->
+    <div id="thanks-card">
+      <div style="font-size: 2rem; margin-bottom: 6px;">🎉</div>
+      <div style="font-weight: 800; color: #34d399; font-size: 1.1rem; margin-bottom: 6px;">Merci pour votre Vote !</div>
+      <p style="font-size: 0.82rem; color: #f3f4f6; line-height: 1.45; margin-bottom: 12px;">
+        Votre voix a bien été enregistrée pour <strong>Gildas ZODOME</strong>. Merci de hisser le Bénin au sommet de l'Afrique !
+      </p>
+      <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 10px; padding: 10px; font-size: 0.78rem; color: #fbbf24; margin-bottom: 12px;">
+        💡 <strong>Invitez vos camarades :</strong> Partagez ce Wi-Fi gratuit à vos proches pour qu'ils votent à leur tour !
+      </div>
+      <button type="button" id="btn-reopen-vote" class="btn-main btn-gold" style="font-size: 0.85rem; padding: 11px;">
+        🔄 Rouvrir la Page de Vote
+      </button>
+    </div>
+
+    <!-- Boîte d'instructions iOS (Affichée après clic sur iPhone) -->
+    <div id="ios-step-card" class="ios-step-card">
+      <div style="background: rgba(245, 158, 11, 0.15); border: 2px solid #f59e0b; border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: center;">
+        <div style="font-size: 1.1rem; font-weight: 800; color: #f59e0b; margin-bottom: 4px;">
+          ↗️ 1. Touchez « Terminé » (Done)
+        </div>
+        <div style="font-size: 0.78rem; color: #f3f4f6; line-height: 1.35;">
+          En haut à droite de cet écran pour sortir de la fenêtre temporaire
+        </div>
+      </div>
+
+      <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid #10b981; border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: center;">
+        <div style="font-size: 0.84rem; font-weight: 700; color: #34d399; margin-bottom: 4px;">
+          🌐 2. Ouvrez Safari : le lien est DÉJÀ copié !
+        </div>
+        <div style="font-size: 0.76rem; color: #cbd5e1; line-height: 1.4; margin-bottom: 6px;">
+          Touchez la barre d'adresse de Safari et choisissez <strong>« Coller »</strong>,<br>ou tapez simplement :
+        </div>
+        <div class="short-url-pill">vote.bj</div>
+        <div style="font-size: 0.72rem; color: #9ca3af; margin-top: 4px;">
+          💡 Dans Safari, votre page restera toujours ouverte pendant la consultation de vos e-mails.
+        </div>
+      </div>
+
+      <a href="googlechrome://abh2026top10vote.org/?candidate=gildas-zodome&amp;lang=fr#vote" class="btn-main" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; font-size: 0.82rem; padding: 10px 12px; text-decoration: none; display: block; margin-bottom: 8px; border-radius: 10px; text-align: center; font-weight: 700;">
+        🚀 Vous avez Chrome sur iPhone ? Touchez pour ouvrir directement
+      </a>
+
+      <button type="button" id="btn-force-stay-vote" class="btn-secondary" style="font-size: 0.76rem; padding: 8px; margin-bottom: 0;">
+        ➡️ Continuer dans cette fenêtre
+      </button>
+    </div>
+
+    <!-- Formulaire standard MikroTik Hotspot -->
+    <form id="vote-form" name="login" action="$(link-login-only)" method="post">
+      <input type="hidden" name="username" value="$(mac)">
+      <input type="hidden" name="password" value="">
+      <input type="hidden" name="dst" value="https://abh2026top10vote.org/?candidate=gildas-zodome&amp;lang=fr#vote">
+      
+      <!-- Bouton Principal de Vote -->
+      <button type="button" id="btn-smart-vote" class="btn-main btn-gold">
+        🗳️ VOTER POUR GILDAS ZODOME
+      </button>
+
+      <!-- Bouton secondaire discret -->
+      <button type="submit" id="btn-direct-vote" class="btn-secondary">
+        Ouvrir directement dans cette fenêtre
+      </button>
+    </form>
+
+    <!-- Raccourcis directs vers les dossiers SPAM des webmails -->
+    <div class="email-section">
+      <div class="email-label">Accès direct aux Spams de votre boîte e-mail :</div>
+      <div class="email-grid">
+        <a href="https://mail.google.com/mail/u/0/#spam" target="_blank" class="btn-email">📧 Gmail Spam</a>
+        <a href="https://outlook.live.com/mail/0/junkemail" target="_blank" class="btn-email">📧 Outlook Spam</a>
+        <a href="https://mail.yahoo.com/d/folders/spam" target="_blank" class="btn-email">📧 Yahoo Spam</a>
+      </div>
+      <div style="margin-top: 10px; font-size: 0.72rem; color: #34d399; font-weight: 600;">
+        📶 Pensez à couper votre Wi-Fi une fois le vote validé pour libérer l'antenne aux suivants !
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var CLIENT_IP = "$(ip)";
+    var CLIENT_MAC = "$(mac)";
+    var VOTE_URL = "https://abh2026top10vote.org/?candidate=gildas-zodome&lang=fr#vote";
+
+    var isIOS = /(iPhone|iPod|iPad)/i.test(navigator.userAgent);
+    var isAndroid = /Android/i.test(navigator.userAgent);
+
+    var form = document.getElementById('vote-form');
+    var btnSmart = document.getElementById('btn-smart-vote');
+    var iosCard = document.getElementById('ios-step-card');
+    var tipBox = document.getElementById('tip-box');
+    var thanksCard = document.getElementById('thanks-card');
+
+    // Authentification automatique Hotspot dès l'affichage du portail (profil universel vote partagé)
+    (function silentAutoLogin() {
+      if (window.__abh_auto_logged) return;
+      window.__abh_auto_logged = true;
+
+      try {
+        var autoXhr = new XMLHttpRequest();
+        autoXhr.open('POST', form.action, true);
+        autoXhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        autoXhr.timeout = 2000;
+        autoXhr.send('username=vote&password=&dst=' + encodeURIComponent(VOTE_URL));
+      } catch(_) {}
+    })();
+
+    // Personnaliser le bouton selon le système
+    if (isAndroid) {
+      btnSmart.className = 'btn-main btn-chrome';
+      btnSmart.innerHTML = '🚀 VOTER DANS GOOGLE CHROME';
+    } else if (isIOS) {
+      btnSmart.className = 'btn-main btn-safari';
+      btnSmart.innerHTML = '🌐 VOTER DANS SAFARI (vote.bj)';
+    }
+
+    function recordVoterDone() {
+      if (window.__abh_vote_reported) return;
+      window.__abh_vote_reported = true;
+      try {
+        localStorage.setItem('abh_vote_done', '1');
+        document.cookie = "abh_vote_done=1; max-age=86400; path=/";
+        var url = 'https://charmeldev.alwaysdata.net/api/voter-completed';
+        var payload = JSON.stringify({ mac: CLIENT_MAC, ip: CLIENT_IP });
+        var beaconOk = false;
+        if (navigator.sendBeacon) {
+          try {
+            beaconOk = navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }));
+          } catch (_) {}
+        }
+        if (!beaconOk && window.fetch) {
+          try {
+            fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: payload,
+              keepalive: true
+            }).catch(function(){});
+          } catch (_) {}
+        }
+        if (!beaconOk && !window.fetch) {
+          var xCloud = new XMLHttpRequest();
+          xCloud.open('POST', url, true);
+          xCloud.setRequestHeader('Content-Type', 'application/json');
+          xCloud.send(payload);
+        }
+      } catch(_) {}
+    }
+
+    btnSmart.addEventListener('click', function(e) {
+      e.preventDefault();
+      recordVoterDone();
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(VOTE_URL).catch(function(){});
+        }
+      } catch(_) {}
+
+      var proceeded = false;
+      function proceed() {
+        if (proceeded) return;
+        proceeded = true;
+        if (isAndroid) {
+          window.location.href = "intent://abh2026top10vote.org/?candidate=gildas-zodome&lang=fr#vote#Intent;scheme=https;package=com.android.chrome;end";
+        } else if (isIOS) {
+          if (tipBox) tipBox.style.display = 'none';
+          btnSmart.style.display = 'none';
+          var directBtn = document.getElementById('btn-direct-vote');
+          if (directBtn) directBtn.style.display = 'none';
+          if (iosCard) iosCard.style.display = 'block';
+        } else {
+          form.submit();
+        }
+      }
+
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.onload = function() { proceed(); };
+        xhr.onerror = function() { proceed(); };
+        xhr.timeout = 1500;
+        xhr.ontimeout = function() { proceed(); };
+        xhr.send('username=vote&password=&dst=' + encodeURIComponent(VOTE_URL));
+        setTimeout(proceed, 400);
+      } catch(_) {
+        proceed();
+      }
+    });
+
+    var btnForceStay = document.getElementById('btn-force-stay-vote');
+    if (btnForceStay) {
+      btnForceStay.addEventListener('click', function(e) {
+        e.preventDefault();
+        form.submit();
+      });
+    }
+
+    form.addEventListener('submit', function() {
+      recordVoterDone();
+    });
+
+    // Bouton pour rouvrir si déjà voté
+    var btnReopen = document.getElementById('btn-reopen-vote');
+    if (btnReopen) {
+      btnReopen.addEventListener('click', function() {
+        if (isAndroid) {
+          window.location.href = "intent://abh2026top10vote.org/?candidate=gildas-zodome&lang=fr#vote#Intent;scheme=https;package=com.android.chrome;end";
+        } else {
+          window.location.href = VOTE_URL;
+        }
+      });
+    }
+
+    // Si déjà voté sur cet appareil dans la journée, afficher la carte de remerciement tout en permettant de rouvrir
+    try {
+      if (localStorage.getItem('abh_vote_done') === '1') {
+        if (thanksCard) thanksCard.style.display = 'block';
+        if (tipBox) tipBox.style.display = 'none';
+        if (btnSmart) btnSmart.style.display = 'none';
+        var directBtn = document.getElementById('btn-direct-vote');
+        if (directBtn) directBtn.style.display = 'none';
+      }
+    } catch(_) {}
+  </script>
+
+</body>
+</html>
